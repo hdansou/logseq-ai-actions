@@ -6,6 +6,8 @@ Status: **Signed off 2026-04-23.** Changes to this document must land via a PR a
 
 A Logseq plugin that runs AI-driven actions on blocks. v1 ships a seed set (spellcheck, grammar, rewrite, summarize) and an extension mechanism so new actions can be added without touching plugin source. Privacy-first: targets small, locally-hosted LLMs by default.
 
+**Graph target (v1):** Logseq **DB graphs only.** File-based graph support is out of scope for v1 (revisit in v2 based on user demand). Manifest declares `supportsDbGraph: true` and either omits or explicitly sets `supportsFileGraph: false`.
+
 ## 2. Model hosting
 
 - Plugin talks to a **user-run OpenAI-compatible HTTP endpoint**.
@@ -103,8 +105,8 @@ One `Action` declaration auto-wires every surface. Adding an action is a **singl
 - plugin id: `logseq-ai-actions`
 - display title: **AI Actions**
 - local dir: `logseq-action/` (intentional mismatch; documented in README)
-- author: `Danzu <hdansou@gmail.com>` *(email to be confirmed public/private before release)*
-- repo: *(to be confirmed — don't guess the handle again)*
+- author: `Danzu <hdansou@gmail.com>` *(email exposure to be confirmed before release)*
+- repo: `https://github.com/hdansou/logseq-ai-actions`
 - license: MIT
 
 ## 13. Explicitly out of scope for v1

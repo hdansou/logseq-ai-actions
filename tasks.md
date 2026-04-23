@@ -13,24 +13,26 @@ Legend: `[ ]` todo, `[~]` in progress, `[x]` done, `[-]` dropped.
 - [x] Initialize `tasks.md` and `CHANGELOG.md`
 - [x] Draft `AGENTS.md` (non-discoverable landmines only)
 - [ ] Confirm author display name and GitHub repo URL *(before first public release, not before first commit)*
-- [ ] `git init` + first commit (requirements-only baseline)
+- [x] `git init` + first commit (requirements-only baseline) — `6c781b8`
 - [ ] Decide whether the local dir rename `logseq-action/` → `logseq-ai-actions/` is worth it *(default: keep, document mismatch)*
 
 ## Phase 1 — Tooling scaffold
 
-- [ ] `pnpm init`; pin Node LTS in `.nvmrc` / `engines`
-- [ ] Add Vite + `vite-plugin-logseq` (verify exact package name + compatible version)
-- [ ] Add TypeScript, `tsconfig.json` (strict, `"moduleResolution": "bundler"`)
-- [ ] Add Biome; write minimal `biome.json`
-- [ ] Add Vitest + coverage provider; wire into Vite config
-- [ ] Add Zod
-- [ ] Add Preact + `preact/compat` alias in Vite & Vitest
-- [ ] Add changesets; `pnpm changeset init`
-- [ ] Add `simple-git-hooks` with a pre-commit hook running `biome check --write` + `tsc --noEmit`
-- [ ] Add `package.json` scripts: `dev`, `build`, `test`, `test:integration`, `test:e2e`, `lint`, `format`, `typecheck`, `changeset`, `release`
-- [ ] Add `LICENSE` (MIT)
-- [ ] Add initial `.gitignore`
-- [ ] Add GitHub Actions workflow: Tier 1 on every push; placeholder jobs for Tier 2 (nightly) and Tier 3 (PR to main)
+- [x] `pnpm init`; pin Node LTS in `.nvmrc` / `engines` (Node 22)
+- [x] Add Vite (vanilla — `vite-plugin-logseq` unnecessary; Logseq loads from Vite dev server directly)
+- [x] Add TypeScript (`tsc`), strict `tsconfig.json` with `moduleResolution: bundler`
+- [x] Add Biome; minimal `biome.json`
+- [x] Add Vitest + `@vitest/coverage-v8` with 80 % gate on `src/**` (excluding `index.ts`, `__sdk_guard__.ts`, `adapter/`, `ui/`)
+- [x] Add Zod
+- [x] Add Preact + `preact/compat` alias; JSX via `tsconfig.json` (esbuild reads it automatically — Vite 8 doesn't expose `esbuild.jsx` in types)
+- [x] Add changesets (`.changeset/config.json` with `access: public`)
+- [x] Add `simple-git-hooks` pre-commit: `biome check --write` + `tsc --noEmit`
+- [x] `package.json` scripts: `dev`, `build`, `typecheck`, `test`, `test:watch`, `test:integration`, `test:e2e`, `lint`, `lint:fix`, `format`, `changeset`, `release`, `prepare`
+- [x] `LICENSE` (MIT) — landed in Phase 0 baseline
+- [x] `.gitignore` — landed in Phase 0 baseline
+- [x] `src/__sdk_guard__.ts` — compile-time floor at `@logseq/libs ≥ 0.3.1` (references `getCurrentRoute`)
+- [x] `index.html` with light/dark CSS variable scaffolding
+- [ ] Add GitHub Actions workflow (Phase 1b — tracked as task #4): Tier 1 on push, Tier 3 on PR-to-main, Tier 2 nightly placeholder
 
 ## Phase 2 — Pure core (TDD)
 
