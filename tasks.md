@@ -51,8 +51,9 @@ Every item here: failing Vitest test first, implementation second.
 
 ## Phase 3 — LLM provider
 
-- [ ] `LLMProvider` interface
-- [ ] `OpenAICompatibleProvider` implementation (non-streaming + streaming)
+- [x] `LLMProvider` interface (`src/provider.ts`)
+- [x] OpenAI-compatible implementation, non-streaming (10 tests covering happy path, auth header, trailing slash, HTTP error, timeout, network error, empty choices, whitespace trim)
+- [ ] Streaming variant (SSE parsing) — lands when we wire diff-panel in Phase 5
 - [ ] Preset table (LM Studio / Ollama / Goose / Custom) with default base URLs
 - [ ] Integration test (Tier 2) against a live endpoint, gated by `TEST_LIVE_LLM=1`
 

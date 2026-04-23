@@ -25,3 +25,4 @@ Release notes are authored via [changesets](https://github.com/changesets/change
 - `README.md` with quick-start, preset table, privacy note, and development commands.
 - Plugin icon: `public/icon.svg` source + 128×128 `public/icon.png` rendered via `rsvg-convert`.
 - `ActionSchema` (Zod) + `parseAction` — single source of truth for built-in seed actions (TS literals) and user-defined actions (runtime JSON). Validates id, title, scope (`selection`/`block`/`subtree`), outputMode (`replace`/`diff-panel`), systemPrompt.
+- `LLMProvider` interface + `createOpenAIProvider()` — non-streaming OpenAI-compatible completion client. Handles trailing slash in `baseUrl`, optional `Authorization: Bearer <apiKey>` header, `AbortController`-based timeout, trims response whitespace. Errors surface as `LLMProviderError` with HTTP status + body excerpt in `cause`. 10 tests with stubbed `fetch`.
