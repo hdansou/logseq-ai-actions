@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Actions</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --fg: #111827;
+        --muted: #6b7280;
+        --border: #e5e7eb;
+        --hover: #f3f4f6;
+        --accent: #2563eb;
+        --accent-hover: #1d4ed8;
+        --danger: #dc2626;
+        --warning: #d97706;
+        --success: #059669;
+
+        /* LOCAL/REMOTE endpoint badge colors (see REQUIREMENTS §8) */
+        --endpoint-local-bg: #dcfce7;
+        --endpoint-local-fg: #166534;
+        --endpoint-remote-bg: #fef3c7;
+        --endpoint-remote-fg: #92400e;
+      }
+
+      /* Dark mode driven by `html.dark` set from Logseq's theme via
+         logseq.App.onThemeModeChanged in src/index.ts.
+         See logseq-plugin-dev runtime-gotchas.md §2. */
+      html.dark {
+        --bg: #1f2024;
+        --fg: #e5e7eb;
+        --muted: #9ca3af;
+        --border: #2c2e36;
+        --hover: #2a2c32;
+        --accent: #60a5fa;
+        --accent-hover: #3b82f6;
+        --danger: #f87171;
+        --warning: #fbbf24;
+        --success: #34d399;
+
+        --endpoint-local-bg: #14532d;
+        --endpoint-local-fg: #bbf7d0;
+        --endpoint-remote-bg: #78350f;
+        --endpoint-remote-fg: #fde68a;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        color: var(--fg);
+        background: var(--bg);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/index.ts"></script>
+  </body>
+</html>

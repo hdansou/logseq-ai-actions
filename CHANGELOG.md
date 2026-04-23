@@ -13,4 +13,9 @@ Release notes are authored via [changesets](https://github.com/changesets/change
 
 - Signed-off v1 requirements (`REQUIREMENTS.md`) covering scope, seed actions, privacy model, testing tiers, and tooling choices.
 - Primary task tracker (`tasks.md`) with phased plan from bootstrap through v1.0.0.
-- `AGENTS.md` capturing non-discoverable landmines (author name, repo URL, package-vs-dir naming, thin-adapter rule).
+- `AGENTS.md` capturing non-discoverable landmines (author name, package-vs-dir naming, thin-adapter rule, SDK import pattern).
+- Tooling scaffold: Vite 8, TypeScript 6 (strict + `exactOptionalPropertyTypes` + `noUncheckedIndexedAccess`), Vitest 4 with `@vitest/coverage-v8` (80 % gate on pure `src/**` modules), Biome 2 for lint + format, Preact 10 + `preact/compat` alias, Zod 4 for schema validation, `@logseq/libs@0.3.2` (DB-graph-capable SDK via the `next` dist-tag).
+- `src/__sdk_guard__.ts` compile-time SDK floor so accidental SDK downgrades fail typecheck.
+- `index.html` with light/dark CSS variable scaffolding (theme sync via `logseq.App.onThemeModeChanged` lands in Phase 5).
+- `simple-git-hooks` pre-commit wired to `biome check --write` + `tsc --noEmit`. Hooks never skipped.
+- changesets initialized with `access: public`.
