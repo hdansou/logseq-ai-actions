@@ -39,3 +39,4 @@ Thumbs.db
 
 # Local agent artifacts
 .claude/
+.playwright-cli/
