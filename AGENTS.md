@@ -10,6 +10,8 @@ Guidance that can't be discovered by reading the repo. For spec and plan see `RE
 ## Dev server
 
 - **`pnpm dev -- --port N` does NOT reliably forward the port flag to Vite.** Use `pnpm exec vite --port N --strictPort` instead. `--strictPort` turns the usual silent fallback into a hard error, which you want because the workspace often has other plugin dev servers squatting 8080/8081/8082 (`logseq-progressbar`, `logseq-atlas`, `Callout Manager`, …). Silent fallback means you end up testing a different plugin without realising.
+- **Don't leave `dist/` on disk while running `vite` in dev mode.** Vite happily serves real files under the project root, so a stale `dist/index.html` from a previous `pnpm build` will be served *instead of* the SPA fallback to root `index.html` — and the stale bundle it references will trigger `[Ready Error] [deferred timeout] undefined` in the plugin iframe. If you ran `pnpm build` for any reason (incl. a pre-commit hook), `rm -rf dist/` before reloading the plugin.
+- **`public/` is captured at Vite start.** Adding files to `public/` while Vite is running may not be picked up until restart. If `/icon.png` serves HTML (SPA fallback) after you've created `public/icon.png`, restart the dev server.
 
 ## Working rhythm
 

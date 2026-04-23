@@ -38,7 +38,8 @@ Legend: `[ ]` todo, `[~]` in progress, `[x]` done, `[-]` dropped.
 
 Every item here: failing Vitest test first, implementation second.
 
-- [ ] `classifyEndpoint(baseUrl)` — LOCAL vs REMOTE
+- [x] `classifyEndpoint(baseUrl)` — LOCAL vs REMOTE (strict loopback; fail-closed on invalid)
+- [x] Endpoint presets (LM Studio / Ollama / Goose / Custom) with `findPreset` lookup
 - [ ] Zod schema for `Action` (id, title, description, scope, outputMode, prompt, defaultShortcut?)
 - [ ] Action registry pipeline: `(builtinActions, userJson) => { actions, errors }` (shadowing, validation)
 - [ ] Scope resolver: pure `(editorState) => { text, blockUuid, range? }` for each scope
@@ -65,7 +66,8 @@ Every item here: failing Vitest test first, implementation second.
 ## Phase 5 — UI (Preact)
 
 - [ ] First-run consent modal
-- [ ] Settings panel (preset picker, baseUrl, model, API key, temperature, timeout, debug-log toggle)
+- [x] Settings panel via **native** `logseq.useSettingsSchema` (preset picker, baseUrl, model, API key, temperature, timeout, debug-log toggle) + preset-change auto-fill for baseUrl/model
+- [ ] Replace native settings with Preact settings panel (adds LOCAL/REMOTE badge, REMOTE warning modal, inline validation)
 - [ ] LOCAL/REMOTE badge component (used in settings + palette + modals)
 - [ ] Diff side panel (original / proposed / accept / reject / edit)
 - [ ] Debug log viewer (opt-in panel)
@@ -86,8 +88,10 @@ Every item here: failing Vitest test first, implementation second.
 
 ## Phase 8 — Documentation
 
-- [ ] `README.md` — install, preset table, LOCAL/REMOTE warning, "don't invoke on sensitive content", quick-start, user JSON example
-- [ ] Inline doc comments on public types (Action, LLMProvider, classifyEndpoint)
+- [x] `README.md` — install, preset table, LOCAL/REMOTE warning, "don't invoke on sensitive content", quick-start
+- [x] Plugin icon (`public/icon.svg` + rendered `public/icon.png`, 128×128)
+- [ ] Inline doc comments on public types (Action, LLMProvider — classifyEndpoint already documented)
+- [ ] README: user JSON example (after Phase 7 hot-reload lands)
 
 ## Phase 9 — E2E
 
