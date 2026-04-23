@@ -75,10 +75,12 @@ Every item here: failing Vitest test first, implementation second.
 
 ## Phase 6 — Seed actions
 
-- [ ] `spellcheck` prompt + test harness (golden fixtures for common errors)
-- [ ] `grammar` prompt + test harness
-- [ ] `rewrite` prompt + test harness
-- [ ] `summarize` prompt + test harness
+- [x] `spellcheck` prompt + schema-validated literal
+- [x] `grammar` prompt + schema-validated literal
+- [x] `rewrite` prompt + schema-validated literal
+- [x] `summarize` prompt + schema-validated literal
+- [x] Slash commands registered for each: `/AI Spellcheck`, `/AI Grammar`, `/AI Rewrite`, `/AI Summarize`. Handler reads current block → calls `LLMProvider.complete` → `updateBlock` → success/failure toast. Busy toast while waiting.
+- [ ] Golden-fixture tests for each prompt (record desired input→output pairs; run against a real local model in Tier 2 integration tests)
 - [ ] Ship `actions.example.json` with 2–3 user-action examples
 
 ## Phase 7 — User JSON hot-reload
