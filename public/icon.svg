@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>AI Actions</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+
+  <g fill="#ffffff">
+    <circle cx="28" cy="40" r="4"/>
+    <rect x="40" y="35" width="52" height="10" rx="5"/>
+
+    <circle cx="40" cy="64" r="4"/>
+    <rect x="52" y="59" width="44" height="10" rx="5"/>
+
+    <circle cx="28" cy="88" r="4"/>
+    <rect x="40" y="83" width="52" height="10" rx="5"/>
+  </g>
+
+  <g transform="translate(100, 28)">
+    <path d="M0 -16 L4 -4 L16 0 L4 4 L0 16 L-4 4 L-16 0 L-4 -4 Z"
+          fill="url(#spark)" stroke="#b45309" stroke-width="0.8"/>
+    <circle cx="0" cy="0" r="2" fill="#ffffff"/>
+  </g>
+</svg>

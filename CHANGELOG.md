@@ -19,3 +19,8 @@ Release notes are authored via [changesets](https://github.com/changesets/change
 - `index.html` with light/dark CSS variable scaffolding (theme sync via `logseq.App.onThemeModeChanged` lands in Phase 5).
 - `simple-git-hooks` pre-commit wired to `biome check --write` + `tsc --noEmit`. Hooks never skipped.
 - changesets initialized with `access: public`.
+- `classifyEndpoint(baseUrl)` pure module — strict loopback-only classifier (localhost, 127.0.0.1, 0.0.0.0, ::1), fail-closed on invalid input. 100 % line coverage.
+- Endpoint presets module: **LM Studio** (primary default, `:1234/v1`), **Ollama** (`:11434/v1`), **Goose** (experimental, unverified), **Custom**. All non-custom preset URLs are loopback — invariant enforced by test.
+- Native plugin settings via `logseq.useSettingsSchema`: preset picker, base URL, model, API key, temperature, timeout, debug-log toggle. Picking a new preset auto-fills base URL + model iff the user hadn't customised them.
+- `README.md` with quick-start, preset table, privacy note, and development commands.
+- Plugin icon: `public/icon.svg` source + 128×128 `public/icon.png` rendered via `rsvg-convert`.
