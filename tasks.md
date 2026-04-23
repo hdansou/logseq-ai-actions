@@ -40,7 +40,7 @@ Every item here: failing Vitest test first, implementation second.
 
 - [x] `classifyEndpoint(baseUrl)` — LOCAL vs REMOTE (strict loopback; fail-closed on invalid)
 - [x] Endpoint presets (LM Studio / Ollama / Goose / Custom) with `findPreset` lookup
-- [ ] Zod schema for `Action` (id, title, description, scope, outputMode, prompt, defaultShortcut?)
+- [x] Zod schema for `Action` (id, title, description, scope, outputMode, systemPrompt) — `src/action.ts`, 10 tests
 - [ ] Action registry pipeline: `(builtinActions, userJson) => { actions, errors }` (shadowing, validation)
 - [ ] Scope resolver: pure `(editorState) => { text, blockUuid, range? }` for each scope
 - [ ] Subtree flattener (deterministic indent convention, round-trip safe)

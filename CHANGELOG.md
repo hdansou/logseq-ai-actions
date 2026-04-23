@@ -24,3 +24,4 @@ Release notes are authored via [changesets](https://github.com/changesets/change
 - Native plugin settings via `logseq.useSettingsSchema`: preset picker, base URL, model, API key, temperature, timeout, debug-log toggle. Picking a new preset auto-fills base URL + model iff the user hadn't customised them.
 - `README.md` with quick-start, preset table, privacy note, and development commands.
 - Plugin icon: `public/icon.svg` source + 128×128 `public/icon.png` rendered via `rsvg-convert`.
+- `ActionSchema` (Zod) + `parseAction` — single source of truth for built-in seed actions (TS literals) and user-defined actions (runtime JSON). Validates id, title, scope (`selection`/`block`/`subtree`), outputMode (`replace`/`diff-panel`), systemPrompt.
