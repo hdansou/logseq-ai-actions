@@ -153,7 +153,12 @@ describe("createOpenAIProvider", () => {
 
     it("POSTs with stream: true and resolves to the accumulated trimmed text", async () => {
       fetchMock.mockResolvedValueOnce(
-        streamingResponse([sseEvent("Hello"), sseEvent(", "), sseEvent("world!"), "data: [DONE]\n\n"]),
+        streamingResponse([
+          sseEvent("Hello"),
+          sseEvent(", "),
+          sseEvent("world!"),
+          "data: [DONE]\n\n",
+        ]),
       );
       const chunks: string[] = [];
       const result = await createOpenAIProvider().stream(baseReq, (c) => chunks.push(c));
@@ -167,9 +172,7 @@ describe("createOpenAIProvider", () => {
 
     it("throws LLMProviderError on non-OK HTTP status", async () => {
       fetchMock.mockResolvedValueOnce(new Response("model unavailable", { status: 503 }));
-      await expect(
-        createOpenAIProvider().stream(baseReq, () => {}),
-      ).rejects.toMatchObject({
+      await expect(createOpenAIProvider().stream(baseReq, () => {})).rejects.toMatchObject({
         name: "LLMProviderError",
         details: { status: 503 },
       });
@@ -177,16 +180,14 @@ describe("createOpenAIProvider", () => {
 
     it("wraps network failures as LLMProviderError", async () => {
       fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
-      await expect(
-        createOpenAIProvider().stream(baseReq, () => {}),
-      ).rejects.toBeInstanceOf(LLMProviderError);
+      await expect(createOpenAIProvider().stream(baseReq, () => {})).rejects.toBeInstanceOf(
+        LLMProviderError,
+      );
     });
 
     it("throws 'No content' when stream closes with no deltas", async () => {
       fetchMock.mockResolvedValueOnce(streamingResponse(["data: [DONE]\n\n"]));
-      await expect(
-        createOpenAIProvider().stream(baseReq, () => {}),
-      ).rejects.toThrow(/no content/i);
+      await expect(createOpenAIProvider().stream(baseReq, () => {})).rejects.toThrow(/no content/i);
     });
 
     it("throws a timeout error when the abort signal fires", async () => {
