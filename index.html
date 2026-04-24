@@ -87,6 +87,32 @@
         padding: 14px 20px;
         border-bottom: 1px solid var(--border);
       }
+      .diff-header-main {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .endpoint-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.72em;
+        letter-spacing: 0.06em;
+        white-space: nowrap;
+        vertical-align: baseline;
+      }
+      .endpoint-badge strong {
+        font-weight: 700;
+      }
+      .endpoint-badge-local {
+        background: var(--endpoint-local-bg);
+        color: var(--endpoint-local-fg);
+      }
+      .endpoint-badge-remote {
+        background: var(--endpoint-remote-bg);
+        color: var(--endpoint-remote-fg);
+      }
       .diff-hint {
         color: var(--muted);
         font-size: 0.85em;

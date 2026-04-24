@@ -427,6 +427,7 @@ async function runAction(action: Action): Promise<void> {
       const accepted = await showDiffPanel({
         currentActionId: action.id,
         actionTitle: action.title,
+        baseUrl: settings.baseUrl,
         original: input.displayOriginal,
         proposed: output,
         actions: panelActions,
@@ -452,6 +453,7 @@ async function runAction(action: Action): Promise<void> {
         message: `Add ${points.length} new child block${points.length === 1 ? "" : "s"} under the current block?`,
         preview,
         acceptLabel: "Add as children",
+        baseUrl: settings.baseUrl,
       });
       if (!accepted) {
         logseq.UI.showMsg(`${action.title} discarded`, "info");
