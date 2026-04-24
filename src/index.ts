@@ -2,6 +2,7 @@ import "@logseq/libs";
 
 import type { Action } from "./action";
 import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "./debug-log";
+import { classifyEndpoint } from "./endpoint";
 import { parsePoints } from "./parse-points";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
@@ -514,6 +515,17 @@ async function main(): Promise<void> {
       const prev = String((oldSettings as Record<string, unknown>).userActionsJson ?? "");
       const next = String((newSettings as Record<string, unknown>).userActionsJson ?? "");
       if (prev !== next) rebuildRegistry(true);
+
+      // Detect a LOCAL → REMOTE endpoint transition and warn once per flip.
+      const nextBaseUrl = String((newSettings as Record<string, unknown>).baseUrl ?? "");
+      const newTrust = classifyEndpoint(nextBaseUrl);
+      const lastTrust = readPrivateSetting("_lastEndpointTrust", "local");
+      if (lastTrust === "local" && newTrust === "remote") {
+        void showRemoteTransitionNotice(nextBaseUrl);
+      }
+      if (lastTrust !== newTrust) {
+        logseq.updateSettings({ _lastEndpointTrust: newTrust });
+      }
     } catch (err) {
       console.error("logseq-ai-actions: settings-change handler failed", err);
     }
@@ -530,6 +542,58 @@ async function main(): Promise<void> {
   console.info(
     `logseq-ai-actions: ready — ${activeActions.length} action${activeActions.length === 1 ? "" : "s"} registered (${activeActions.length - SEED_ACTIONS.length >= 0 ? activeActions.length - SEED_ACTIONS.length : 0} user-defined)`,
   );
+
+  // Fire-and-forget: first-run consent + initial trust record. Don't
+  // await in main() — logseq.ready's handshake depends on main's
+  // promise resolving promptly, and the consent modal is user-paced.
+  void runFirstRunFlow();
+}
+
+/**
+ * Read a private (underscore-prefixed) plugin-settings key directly via
+ * the `logseq.settings` getter. These keys are kept OUT of
+ * `SETTINGS_SCHEMA` so they don't render in the visible settings UI —
+ * they're plugin-internal persistence, not user configuration.
+ */
+function readPrivateSetting<T extends string>(key: string, fallback: T): string {
+  const s = (logseq.settings ?? {}) as Record<string, unknown>;
+  const v = s[key];
+  return typeof v === "string" ? v : fallback;
+}
+
+async function runFirstRunFlow(): Promise<void> {
+  const settings = (logseq.settings ?? {}) as Record<string, unknown>;
+  const consentSeen = Boolean(settings._consentSeen);
+  const baseUrl = readSettings().baseUrl;
+
+  if (!consentSeen) {
+    await showConfirm("AI Actions — welcome", {
+      message:
+        "When you invoke an AI action (like /AI Rewrite or /AI Summarize), the content of your current block is sent to the configured endpoint. By default that's a server running on your own machine. You can change the endpoint in plugin settings — any non-loopback host will be clearly marked REMOTE and trigger a one-time warning.",
+      acceptLabel: "Got it",
+      hideReject: true,
+      baseUrl,
+    });
+    logseq.updateSettings({ _consentSeen: true });
+  }
+
+  // Seed the last-trust marker so the very first baseUrl change after
+  // plugin install correctly detects a transition (rather than assuming
+  // everyone started LOCAL).
+  const currentTrust = classifyEndpoint(baseUrl);
+  const existing = readPrivateSetting("_lastEndpointTrust", "");
+  if (existing !== currentTrust) {
+    logseq.updateSettings({ _lastEndpointTrust: currentTrust });
+  }
+}
+
+async function showRemoteTransitionNotice(baseUrl: string): Promise<void> {
+  await showConfirm("Endpoint changed to REMOTE", {
+    message: `Your endpoint is now a non-loopback address. AI actions you run will send block content to this host instead of your own machine. If this is what you intended, carry on. If not, change the Base URL back in plugin settings.`,
+    acceptLabel: "I understand",
+    hideReject: true,
+    baseUrl,
+  });
 }
 
 logseq.ready(main).catch((err) => {

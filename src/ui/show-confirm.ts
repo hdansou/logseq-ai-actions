@@ -4,9 +4,12 @@ import { ConfirmPanel } from "./ConfirmPanel";
 
 export interface ShowConfirmOptions {
   readonly message: string;
-  readonly preview: string;
+  /** Optional preformatted preview below the message. Omit for plain notices. */
+  readonly preview?: string;
   readonly acceptLabel?: string;
   readonly baseUrl?: string;
+  /** When true, the Reject button is hidden — acknowledgement-only notices. */
+  readonly hideReject?: boolean;
 }
 
 /**
@@ -38,8 +41,9 @@ export function showConfirm(actionTitle: string, options: ShowConfirmOptions): P
       h(ConfirmPanel, {
         actionTitle,
         message: options.message,
-        preview: options.preview,
         acceptLabel: options.acceptLabel ?? "Accept",
+        hideReject: options.hideReject ?? false,
+        ...(options.preview !== undefined ? { preview: options.preview } : {}),
         ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
         onAccept: () => teardown(true),
         onReject: () => teardown(false),
