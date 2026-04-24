@@ -510,6 +510,66 @@
         color: var(--danger);
         font-size: 0.85em;
       }
+
+      /* Action picker panel — toolbar-triggered discovery surface. */
+      .picker-modal {
+        max-width: 520px;
+        width: min(520px, 95vw);
+      }
+      .picker-list {
+        padding: 14px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        max-height: 60vh;
+        overflow-y: auto;
+        background: var(--bg);
+      }
+      .picker-section-label {
+        font-size: 0.75em;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        padding: 10px 0 4px 0;
+        margin-top: 6px;
+        border-top: 1px dashed var(--border);
+      }
+      .picker-row {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 2px;
+        padding: 9px 12px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        color: var(--fg);
+        font: inherit;
+        cursor: pointer;
+        text-align: left;
+      }
+      .picker-row:hover {
+        background: var(--hover);
+        border-color: var(--accent);
+      }
+      .picker-row-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .picker-row-title {
+        font-size: 1em;
+      }
+      .picker-row-meta {
+        font-size: 0.78em;
+        color: var(--muted);
+        font-family: ui-monospace, monospace;
+      }
+      .picker-row-desc {
+        font-size: 0.85em;
+        color: var(--muted);
+      }
     </style>
   </head>
   <body>

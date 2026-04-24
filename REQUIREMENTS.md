@@ -19,11 +19,11 @@ A Logseq plugin that runs AI-driven actions on blocks. v1 ships a seed set (spel
 
 All five Logseq surfaces, driven by one action registry:
 
-- Block context menu (`AI → <action>`) — *not yet shipped*
+- Block context menu (`"AI: <title>"` per action) — **shipped**
 - Slash commands (`/AI <action>`) — **shipped**
 - Command palette (`logseq.App.registerCommandPalette`, `"AI: <title>"`) — **shipped**
 - Keyboard shortcuts — ships *for free* with palette entries (Logseq's keymap UI lets users bind any palette command); no default bindings
-- Toolbar button (action picker) — *not yet shipped*
+- Toolbar button (✨ → `ActionPickerPanel`) — **shipped**
 
 One `Action` declaration auto-wires every surface. Adding an action is a **single-file change**.
 

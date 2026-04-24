@@ -9,6 +9,7 @@ import { createOpenAIProvider, LLMProviderError } from "./provider";
 import { buildRegistry, parseUserActions } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
 import { type BlockNode, flattenSubtree } from "./subtree";
+import { showActionPicker } from "./ui/show-action-picker";
 import { showConfirm } from "./ui/show-confirm";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showDiffPanel } from "./ui/show-diff";
@@ -631,6 +632,36 @@ async function main(): Promise<void> {
   }, 0);
 }
 
+async function openManagePanel(): Promise<void> {
+  const { userActions } = parseUserActions(readSettings().userActionsJson);
+  await showManageActions({
+    builtin: SEED_ACTIONS,
+    initialUserActions: userActions,
+    onSave: async (next) => {
+      // Serialise with 2-space indent so the hand-editable textarea stays
+      // human-readable for power users round-tripping the JSON.
+      const json = JSON.stringify(next, null, 2);
+      logseq.updateSettings({ userActionsJson: json });
+      // onSettingsChanged fires rebuildRegistry — the new actions are
+      // live after this returns.
+    },
+  });
+}
+
+async function openActionPicker(): Promise<void> {
+  const result = await showActionPicker({
+    actions: activeActions,
+    builtinCount: SEED_ACTIONS.length,
+  });
+  if (result.kind === "action") {
+    await runAction(result.action);
+  } else if (result.kind === "manage") {
+    await openManagePanel();
+  } else if (result.kind === "diagnostics") {
+    await showDiagnostics();
+  }
+}
+
 function registerAllInvocations(): void {
   rebuildRegistry(true);
 
@@ -644,25 +675,27 @@ function registerAllInvocations(): void {
   );
 
   const manageHandler = async () => {
-    const { userActions } = parseUserActions(readSettings().userActionsJson);
-    await showManageActions({
-      builtin: SEED_ACTIONS,
-      initialUserActions: userActions,
-      onSave: async (next) => {
-        // Serialise with 2-space indent so the hand-editable textarea stays
-        // human-readable for power users round-tripping the JSON.
-        const json = JSON.stringify(next, null, 2);
-        logseq.updateSettings({ userActionsJson: json });
-        // onSettingsChanged fires rebuildRegistry — the new actions are
-        // live after this returns.
-      },
-    });
+    await openManagePanel();
   };
   logseq.Editor.registerSlashCommand("AI Manage Actions", manageHandler);
   logseq.App.registerCommandPalette(
     { key: "logseq-ai-actions/manage", label: "AI: Manage Actions" },
     manageHandler,
   );
+
+  // Toolbar button — a single sparkle icon that opens the picker. Primary
+  // value is discoverability for mouse-first / new users. The `data-on-click`
+  // attribute binds to a method exposed via logseq.provideModel below.
+  logseq.App.registerUIItem("toolbar", {
+    key: "logseq-ai-actions-toolbar",
+    template:
+      '<a class="button" data-on-click="openAIActionPicker" title="AI Actions — click to pick an action" aria-label="AI Actions">✨</a>',
+  });
+  logseq.provideModel({
+    openAIActionPicker: async () => {
+      await openActionPicker();
+    },
+  });
 
   console.info(
     `logseq-ai-actions: ready — ${activeActions.length} action${activeActions.length === 1 ? "" : "s"} registered (${activeActions.length - SEED_ACTIONS.length >= 0 ? activeActions.length - SEED_ACTIONS.length : 0} user-defined)`,
