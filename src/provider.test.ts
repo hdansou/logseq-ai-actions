@@ -119,6 +119,19 @@ describe("createOpenAIProvider", () => {
     await expect(createOpenAIProvider().complete(baseReq)).rejects.toBeInstanceOf(LLMProviderError);
   });
 
+  it("uses the injected fetchImpl option when provided, bypassing globalThis.fetch", async () => {
+    const injected = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: "injected" } }] }));
+
+    const result = await createOpenAIProvider({ fetchImpl: injected }).complete(baseReq);
+
+    expect(result).toBe("injected");
+    expect(injected).toHaveBeenCalledOnce();
+    // globalThis.fetch must NOT have been called when fetchImpl was provided.
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("throws a timeout error when the abort signal fires", async () => {
     fetchMock.mockImplementationOnce(async (_url: string, opts: RequestInit) => {
       const signal = opts.signal as AbortSignal;
