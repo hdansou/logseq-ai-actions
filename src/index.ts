@@ -1,6 +1,7 @@
 import "@logseq/libs";
 
 import type { Action } from "./action";
+import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "./debug-log";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
 import { SEED_ACTIONS } from "./seed-actions";
@@ -85,6 +86,7 @@ interface ResolvedSettings {
   readonly apiKey: string;
   readonly temperature: number;
   readonly timeoutMs: number;
+  readonly debugLog: boolean;
 }
 
 /**
@@ -101,6 +103,7 @@ function readSettings(): ResolvedSettings {
     apiKey: String(s.apiKey ?? ""),
     temperature: Number(s.temperature ?? 0.3),
     timeoutMs: Number(s.timeoutMs ?? 60_000),
+    debugLog: Boolean(s.debugLog ?? false),
   };
 }
 
@@ -226,6 +229,9 @@ async function resolveInput(action: Action): Promise<ResolveResult> {
  */
 async function runAction(action: Action): Promise<void> {
   let busyToastKey: string | number | null = null;
+  const startedAt = Date.now();
+  const settings = readSettings();
+
   try {
     const input = await resolveInput(action);
     if (input.uuid === null) {
@@ -233,7 +239,6 @@ async function runAction(action: Action): Promise<void> {
       return;
     }
 
-    const settings = readSettings();
     const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
     busyToastKey = (msg as unknown as string | number | null) ?? null;
 
@@ -256,6 +261,21 @@ async function runAction(action: Action): Promise<void> {
         /* swallow — closeMsg throws on unknown key */
       }
       busyToastKey = null;
+    }
+
+    if (settings.debugLog) {
+      debugLog.push({
+        timestamp: startedAt,
+        actionId: action.id,
+        actionTitle: action.title,
+        scope: action.scope,
+        outputMode: action.outputMode,
+        model: settings.model,
+        baseUrl: settings.baseUrl,
+        requestPreview: truncate(input.llmInput, PREVIEW_TRUNCATION_LIMIT),
+        responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT),
+        durationMs: Date.now() - startedAt,
+      });
     }
 
     if (!output) {
@@ -290,6 +310,24 @@ async function runAction(action: Action): Promise<void> {
         ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
         : (err as Error).message;
     console.error(`logseq-ai-actions: ${action.id} failed`, err);
+
+    if (settings.debugLog) {
+      debugLog.push({
+        timestamp: startedAt,
+        actionId: action.id,
+        actionTitle: action.title,
+        scope: action.scope,
+        outputMode: action.outputMode,
+        model: settings.model,
+        baseUrl: settings.baseUrl,
+        // No reliable input capture here — resolveInput may have thrown
+        // before we had it. Use a marker so it's obvious in the viewer.
+        requestPreview: "<not captured>",
+        durationMs: Date.now() - startedAt,
+        error: detail,
+      });
+    }
+
     logseq.UI.showMsg(`${action.title} failed: ${detail}`, "error");
   }
 }
