@@ -211,6 +211,59 @@ async function logseqFetch(input: RequestInfo | URL, init?: RequestInit): Promis
 
 const provider = createOpenAIProvider({ fetchImpl: logseqFetch });
 
+/**
+ * Run a single LLM call for an already-resolved action + input, and
+ * record a debug-log entry (when enabled). Shared by the initial
+ * `runAction` path and the action-bar re-run path so both produce
+ * identical log entries and there's one place to change the request
+ * shape.
+ */
+async function performLLMCall(
+  action: Action,
+  input: ResolvedInput,
+  settings: ResolvedSettings,
+): Promise<string> {
+  const startedAt = Date.now();
+  let output: string | undefined;
+  let error: string | undefined;
+  try {
+    output = await provider.complete({
+      baseUrl: settings.baseUrl,
+      model: settings.model,
+      system: action.systemPrompt,
+      user: input.llmInput,
+      temperature: settings.temperature,
+      timeoutMs: settings.timeoutMs,
+      ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
+    });
+    return output;
+  } catch (err) {
+    error =
+      err instanceof LLMProviderError
+        ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
+        : (err as Error).message;
+    throw err;
+  } finally {
+    if (settings.debugLog) {
+      debugLog.push({
+        timestamp: startedAt,
+        actionId: action.id,
+        actionTitle: action.title,
+        scope: action.scope,
+        outputMode: action.outputMode,
+        model: settings.model,
+        baseUrl: settings.baseUrl,
+        requestPreview: truncate(input.llmInput, PREVIEW_TRUNCATION_LIMIT),
+        durationMs: Date.now() - startedAt,
+        ...(output !== undefined
+          ? { responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT) }
+          : {}),
+        ...(error !== undefined ? { error } : {}),
+      });
+    }
+  }
+}
+
 interface ResolvedInput {
   readonly uuid: string;
   /** Text sent to the LLM (may be a flattened outline for subtree scope). */
@@ -265,7 +318,6 @@ async function resolveInput(action: Action): Promise<ResolveResult> {
  */
 async function runAction(action: Action): Promise<void> {
   let busyToastKey: string | number | null = null;
-  const startedAt = Date.now();
   const settings = readSettings();
 
   try {
@@ -278,17 +330,7 @@ async function runAction(action: Action): Promise<void> {
     const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
     busyToastKey = (msg as unknown as string | number | null) ?? null;
 
-    // Only include apiKey when non-empty — `exactOptionalPropertyTypes`
-    // disallows passing `undefined` to an optional field.
-    const output = await provider.complete({
-      baseUrl: settings.baseUrl,
-      model: settings.model,
-      system: action.systemPrompt,
-      user: input.llmInput,
-      temperature: settings.temperature,
-      timeoutMs: settings.timeoutMs,
-      ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
-    });
+    const output = await performLLMCall(action, input, settings);
 
     if (busyToastKey !== null) {
       try {
@@ -299,28 +341,38 @@ async function runAction(action: Action): Promise<void> {
       busyToastKey = null;
     }
 
-    if (settings.debugLog) {
-      debugLog.push({
-        timestamp: startedAt,
-        actionId: action.id,
-        actionTitle: action.title,
-        scope: action.scope,
-        outputMode: action.outputMode,
-        model: settings.model,
-        baseUrl: settings.baseUrl,
-        requestPreview: truncate(input.llmInput, PREVIEW_TRUNCATION_LIMIT),
-        responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT),
-        durationMs: Date.now() - startedAt,
-      });
-    }
-
     if (!output) {
       logseq.UI.showMsg(`${action.title}: empty response from model`, "warning");
       return;
     }
 
     if (action.outputMode === "diff-panel") {
-      const accepted = await showDiffPanel(action.title, input.displayOriginal, output);
+      // Panel-compatible actions get a top-bar toolbar so the user can
+      // switch proposals without closing + re-running the slash command.
+      const panelActions = SEED_ACTIONS.filter((a) => a.outputMode === "diff-panel").map((a) => ({
+        id: a.id,
+        title: a.title,
+      }));
+      const reRun = async (actionId: string) => {
+        const newAction = SEED_ACTIONS.find((a) => a.id === actionId);
+        if (!newAction) throw new Error(`Unknown action: ${actionId}`);
+        const newInput = await resolveInput(newAction);
+        if (newInput.uuid === null) throw new Error(newInput.reason);
+        // Read settings fresh — user may have changed preset/model between
+        // the initial invocation and the re-run (runtime-gotchas §7).
+        const newSettings = readSettings();
+        const newOutput = await performLLMCall(newAction, newInput, newSettings);
+        if (!newOutput) throw new Error("Empty response from model");
+        return { proposed: newOutput, actionTitle: newAction.title };
+      };
+      const accepted = await showDiffPanel({
+        currentActionId: action.id,
+        actionTitle: action.title,
+        original: input.displayOriginal,
+        proposed: output,
+        actions: panelActions,
+        onReRun: reRun,
+      });
       if (accepted === null) {
         logseq.UI.showMsg(`${action.title} discarded`, "info");
         return;
@@ -375,24 +427,10 @@ async function runAction(action: Action): Promise<void> {
         ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
         : (err as Error).message;
     console.error(`logseq-ai-actions: ${action.id} failed`, err);
-
-    if (settings.debugLog) {
-      debugLog.push({
-        timestamp: startedAt,
-        actionId: action.id,
-        actionTitle: action.title,
-        scope: action.scope,
-        outputMode: action.outputMode,
-        model: settings.model,
-        baseUrl: settings.baseUrl,
-        // No reliable input capture here — resolveInput may have thrown
-        // before we had it. Use a marker so it's obvious in the viewer.
-        requestPreview: "<not captured>",
-        durationMs: Date.now() - startedAt,
-        error: detail,
-      });
-    }
-
+    // performLLMCall records its own debug-log entry in a finally block;
+    // we don't duplicate here. Errors thrown before the LLM call (e.g.
+    // from resolveInput) go unlogged — they're UI/setup issues, not
+    // model failures, and the toast is enough signal.
     logseq.UI.showMsg(`${action.title} failed: ${detail}`, "error");
   }
 }

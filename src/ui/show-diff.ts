@@ -1,6 +1,15 @@
 /// <reference types="@logseq/libs" />
 import { h, render } from "preact";
-import { DiffPanel } from "./DiffPanel";
+import { DiffPanel, type DiffPanelActionDesc } from "./DiffPanel";
+
+export interface ShowDiffPanelOptions {
+  readonly currentActionId: string;
+  readonly actionTitle: string;
+  readonly original: string;
+  readonly proposed: string;
+  readonly actions: readonly DiffPanelActionDesc[];
+  readonly onReRun: (actionId: string) => Promise<{ proposed: string; actionTitle: string }>;
+}
 
 /**
  * Mount the `DiffPanel` into the plugin iframe's `#app` container,
@@ -13,18 +22,14 @@ import { DiffPanel } from "./DiffPanel";
  * `/// <reference types="@logseq/libs" />` and is NOT imported by any
  * Vitest test (runtime-gotchas §11).
  */
-export function showDiffPanel(
-  actionTitle: string,
-  original: string,
-  proposed: string,
-): Promise<string | null> {
+export function showDiffPanel(options: ShowDiffPanelOptions): Promise<string | null> {
   return new Promise((resolve) => {
     const container = document.getElementById("app");
     if (!container) {
       // No mount point — bail out accepting the proposal so the user
       // still gets a working (if silent) rewrite path rather than a
       // silent rejection.
-      resolve(proposed);
+      resolve(options.proposed);
       return;
     }
 
@@ -44,9 +49,12 @@ export function showDiffPanel(
 
     render(
       h(DiffPanel, {
-        actionTitle,
-        original,
-        proposed,
+        currentActionId: options.currentActionId,
+        actionTitle: options.actionTitle,
+        original: options.original,
+        proposed: options.proposed,
+        actions: options.actions,
+        onReRun: options.onReRun,
         onAccept: (text: string) => teardown(text),
         onReject: () => teardown(null),
       }),
