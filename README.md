@@ -79,7 +79,13 @@ Open the plugin's settings (gear icon on the plugin card). Pick a preset — `ba
 
 ### 4. (Optional) Add your own actions
 
-The plugin ships five built-in actions. You can add unlimited custom ones by pasting a JSON array into the **User-defined actions (JSON)** field in the plugin settings. Each entry satisfies the same schema as the built-ins.
+The plugin ships five built-in actions. You can add unlimited custom ones.
+
+**Primary way — the Manage Actions panel.** Run `/AI Manage Actions` (or Cmd-K → `AI: Manage Actions`). You'll see a CRUD UI that lists built-ins at the top (read-only, shown with a "shadowed by user" label if you've overridden them) and your user actions below, with Up / Down reorder, Edit, and Delete controls. Click **+ New action** to add one; fields validate live, Save requires no errors. **Import JSON** and **Copy all** buttons let you paste in a list from another machine or copy your current list to share.
+
+**Alternative — hand-edited JSON.** The gear-icon plugin settings still include a **User-defined actions (JSON)** textarea. The Manage panel round-trips through the same setting, so either authoring path works and you can switch between them. The textarea is useful for scripting or migrating — but for interactive editing the panel is less error-prone.
+
+Each entry, regardless of how you author it, satisfies the same schema:
 
 ```json
 [

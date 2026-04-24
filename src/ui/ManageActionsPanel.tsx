@@ -1,6 +1,7 @@
 import type { ComponentChildren, FunctionComponent } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { type Action, ActionSchema } from "../action";
+import { parseUserActions } from "../registry";
 
 export interface ManageActionsPanelProps {
   readonly builtin: readonly Action[];
@@ -47,7 +48,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
   onClose,
 }) => {
   const [userActions, setUserActions] = useState<Action[]>([...initialUserActions]);
-  const [view, setView] = useState<"list" | "edit">("list");
+  const [view, setView] = useState<"list" | "edit" | "import">("list");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draft, setDraft] = useState<DraftAction>(BLANK_DRAFT);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -152,6 +153,42 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
     }
   };
 
+  const copyAll = async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(userActions, null, 2));
+      setStatus(
+        `Copied ${userActions.length} action${userActions.length === 1 ? "" : "s"} to clipboard`,
+      );
+    } catch (err) {
+      setStatus(`Copy failed: ${(err as Error).message}`);
+    }
+  };
+
+  const applyImport = (raw: string): void => {
+    const { userActions: parsed, errors: parseErrors } = parseUserActions(raw);
+    if (parseErrors.length > 0 && parsed.length === 0) {
+      setStatus(`Import failed: ${parseErrors[0] ?? "unknown parse error"}`);
+      return;
+    }
+    const existingIds = new Set(userActions.map((a) => a.id));
+    const incoming: Action[] = [];
+    let skipped = 0;
+    for (const a of parsed) {
+      if (existingIds.has(a.id)) {
+        skipped += 1;
+        continue;
+      }
+      existingIds.add(a.id);
+      incoming.push(a);
+    }
+    setUserActions([...userActions, ...incoming]);
+    const pieces = [`imported ${incoming.length}`];
+    if (skipped > 0) pieces.push(`${skipped} skipped (id already exists)`);
+    if (parseErrors.length > 0) pieces.push(`${parseErrors.length} invalid`);
+    setStatus(pieces.join(" · "));
+    setView("list");
+  };
+
   if (view === "edit") {
     const editorProps: EditorViewProps = {
       draft,
@@ -163,6 +200,10 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
       ...(editingIndex !== null ? { onDelete: deleteEditing } : {}),
     };
     return <EditorView {...editorProps} />;
+  }
+
+  if (view === "import") {
+    return <ImportView onCancel={() => setView("list")} onImport={applyImport} />;
   }
 
   return (
@@ -201,9 +242,23 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
             return <ActionCard key={`u-${a.id}-${i}`} {...cardProps} />;
           })}
 
-          <button type="button" class="diff-btn manage-new-btn" onClick={() => openEditor(null)}>
-            + New action
-          </button>
+          <div class="manage-new-row">
+            <button type="button" class="diff-btn manage-new-btn" onClick={() => openEditor(null)}>
+              + New action
+            </button>
+            <button type="button" class="diff-btn" onClick={() => setView("import")}>
+              Import JSON
+            </button>
+            <button
+              type="button"
+              class="diff-btn"
+              onClick={() => void copyAll()}
+              disabled={userActions.length === 0}
+              title="Copy the current user-actions list to clipboard as JSON"
+            >
+              Copy all
+            </button>
+          </div>
         </section>
 
         <div class="manage-warning">
@@ -441,6 +496,89 @@ const EditorView: FunctionComponent<EditorViewProps> = ({
     </div>
   );
 };
+
+// ───────────────────────────────────────────────────────────────────────
+
+interface ImportViewProps {
+  readonly onCancel: () => void;
+  readonly onImport: (rawJson: string) => void;
+}
+
+const ImportView: FunctionComponent<ImportViewProps> = ({ onCancel, onImport }) => {
+  const [text, setText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCancel();
+      } else if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (text.trim().length > 0) onImport(text);
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onCancel, onImport, text]);
+
+  return (
+    <div class="diff-root" role="dialog" aria-label="Import actions JSON">
+      <div class="diff-modal manage-modal">
+        <header class="diff-header">
+          <span class="diff-header-main">
+            <button
+              type="button"
+              class="manage-back-btn"
+              onClick={onCancel}
+              aria-label="Back to list"
+              title="Back"
+            >
+              ←
+            </button>
+            <strong>Import actions from JSON</strong>
+          </span>
+          <span class="diff-hint">
+            <kbd>Esc</kbd> cancel · <kbd>⌘ ↵</kbd> import
+          </span>
+        </header>
+        <section class="manage-form">
+          <div class="manage-field">
+            <span class="manage-field-label">
+              Paste a JSON array of actions. Same schema as the hand-editable setting; ids that
+              already exist in your list are skipped.
+            </span>
+            <textarea
+              ref={textareaRef}
+              class="manage-input manage-textarea"
+              rows={14}
+              value={text}
+              onInput={(e) => setText((e.target as HTMLTextAreaElement).value)}
+              placeholder='[\n  {\n    "id": "action-items",\n    "title": "Action Items",\n    "scope": "subtree",\n    "outputMode": "append-children",\n    "systemPrompt": "Extract action items …"\n  }\n]'
+              spellcheck={false}
+            />
+          </div>
+        </section>
+        <footer class="diff-footer">
+          <button type="button" class="diff-btn" onClick={onCancel}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="diff-btn diff-btn-primary"
+            onClick={() => onImport(text)}
+            disabled={text.trim().length === 0}
+          >
+            Import
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+// ───────────────────────────────────────────────────────────────────────
 
 const Field: FunctionComponent<{
   label: string;
