@@ -132,6 +132,80 @@ describe("createOpenAIProvider", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  describe("stream", () => {
+    function sseEvent(delta: string): string {
+      return `data: ${JSON.stringify({ choices: [{ delta: { content: delta } }] })}\n\n`;
+    }
+
+    function streamingResponse(chunks: string[], status = 200): Response {
+      const encoder = new TextEncoder();
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+          controller.close();
+        },
+      });
+      return new Response(body, {
+        status,
+        headers: { "Content-Type": "text/event-stream" },
+      });
+    }
+
+    it("POSTs with stream: true and resolves to the accumulated trimmed text", async () => {
+      fetchMock.mockResolvedValueOnce(
+        streamingResponse([sseEvent("Hello"), sseEvent(", "), sseEvent("world!"), "data: [DONE]\n\n"]),
+      );
+      const chunks: string[] = [];
+      const result = await createOpenAIProvider().stream(baseReq, (c) => chunks.push(c));
+
+      expect(result).toBe("Hello, world!");
+      expect(chunks).toEqual(["Hello", ", ", "world!"]);
+      const opts = (fetchMock.mock.calls[0] as [string, RequestInit])[1];
+      const sentBody = JSON.parse(opts.body as string);
+      expect(sentBody.stream).toBe(true);
+    });
+
+    it("throws LLMProviderError on non-OK HTTP status", async () => {
+      fetchMock.mockResolvedValueOnce(new Response("model unavailable", { status: 503 }));
+      await expect(
+        createOpenAIProvider().stream(baseReq, () => {}),
+      ).rejects.toMatchObject({
+        name: "LLMProviderError",
+        details: { status: 503 },
+      });
+    });
+
+    it("wraps network failures as LLMProviderError", async () => {
+      fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      await expect(
+        createOpenAIProvider().stream(baseReq, () => {}),
+      ).rejects.toBeInstanceOf(LLMProviderError);
+    });
+
+    it("throws 'No content' when stream closes with no deltas", async () => {
+      fetchMock.mockResolvedValueOnce(streamingResponse(["data: [DONE]\n\n"]));
+      await expect(
+        createOpenAIProvider().stream(baseReq, () => {}),
+      ).rejects.toThrow(/no content/i);
+    });
+
+    it("throws a timeout error when the abort signal fires", async () => {
+      fetchMock.mockImplementationOnce(async (_url: string, opts: RequestInit) => {
+        const signal = opts.signal as AbortSignal;
+        return new Promise<Response>((_resolve, reject) => {
+          signal.addEventListener("abort", () => {
+            const err = new Error("aborted");
+            err.name = "AbortError";
+            reject(err);
+          });
+        });
+      });
+      await expect(
+        createOpenAIProvider().stream({ ...baseReq, timeoutMs: 10 }, () => {}),
+      ).rejects.toThrow(/timed out/i);
+    });
+  });
+
   it("throws a timeout error when the abort signal fires", async () => {
     fetchMock.mockImplementationOnce(async (_url: string, opts: RequestInit) => {
       const signal = opts.signal as AbortSignal;
