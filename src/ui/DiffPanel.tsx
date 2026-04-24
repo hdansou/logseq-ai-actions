@@ -9,47 +9,99 @@ export interface DiffPanelActionDesc {
   readonly title: string;
 }
 
+/**
+ * Streaming callback shape shared by initial mount + action-bar re-run.
+ * Invokes `onChunk` per delta as the LLM streams tokens; resolves with
+ * the trimmed final text + the (possibly new) action title once the
+ * stream ends.
+ */
+export type RunAndStream = (
+  actionId: string,
+  onChunk: (chunk: string) => void,
+) => Promise<{ finalText: string; actionTitle: string }>;
+
 export interface DiffPanelProps {
   /** Action whose proposal is currently displayed. Its button is highlighted + disabled. */
   readonly currentActionId: string;
-  /** Title shown in the header. Updates when the user picks a different action from the bar. */
+  /** Title shown in the header; updates when the user picks a different action from the bar. */
   readonly actionTitle: string;
   /** Endpoint URL — rendered as a LOCAL/REMOTE badge in the header. */
   readonly baseUrl: string;
   readonly original: string;
-  readonly proposed: string;
   /** Buttons rendered in the top bar. Empty array hides the bar entirely. */
   readonly actions: readonly DiffPanelActionDesc[];
   /**
-   * Called when the user clicks a different action in the bar. Return the
-   * new proposed text + the new action's title. The component swaps
-   * internal state to display it. Throws → error message shown, previous
-   * proposal retained.
+   * Start (or re-start) a stream for the given action id. Mount-time
+   * and action-bar clicks both go through this — the panel never sees
+   * a pre-resolved proposed string.
    */
-  readonly onReRun: (actionId: string) => Promise<{ proposed: string; actionTitle: string }>;
+  readonly runAndStream: RunAndStream;
   readonly onAccept: (text: string) => void;
   readonly onReject: () => void;
 }
 
 export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
-  const { original, actions, onAccept, onReject, onReRun } = props;
+  const { original, actions, onAccept, onReject, runAndStream } = props;
 
-  // Internal state so re-runs can swap the proposal without the caller
-  // re-mounting the component. Initialised from props on first render.
   const [currentActionId, setCurrentActionId] = useState(props.currentActionId);
   const [actionTitle, setActionTitle] = useState(props.actionTitle);
-  const [proposed, setProposed] = useState(props.proposed);
-  const [editedText, setEditedText] = useState(props.proposed);
+  const [proposed, setProposed] = useState("");
+  const [editedText, setEditedText] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
+  // Generation counter so stale chunks from a prior stream (post action-bar
+  // switch) don't bleed into the new proposal.
+  const streamGen = useRef(0);
 
-  const segments = useMemo(() => computeDiff(original, proposed), [original, proposed]);
+  // Diff highlights only make sense after the stream has finished — mid-
+  // stream, "removed" segments would light up the whole Original column
+  // just because the Proposed side is still short. Plain text during
+  // streaming, full diff after.
+  const segments = useMemo<readonly DiffSegment[] | null>(
+    () => (isStreaming ? null : computeDiff(original, proposed)),
+    [original, proposed, isStreaming],
+  );
+
+  const startStream = async (actionId: string): Promise<void> => {
+    streamGen.current += 1;
+    const myGen = streamGen.current;
+    setProposed("");
+    setEditedText("");
+    setIsEditing(false);
+    setIsStreaming(true);
+    setErrorMessage(null);
+    setCurrentActionId(actionId);
+    try {
+      const result = await runAndStream(actionId, (chunk) => {
+        if (streamGen.current !== myGen) return;
+        setProposed((prev) => prev + chunk);
+      });
+      if (streamGen.current !== myGen) return;
+      // Sync to the provider's trimmed final text — per-chunk accumulation
+      // may have leading/trailing whitespace the provider strips.
+      setProposed(result.finalText);
+      setEditedText(result.finalText);
+      setActionTitle(result.actionTitle);
+    } catch (err) {
+      if (streamGen.current !== myGen) return;
+      setErrorMessage((err as Error).message || "Stream failed");
+    } finally {
+      if (streamGen.current === myGen) setIsStreaming(false);
+    }
+  };
+
+  // Intentional empty-dep useEffect: fire the initial stream ONCE on
+  // mount. Subsequent streams come from action-bar clicks.
+  useEffect(() => {
+    void startStream(props.currentActionId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (isLoading) return;
+      if (isStreaming) return;
       if (e.key === "Escape") {
         e.preventDefault();
         onReject();
@@ -60,35 +112,22 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [onAccept, onReject, isEditing, editedText, proposed, isLoading]);
+  }, [onAccept, onReject, isEditing, editedText, proposed, isStreaming]);
 
   useEffect(() => {
     if (isEditing) editRef.current?.focus();
   }, [isEditing]);
 
-  const handleReRun = async (actionId: string) => {
-    if (actionId === currentActionId || isLoading) return;
-
+  const handleBarClick = async (actionId: string) => {
+    if (actionId === currentActionId || isStreaming) return;
     if (isEditing && editedText !== proposed) {
       const ok = window.confirm("Discard your edits and re-run with a different action?");
       if (!ok) return;
     }
-
-    setIsLoading(true);
-    setErrorMessage(null);
-    try {
-      const result = await onReRun(actionId);
-      setProposed(result.proposed);
-      setEditedText(result.proposed);
-      setCurrentActionId(actionId);
-      setActionTitle(result.actionTitle);
-      setIsEditing(false);
-    } catch (err) {
-      setErrorMessage((err as Error).message || "Re-run failed");
-    } finally {
-      setIsLoading(false);
-    }
+    await startStream(actionId);
   };
+
+  const busy = isStreaming;
 
   return (
     <div class="diff-root" role="dialog" aria-label={`${actionTitle} — review changes`}>
@@ -112,24 +151,26 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
                   type="button"
                   key={a.id}
                   class={`diff-action-btn${isCurrent ? " diff-action-btn-current" : ""}`}
-                  disabled={isCurrent || isLoading}
-                  onClick={() => void handleReRun(a.id)}
+                  disabled={isCurrent || busy}
+                  onClick={() => void handleBarClick(a.id)}
                 >
                   {a.title}
                 </button>
               );
             })}
-            {isLoading ? <span class="diff-action-status">Working…</span> : null}
+            {isStreaming ? <span class="diff-action-status">Streaming…</span> : null}
             {errorMessage ? (
               <span class="diff-action-status diff-action-error">{errorMessage}</span>
             ) : null}
           </div>
         ) : null}
 
-        <section class={`diff-body${isLoading ? " diff-body-loading" : ""}`}>
+        <section class={`diff-body${busy ? " diff-body-loading" : ""}`}>
           <div class="diff-column">
             <h4>Original</h4>
-            <pre class="diff-pre">{renderSide(segments, "original")}</pre>
+            <pre class="diff-pre">
+              {segments === null ? original : renderSide(segments, "original")}
+            </pre>
           </div>
           <div class="diff-column">
             <h4>{isEditing ? "Proposed (editing)" : "Proposed"}</h4>
@@ -138,24 +179,28 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
                 ref={editRef}
                 class="diff-edit"
                 value={editedText}
-                disabled={isLoading}
+                disabled={busy}
                 onInput={(e) => setEditedText((e.target as HTMLTextAreaElement).value)}
               />
             ) : (
-              <pre class="diff-pre">{renderSide(segments, "proposed")}</pre>
+              <pre class="diff-pre">
+                {segments === null
+                  ? proposed || (isStreaming ? "…" : "")
+                  : renderSide(segments, "proposed")}
+              </pre>
             )}
           </div>
         </section>
 
         <footer class="diff-footer">
-          <button type="button" class="diff-btn" onClick={onReject} disabled={isLoading}>
+          <button type="button" class="diff-btn" onClick={onReject}>
             Reject
           </button>
           {isEditing ? (
             <button
               type="button"
               class="diff-btn"
-              disabled={isLoading}
+              disabled={busy}
               onClick={() => {
                 setEditedText(proposed);
                 setIsEditing(false);
@@ -167,7 +212,7 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
             <button
               type="button"
               class="diff-btn"
-              disabled={isLoading}
+              disabled={busy || proposed.length === 0}
               onClick={() => setIsEditing(true)}
             >
               Edit
@@ -176,7 +221,7 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
           <button
             type="button"
             class="diff-btn diff-btn-primary"
-            disabled={isLoading}
+            disabled={busy || proposed.length === 0}
             onClick={() => onAccept(isEditing ? editedText : proposed)}
           >
             Accept
