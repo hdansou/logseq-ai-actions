@@ -42,7 +42,7 @@ Every item here: failing Vitest test first, implementation second.
 - [x] Endpoint presets (LM Studio / Ollama / Goose / Custom) with `findPreset` lookup
 - [x] Zod schema for `Action` (id, title, description, scope, outputMode, systemPrompt) — `src/action.ts`, 10 tests
 - [x] Action registry pipeline — `buildRegistry(builtin, userJsonRaw)` in `src/registry.ts`, 10 tests, 100 % lines. Shadowing, dedup, individual entry validation without blocking valid ones, stable order.
-- [ ] Scope resolver: pure `(editorState) => { text, blockUuid, range? }` for each scope
+- [ ] ~~Scope resolver~~ — block + subtree handled inline in `resolveInput`; selection deferred per REQUIREMENTS §14. Revisit when selection-scope work resumes (needs `spliceText` + `detectSelection`).
 - [x] Subtree flattener (`flattenSubtree` — Markdown outline, 2-space indent per depth, 10 tests)
 - [ ] Prompt templater: `{{content}}`, `{{selection}}`, etc.
 - [x] Streaming chunk parser (OpenAI Chat Completions SSE format) — `src/sse.ts`, stateful push/flush API, 11 tests, 100 % lines
