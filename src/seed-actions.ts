@@ -44,18 +44,19 @@ export const SEED_ACTIONS: readonly Action[] = Object.freeze([
   parseAction({
     id: "rewrite",
     title: "Rewrite",
-    description: "Rewrite the current block for clarity and concision.",
+    description:
+      "Rewrite the current block for clarity and concision. Review the proposed text in a diff panel before applying.",
     scope: "block",
-    outputMode: "replace",
+    outputMode: "diff-panel",
     systemPrompt: REWRITE_PROMPT,
   }),
   parseAction({
     id: "summarize",
     title: "Summarize",
     description:
-      "Summarize the current block and all its children. The parent block's text is replaced with the summary; children are preserved as supporting detail.",
+      "Summarize the current block and all its children. Review the summary in a diff panel before applying; children are preserved as supporting detail.",
     scope: "subtree",
-    outputMode: "replace",
+    outputMode: "diff-panel",
     systemPrompt: SUMMARIZE_PROMPT,
   }),
 ]);

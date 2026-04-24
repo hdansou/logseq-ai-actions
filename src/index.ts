@@ -5,6 +5,7 @@ import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
 import { SEED_ACTIONS } from "./seed-actions";
 import { type BlockNode, flattenSubtree } from "./subtree";
+import { showDiffPanel } from "./ui/show-diff";
 
 // Plugin entry point. Keep this module SHALLOW — it is the only place that
 // loads `@logseq/libs` for its side-effects. Every other module uses a
@@ -171,38 +172,49 @@ async function logseqFetch(input: RequestInfo | URL, init?: RequestInit): Promis
 
 const provider = createOpenAIProvider({ fetchImpl: logseqFetch });
 
+interface ResolvedInput {
+  readonly uuid: string;
+  /** Text sent to the LLM (may be a flattened outline for subtree scope). */
+  readonly llmInput: string;
+  /** Text displayed as "Original" in the diff panel — the content being replaced. */
+  readonly displayOriginal: string;
+}
+
+type ResolveResult = ResolvedInput | { readonly uuid: null; readonly reason: string };
+
 /**
  * Resolve the LLM input for an action from the block the cursor is in.
- * For `scope: "block"` we read the current block's own text; for
- * `scope: "subtree"` we re-fetch with children and flatten into a
- * Markdown outline. `selection` scope is treated as `block` until the
- * selection-range adapter lands.
+ *   - `block`: both LLM input and diff "original" are the block's own text.
+ *   - `subtree`: LLM input is the flattened outline; diff "original" stays
+ *     the parent block's own text (what actually gets replaced). Otherwise
+ *     the diff view shows "outline → summary" which lights up every word
+ *     as "changed" and is misleading.
+ *   - `selection`: treated as `block` until the selection-range adapter
+ *     lands.
  */
-async function resolveInput(
-  action: Action,
-): Promise<{ uuid: string; text: string } | { uuid: null; reason: string }> {
+async function resolveInput(action: Action): Promise<ResolveResult> {
   const current = await logseq.Editor.getCurrentBlock();
   if (!current?.uuid) return { uuid: null, reason: "Place your cursor inside a block first." };
+
+  const currentText = String(
+    (current as unknown as { title?: string; content?: string }).title ??
+      (current as unknown as { content?: string }).content ??
+      "",
+  ).trim();
 
   if (action.scope === "subtree") {
     const full = (await logseq.Editor.getBlock(current.uuid, {
       includeChildren: true,
     })) as unknown as BlockNode & { uuid: string };
-    const text = flattenSubtree(full).trim();
-    if (!text || text === "-") {
+    const outline = flattenSubtree(full).trim();
+    if (!outline || outline === "-") {
       return { uuid: null, reason: "This block and its children have no text to process." };
     }
-    return { uuid: current.uuid, text };
+    return { uuid: current.uuid, llmInput: outline, displayOriginal: currentText };
   }
 
-  // scope === "block" (or "selection" fallback for MVP).
-  const text = String(
-    (current as unknown as { title?: string; content?: string }).title ??
-      (current as unknown as { content?: string }).content ??
-      "",
-  ).trim();
-  if (!text) return { uuid: null, reason: "This block has no text to process." };
-  return { uuid: current.uuid, text };
+  if (!currentText) return { uuid: null, reason: "This block has no text to process." };
+  return { uuid: current.uuid, llmInput: currentText, displayOriginal: currentText };
 }
 
 /**
@@ -231,7 +243,7 @@ async function runAction(action: Action): Promise<void> {
       baseUrl: settings.baseUrl,
       model: settings.model,
       system: action.systemPrompt,
-      user: input.text,
+      user: input.llmInput,
       temperature: settings.temperature,
       timeoutMs: settings.timeoutMs,
       ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
@@ -251,6 +263,18 @@ async function runAction(action: Action): Promise<void> {
       return;
     }
 
+    if (action.outputMode === "diff-panel") {
+      const accepted = await showDiffPanel(action.title, input.displayOriginal, output);
+      if (accepted === null) {
+        logseq.UI.showMsg(`${action.title} discarded`, "info");
+        return;
+      }
+      await logseq.Editor.updateBlock(input.uuid, accepted);
+      logseq.UI.showMsg(`${action.title} applied`, "success");
+      return;
+    }
+
+    // outputMode === "replace"
     await logseq.Editor.updateBlock(input.uuid, output);
     logseq.UI.showMsg(`${action.title} applied`, "success");
   } catch (err) {
