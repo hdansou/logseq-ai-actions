@@ -47,7 +47,7 @@ Every item here: failing Vitest test first, implementation second.
 - [ ] Prompt templater: `{{content}}`, `{{selection}}`, etc.
 - [ ] Streaming chunk parser (OpenAI Chat Completions SSE format)
 - [x] Diff model — `computeDiff(original, proposed): DiffSegment[]` wrapping jsdiff's `diffWords` (6 tests, 100% coverage)
-- [ ] Debug log ring buffer (capped at 50, truncation rules)
+- [x] Debug log ring buffer — `createRingBuffer<T>(capacity)` + `truncate(s, limit)` + `debugLog` singleton at capacity 50. 10 tests. In-memory only per REQUIREMENTS §8.
 
 ## Phase 3 — LLM provider
 
