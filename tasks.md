@@ -68,6 +68,7 @@ Every item here: failing Vitest test first, implementation second.
 
 - [ ] First-run consent modal
 - [x] Settings panel via **native** `logseq.useSettingsSchema` (preset picker, baseUrl, model, API key, temperature, timeout, debug-log toggle) + preset-change auto-fill for baseUrl/model
+- [x] Diff side panel (Preact) — `DiffPanel` + `showDiffPanel` mount helper. Renders side-by-side Original/Proposed with word-level highlights, Edit mode, Accept/Reject buttons, keyboard shortcuts (Esc, Cmd/Ctrl-Enter). Wired into `runAction` for `outputMode: "diff-panel"`.
 - [ ] Replace native settings with Preact settings panel (adds LOCAL/REMOTE badge, REMOTE warning modal, inline validation)
 - [ ] LOCAL/REMOTE badge component (used in settings + palette + modals)
 - [ ] Diff side panel (original / proposed / accept / reject / edit)

@@ -39,6 +39,16 @@ describe("SEED_ACTIONS", () => {
       summarize: "subtree",
     });
   });
+
+  it("outputMode assignments: spellcheck/grammar = replace; rewrite/summarize = diff-panel", () => {
+    const byId = Object.fromEntries(SEED_ACTIONS.map((a) => [a.id, a.outputMode]));
+    expect(byId).toEqual({
+      spellcheck: "replace",
+      grammar: "replace",
+      rewrite: "diff-panel",
+      summarize: "diff-panel",
+    });
+  });
 });
 
 describe("findSeedAction", () => {
