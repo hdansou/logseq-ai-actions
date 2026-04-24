@@ -1,15 +1,19 @@
 /// <reference types="@logseq/libs" />
 import { h, render } from "preact";
-import { DiffPanel, type DiffPanelActionDesc } from "./DiffPanel";
+import { DiffPanel, type DiffPanelActionDesc, type RunAndStream } from "./DiffPanel";
 
 export interface ShowDiffPanelOptions {
   readonly currentActionId: string;
   readonly actionTitle: string;
   readonly baseUrl: string;
   readonly original: string;
-  readonly proposed: string;
   readonly actions: readonly DiffPanelActionDesc[];
-  readonly onReRun: (actionId: string) => Promise<{ proposed: string; actionTitle: string }>;
+  /**
+   * Invoked by the panel on mount (with `currentActionId`) and on any
+   * action-bar click. Emits chunks via `onChunk`; resolves with the
+   * trimmed final text + the (possibly different) action title.
+   */
+  readonly runAndStream: RunAndStream;
 }
 
 /**
@@ -27,10 +31,10 @@ export function showDiffPanel(options: ShowDiffPanelOptions): Promise<string | n
   return new Promise((resolve) => {
     const container = document.getElementById("app");
     if (!container) {
-      // No mount point — bail out accepting the proposal so the user
-      // still gets a working (if silent) rewrite path rather than a
-      // silent rejection.
-      resolve(options.proposed);
+      // No mount point — reject so caller falls through to the
+      // non-streaming write path. Streaming without a DOM container is
+      // pointless.
+      resolve(null);
       return;
     }
 
@@ -54,9 +58,8 @@ export function showDiffPanel(options: ShowDiffPanelOptions): Promise<string | n
         actionTitle: options.actionTitle,
         baseUrl: options.baseUrl,
         original: options.original,
-        proposed: options.proposed,
         actions: options.actions,
-        onReRun: options.onReRun,
+        runAndStream: options.runAndStream,
         onAccept: (text: string) => teardown(text),
         onReject: () => teardown(null),
       }),

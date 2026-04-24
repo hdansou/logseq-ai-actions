@@ -273,6 +273,49 @@ async function logseqFetch(input: RequestInfo | URL, init?: RequestInit): Promis
 const provider = createOpenAIProvider({ fetchImpl: logseqFetch });
 
 /**
+ * Build the provider request body shared by both complete + stream.
+ * Pulled out so the debug-log truncation in performLLM* stays in sync
+ * with the actual request.
+ */
+function buildProviderRequest(action: Action, input: ResolvedInput, settings: ResolvedSettings) {
+  return {
+    baseUrl: settings.baseUrl,
+    model: settings.model,
+    system: action.systemPrompt,
+    user: input.llmInput,
+    temperature: settings.temperature,
+    timeoutMs: settings.timeoutMs,
+    ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
+  };
+}
+
+function recordDebugEntry(
+  action: Action,
+  input: ResolvedInput,
+  settings: ResolvedSettings,
+  startedAt: number,
+  output: string | undefined,
+  error: string | undefined,
+): void {
+  if (!settings.debugLog) return;
+  debugLog.push({
+    timestamp: startedAt,
+    actionId: action.id,
+    actionTitle: action.title,
+    scope: action.scope,
+    outputMode: action.outputMode,
+    model: settings.model,
+    baseUrl: settings.baseUrl,
+    requestPreview: truncate(input.llmInput, PREVIEW_TRUNCATION_LIMIT),
+    durationMs: Date.now() - startedAt,
+    ...(output !== undefined
+      ? { responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT) }
+      : {}),
+    ...(error !== undefined ? { error } : {}),
+  });
+}
+
+/**
  * Run a single LLM call for an already-resolved action + input, and
  * record a debug-log entry (when enabled). Shared by the initial
  * `runAction` path and the action-bar re-run path so both produce
@@ -288,15 +331,7 @@ async function performLLMCall(
   let output: string | undefined;
   let error: string | undefined;
   try {
-    output = await provider.complete({
-      baseUrl: settings.baseUrl,
-      model: settings.model,
-      system: action.systemPrompt,
-      user: input.llmInput,
-      temperature: settings.temperature,
-      timeoutMs: settings.timeoutMs,
-      ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
-    });
+    output = await provider.complete(buildProviderRequest(action, input, settings));
     return output;
   } catch (err) {
     error =
@@ -305,23 +340,34 @@ async function performLLMCall(
         : (err as Error).message;
     throw err;
   } finally {
-    if (settings.debugLog) {
-      debugLog.push({
-        timestamp: startedAt,
-        actionId: action.id,
-        actionTitle: action.title,
-        scope: action.scope,
-        outputMode: action.outputMode,
-        model: settings.model,
-        baseUrl: settings.baseUrl,
-        requestPreview: truncate(input.llmInput, PREVIEW_TRUNCATION_LIMIT),
-        durationMs: Date.now() - startedAt,
-        ...(output !== undefined
-          ? { responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT) }
-          : {}),
-        ...(error !== undefined ? { error } : {}),
-      });
-    }
+    recordDebugEntry(action, input, settings, startedAt, output, error);
+  }
+}
+
+/**
+ * Streaming sibling of `performLLMCall`. `onChunk` fires per delta.
+ * Records the same debug-log shape as the non-streaming path.
+ */
+async function performLLMStream(
+  action: Action,
+  input: ResolvedInput,
+  settings: ResolvedSettings,
+  onChunk: (chunk: string) => void,
+): Promise<string> {
+  const startedAt = Date.now();
+  let output: string | undefined;
+  let error: string | undefined;
+  try {
+    output = await provider.stream(buildProviderRequest(action, input, settings), onChunk);
+    return output;
+  } catch (err) {
+    error =
+      err instanceof LLMProviderError
+        ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
+        : (err as Error).message;
+    throw err;
+  } finally {
+    recordDebugEntry(action, input, settings, startedAt, output, error);
   }
 }
 
@@ -378,16 +424,59 @@ async function resolveInput(action: Action): Promise<ResolveResult> {
  * output mode and `selection` scope.
  */
 async function runAction(action: Action): Promise<void> {
-  let busyToastKey: string | number | null = null;
   const settings = readSettings();
 
-  try {
-    const input = await resolveInput(action);
-    if (input.uuid === null) {
-      logseq.UI.showMsg(input.reason, "warning");
+  const input = await resolveInput(action);
+  if (input.uuid === null) {
+    logseq.UI.showMsg(input.reason, "warning");
+    return;
+  }
+
+  // Diff-panel mode: the panel IS the busy indicator. Mount it
+  // immediately with an empty Proposed column; the panel invokes the
+  // streaming callback on mount, which fills in the content token by
+  // token. No pre-flight LLM call, no busy toast.
+  if (action.outputMode === "diff-panel") {
+    const panelActions = activeActions
+      .filter((a) => a.outputMode === "diff-panel")
+      .map((a) => ({ id: a.id, title: a.title }));
+
+    const runAndStream = async (
+      actionId: string,
+      onChunk: (chunk: string) => void,
+    ): Promise<{ finalText: string; actionTitle: string }> => {
+      const a = activeActions.find((x) => x.id === actionId);
+      if (!a) throw new Error(`Unknown action: ${actionId}`);
+      const inp = await resolveInput(a);
+      if (inp.uuid === null) throw new Error(inp.reason);
+      // Read settings fresh — user may have changed preset/model
+      // between the initial invocation and a re-run (runtime-gotchas §7).
+      const s = readSettings();
+      const text = await performLLMStream(a, inp, s, onChunk);
+      return { finalText: text, actionTitle: a.title };
+    };
+
+    const accepted = await showDiffPanel({
+      currentActionId: action.id,
+      actionTitle: action.title,
+      baseUrl: settings.baseUrl,
+      original: input.displayOriginal,
+      actions: panelActions,
+      runAndStream,
+    });
+    if (accepted === null) {
+      logseq.UI.showMsg(`${action.title} discarded`, "info");
       return;
     }
+    await logseq.Editor.updateBlock(input.uuid, accepted);
+    logseq.UI.showMsg(`${action.title} applied`, "success");
+    return;
+  }
 
+  // Non-streaming paths: replace + append-children share the
+  // busy-toast + one-shot `complete()` flow.
+  let busyToastKey: string | number | null = null;
+  try {
     const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
     busyToastKey = (msg as unknown as string | number | null) ?? null;
 
@@ -404,42 +493,6 @@ async function runAction(action: Action): Promise<void> {
 
     if (!output) {
       logseq.UI.showMsg(`${action.title}: empty response from model`, "warning");
-      return;
-    }
-
-    if (action.outputMode === "diff-panel") {
-      // Panel-compatible actions get a top-bar toolbar so the user can
-      // switch proposals without closing + re-running the slash command.
-      const panelActions = activeActions
-        .filter((a) => a.outputMode === "diff-panel")
-        .map((a) => ({ id: a.id, title: a.title }));
-      const reRun = async (actionId: string) => {
-        const newAction = activeActions.find((a) => a.id === actionId);
-        if (!newAction) throw new Error(`Unknown action: ${actionId}`);
-        const newInput = await resolveInput(newAction);
-        if (newInput.uuid === null) throw new Error(newInput.reason);
-        // Read settings fresh — user may have changed preset/model between
-        // the initial invocation and the re-run (runtime-gotchas §7).
-        const newSettings = readSettings();
-        const newOutput = await performLLMCall(newAction, newInput, newSettings);
-        if (!newOutput) throw new Error("Empty response from model");
-        return { proposed: newOutput, actionTitle: newAction.title };
-      };
-      const accepted = await showDiffPanel({
-        currentActionId: action.id,
-        actionTitle: action.title,
-        baseUrl: settings.baseUrl,
-        original: input.displayOriginal,
-        proposed: output,
-        actions: panelActions,
-        onReRun: reRun,
-      });
-      if (accepted === null) {
-        logseq.UI.showMsg(`${action.title} discarded`, "info");
-        return;
-      }
-      await logseq.Editor.updateBlock(input.uuid, accepted);
-      logseq.UI.showMsg(`${action.title} applied`, "success");
       return;
     }
 
