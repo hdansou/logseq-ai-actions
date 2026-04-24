@@ -36,6 +36,23 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
 | **Goose** *(unverified)* | `http://localhost:3000/v1` | Experimental — OpenAI-compatibility not yet verified |
 | **Custom** | — | Any server speaking the OpenAI Chat Completions API |
 
+#### CORS — required on Logseq Web; not required on Logseq Desktop
+
+The plugin iframe runs at a different origin from your LLM server, so the browser enforces CORS on every `POST /v1/chat/completions`. Your LLM server must send `Access-Control-Allow-Origin` or the request is blocked *before* it reaches the model. Symptom: a `Failed to fetch` error toast in Logseq and a `No 'Access-Control-Allow-Origin' header is present` message in the browser console.
+
+**On Logseq Desktop (Electron):** plugin HTTP routes through Logseq's main process via `logseq.Request`, which is not subject to browser CORS. No action needed if the plugin is using that path.
+
+**On Logseq Web (`yarn watch`, `localhost:3001`):** enable CORS on your LLM server.
+
+| Server | Enable CORS |
+|---|---|
+| **LM Studio** | Server tab → toggle **Cross-Origin-Resource-Sharing (CORS)** on. Or CLI: `lms server start --cors`. |
+| **Ollama** | Start with `OLLAMA_ORIGINS="*" ollama serve` (simplest). Or be specific: `OLLAMA_ORIGINS="http://localhost:3001,http://localhost:8282" ollama serve`. |
+| **Goose** | CORS support is unverified (same status as its OpenAI-compat surface — see preset note above). |
+| **Custom** | Add `Access-Control-Allow-Origin: *` (or your Logseq + plugin origin) to your server's response headers. Don't forget the `OPTIONS` preflight. |
+
+Allowing `*` is a reasonable default for a server that's already bound to `localhost` — no extra risk beyond what loopback binding already implies.
+
 ### 2. Install this plugin
 
 This is pre-release software — no marketplace entry yet. Install from the local dev server:
