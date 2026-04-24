@@ -52,8 +52,9 @@ export const SEED_ACTIONS: readonly Action[] = Object.freeze([
   parseAction({
     id: "summarize",
     title: "Summarize",
-    description: "Summarize the current block in 2–3 sentences (MVP: block only; subtree coming).",
-    scope: "block",
+    description:
+      "Summarize the current block and all its children. The parent block's text is replaced with the summary; children are preserved as supporting detail.",
+    scope: "subtree",
     outputMode: "replace",
     systemPrompt: SUMMARIZE_PROMPT,
   }),

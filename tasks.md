@@ -43,7 +43,7 @@ Every item here: failing Vitest test first, implementation second.
 - [x] Zod schema for `Action` (id, title, description, scope, outputMode, systemPrompt) — `src/action.ts`, 10 tests
 - [ ] Action registry pipeline: `(builtinActions, userJson) => { actions, errors }` (shadowing, validation)
 - [ ] Scope resolver: pure `(editorState) => { text, blockUuid, range? }` for each scope
-- [ ] Subtree flattener (deterministic indent convention, round-trip safe)
+- [x] Subtree flattener (`flattenSubtree` — Markdown outline, 2-space indent per depth, 10 tests)
 - [ ] Prompt templater: `{{content}}`, `{{selection}}`, etc.
 - [ ] Streaming chunk parser (OpenAI Chat Completions SSE format)
 - [ ] Diff model: produce segments for the diff panel from `original`/`proposed`
