@@ -6,12 +6,13 @@ import { classifyEndpoint } from "./endpoint";
 import { parsePoints } from "./parse-points";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
-import { buildRegistry } from "./registry";
+import { buildRegistry, parseUserActions } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
 import { type BlockNode, flattenSubtree } from "./subtree";
 import { showConfirm } from "./ui/show-confirm";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showDiffPanel } from "./ui/show-diff";
+import { showManageActions } from "./ui/show-manage-actions";
 
 // Plugin entry point. Keep this module SHALLOW — it is the only place that
 // loads `@logseq/libs` for its side-effects. Every other module uses a
@@ -600,6 +601,27 @@ async function main(): Promise<void> {
   logseq.App.registerCommandPalette(
     { key: "logseq-ai-actions/diagnostics", label: "AI: Diagnostics" },
     diagnosticsHandler,
+  );
+
+  const manageHandler = async () => {
+    const { userActions } = parseUserActions(readSettings().userActionsJson);
+    await showManageActions({
+      builtin: SEED_ACTIONS,
+      initialUserActions: userActions,
+      onSave: async (next) => {
+        // Serialise with 2-space indent so the hand-editable textarea stays
+        // human-readable for power users round-tripping the JSON.
+        const json = JSON.stringify(next, null, 2);
+        logseq.updateSettings({ userActionsJson: json });
+        // onSettingsChanged fires rebuildRegistry — the new actions are
+        // live after this returns.
+      },
+    });
+  };
+  logseq.Editor.registerSlashCommand("AI Manage Actions", manageHandler);
+  logseq.App.registerCommandPalette(
+    { key: "logseq-ai-actions/manage", label: "AI: Manage Actions" },
+    manageHandler,
   );
 
   console.info(

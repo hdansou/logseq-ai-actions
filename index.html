@@ -329,6 +329,182 @@
         margin: 0 0 4px 0;
         color: var(--fg);
       }
+
+      /* Manage Actions panel — reuses .diff-root/.diff-modal/.diff-header/
+         .diff-footer/.diff-btn; adds its own list + form styling. */
+      .manage-modal {
+        max-width: 900px;
+        width: min(900px, 95vw);
+      }
+      .manage-list {
+        padding: 14px 20px;
+        overflow-y: auto;
+        max-height: 60vh;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background: var(--bg);
+      }
+      .manage-divider {
+        border: 0;
+        border-top: 1px dashed var(--border);
+        margin: 4px 0;
+      }
+      .manage-card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        background: var(--bg);
+      }
+      .manage-card-builtin {
+        background: color-mix(in oklab, var(--muted) 6%, var(--bg));
+      }
+      .manage-card-shadowed {
+        opacity: 0.55;
+      }
+      .manage-card-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .manage-card-title {
+        font-size: 1em;
+      }
+      .manage-card-meta {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: 0.82em;
+        color: var(--muted);
+      }
+      .manage-badge,
+      .manage-meta-pill {
+        padding: 1px 7px;
+        border-radius: 999px;
+        font-size: 0.9em;
+      }
+      .manage-badge-builtin {
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
+        color: var(--accent);
+      }
+      .manage-badge-shadow {
+        background: color-mix(in oklab, var(--warning) 16%, transparent);
+        color: var(--warning);
+      }
+      .manage-meta-pill {
+        background: var(--hover);
+        color: var(--muted);
+        font-family: ui-monospace, monospace;
+      }
+      .manage-card-desc {
+        margin: 6px 0 0 0;
+        color: var(--fg);
+        font-size: 0.92em;
+      }
+      .manage-card-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+        margin-top: 8px;
+      }
+      .manage-row-btn {
+        min-width: 28px;
+        padding: 3px 8px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit;
+        cursor: pointer;
+      }
+      .manage-row-btn:hover:not(:disabled) {
+        background: var(--hover);
+      }
+      .manage-row-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      .manage-new-btn {
+        align-self: flex-start;
+        margin-top: 6px;
+      }
+      .manage-warning {
+        padding: 10px 20px;
+        border-top: 1px solid var(--border);
+        background: color-mix(in oklab, var(--warning) 8%, var(--bg));
+        color: var(--muted);
+        font-size: 0.85em;
+      }
+
+      /* Editor form */
+      .manage-back-btn {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        padding: 2px 8px;
+        font: inherit;
+        cursor: pointer;
+        margin-right: 4px;
+      }
+      .manage-back-btn:hover {
+        background: var(--hover);
+      }
+      .manage-form {
+        padding: 16px 20px;
+        overflow-y: auto;
+        max-height: 65vh;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        background: var(--bg);
+      }
+      .manage-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .manage-field-label {
+        font-size: 0.82em;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .manage-field-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .manage-input {
+        padding: 7px 9px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit;
+        font-size: 0.95em;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .manage-input:focus {
+        outline: 2px solid color-mix(in oklab, var(--accent) 40%, transparent);
+        outline-offset: -1px;
+        border-color: var(--accent);
+      }
+      .manage-textarea {
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.88em;
+        line-height: 1.5;
+        resize: vertical;
+      }
+      .manage-field-error {
+        color: var(--danger);
+        font-size: 0.85em;
+      }
     </style>
   </head>
   <body>

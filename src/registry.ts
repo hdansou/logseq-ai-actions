@@ -10,6 +10,69 @@ export interface RegistryResult {
   readonly errors: readonly string[];
 }
 
+export interface ParseUserActionsResult {
+  /** Valid user-defined actions in JSON-declaration order. */
+  readonly userActions: readonly Action[];
+  readonly errors: readonly string[];
+}
+
+/**
+ * Parse the `userActionsJson` setting into a validated list of user
+ * actions (sans merge with built-ins). Same validation as `buildRegistry`
+ * uses internally — exposed so the Manage Actions UI can list ONLY the
+ * user's entries (including those that shadow built-ins) without having
+ * to re-derive which-is-which from the merged registry.
+ */
+export function parseUserActions(userJsonRaw: string | null | undefined): ParseUserActionsResult {
+  const errors: string[] = [];
+
+  if (typeof userJsonRaw !== "string" || userJsonRaw.trim() === "") {
+    return { userActions: [], errors };
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(userJsonRaw);
+  } catch (err) {
+    errors.push(`User actions JSON failed to parse: ${(err as Error).message}`);
+    return { userActions: [], errors };
+  }
+
+  if (!Array.isArray(parsed)) {
+    errors.push(`User actions JSON must be an array at the top level; got ${typeof parsed}.`);
+    return { userActions: [], errors };
+  }
+
+  const userActions: Action[] = [];
+  const seenIds = new Set<string>();
+  for (let i = 0; i < parsed.length; i++) {
+    const entry = parsed[i];
+    const validated = ActionSchema.safeParse(entry);
+    if (!validated.success) {
+      const idLabel =
+        typeof (entry as { id?: unknown })?.id === "string"
+          ? ` (id: '${(entry as { id: string }).id}')`
+          : "";
+      const issues = validated.error.issues
+        .map((e) => `${e.path.join(".") || "(root)"}: ${e.message}`)
+        .join("; ");
+      errors.push(`Invalid user action at index ${i}${idLabel}: ${issues}`);
+      continue;
+    }
+    const action = validated.data;
+    if (seenIds.has(action.id)) {
+      errors.push(
+        `Duplicate user action id '${action.id}' at index ${i}; keeping the first occurrence.`,
+      );
+      continue;
+    }
+    seenIds.add(action.id);
+    userActions.push(action);
+  }
+
+  return { userActions, errors };
+}
+
 /**
  * Merge built-in actions with user-defined actions parsed from a JSON
  * string (typically the `userActionsJson` plugin setting). Pure — no
@@ -29,52 +92,7 @@ export function buildRegistry(
   builtin: readonly Action[],
   userJsonRaw: string | null | undefined,
 ): RegistryResult {
-  const errors: string[] = [];
-
-  if (typeof userJsonRaw !== "string" || userJsonRaw.trim() === "") {
-    return { actions: [...builtin], errors };
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(userJsonRaw);
-  } catch (err) {
-    errors.push(`User actions JSON failed to parse: ${(err as Error).message}`);
-    return { actions: [...builtin], errors };
-  }
-
-  if (!Array.isArray(parsed)) {
-    errors.push(`User actions JSON must be an array at the top level; got ${typeof parsed}.`);
-    return { actions: [...builtin], errors };
-  }
-
-  const userActions: Action[] = [];
-  const seenUserIds = new Set<string>();
-
-  for (let i = 0; i < parsed.length; i++) {
-    const entry = parsed[i];
-    const validated = ActionSchema.safeParse(entry);
-    if (!validated.success) {
-      const idLabel =
-        typeof (entry as { id?: unknown })?.id === "string"
-          ? ` (id: '${(entry as { id: string }).id}')`
-          : "";
-      const issues = validated.error.issues
-        .map((e) => `${e.path.join(".") || "(root)"}: ${e.message}`)
-        .join("; ");
-      errors.push(`Invalid user action at index ${i}${idLabel}: ${issues}`);
-      continue;
-    }
-    const action = validated.data;
-    if (seenUserIds.has(action.id)) {
-      errors.push(
-        `Duplicate user action id '${action.id}' at index ${i}; keeping the first occurrence.`,
-      );
-      continue;
-    }
-    seenUserIds.add(action.id);
-    userActions.push(action);
-  }
+  const { userActions, errors } = parseUserActions(userJsonRaw);
 
   const userById = new Map(userActions.map((a) => [a.id, a]));
   const builtinIds = new Set(builtin.map((a) => a.id));
