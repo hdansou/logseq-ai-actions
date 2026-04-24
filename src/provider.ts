@@ -18,6 +18,16 @@ export interface LLMProvider {
   complete(req: CompleteRequest): Promise<string>;
 }
 
+/**
+ * Options for `createOpenAIProvider`. The only knob today is `fetchImpl`,
+ * which lets the Logseq adapter inject a CORS-free transport based on
+ * `logseq.Request._request` for desktop Electron users. When omitted,
+ * the provider uses `globalThis.fetch`.
+ */
+export interface ProviderOptions {
+  readonly fetchImpl?: typeof globalThis.fetch;
+}
+
 /** Shape of the diagnostic payload attached to an `LLMProviderError`. */
 export interface LLMProviderErrorDetails {
   readonly status?: number;
@@ -34,11 +44,15 @@ export class LLMProviderError extends Error {
   }
 }
 
-export function createOpenAIProvider(): LLMProvider {
-  return { complete: openAIComplete };
+export function createOpenAIProvider(options: ProviderOptions = {}): LLMProvider {
+  const fetchFn = options.fetchImpl ?? globalThis.fetch;
+  return { complete: (req) => openAIComplete(req, fetchFn) };
 }
 
-async function openAIComplete(req: CompleteRequest): Promise<string> {
+async function openAIComplete(
+  req: CompleteRequest,
+  fetchFn: typeof globalThis.fetch,
+): Promise<string> {
   const url = `${ensureTrailingSlash(req.baseUrl)}chat/completions`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), req.timeoutMs);
@@ -58,7 +72,7 @@ async function openAIComplete(req: CompleteRequest): Promise<string> {
 
   let res: Response;
   try {
-    res = await fetch(url, {
+    res = await fetchFn(url, {
       method: "POST",
       headers,
       body,

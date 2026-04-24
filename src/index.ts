@@ -136,7 +136,40 @@ function handlePresetChange(
   }
 }
 
-const provider = createOpenAIProvider();
+/**
+ * Fetch shim that tries to route HTTP through Logseq's own `logseq.Request`
+ * helper (Electron desktop only — uses Electron's `net` module, bypassing
+ * browser CORS). On anything going wrong — API missing, unexpected shape,
+ * exception — fall back to `globalThis.fetch` so behaviour is never worse
+ * than the current direct-fetch path.
+ *
+ * `logseq.Request` is an underscore-prefixed SDK internal; its return
+ * shape isn't fully characterised by the public typings. We handle both
+ * "returns body directly" and "returns { data: body }" to be safe.
+ */
+async function logseqFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const url = typeof input === "string" ? input : input.toString();
+  const req = (logseq as { Request?: { _request?: (opts: unknown) => Promise<unknown> } }).Request;
+  if (!req?._request) {
+    return globalThis.fetch(input, init);
+  }
+  try {
+    const method = init?.method ?? "GET";
+    const headers = (init?.headers ?? {}) as Record<string, string>;
+    const data = init?.body ? (JSON.parse(String(init.body)) as unknown) : undefined;
+    const result = await req._request({ url, method, headers, data });
+    const body = (result as { data?: unknown })?.data ?? result;
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.warn("logseq-ai-actions: logseq.Request failed, falling back to fetch", err);
+    return globalThis.fetch(input, init);
+  }
+}
+
+const provider = createOpenAIProvider({ fetchImpl: logseqFetch });
 
 /**
  * Resolve the LLM input for an action from the block the cursor is in.
