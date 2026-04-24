@@ -48,7 +48,11 @@ describe("ActionSchema", () => {
     expect(() => ActionSchema.parse({ ...minimalAction, scope })).not.toThrow();
   });
 
-  it.each(["replace", "diff-panel"] as const)("accepts outputMode=%s", (mode) => {
+  it.each([
+    "replace",
+    "diff-panel",
+    "append-children",
+  ] as const)("accepts outputMode=%s", (mode) => {
     expect(() => ActionSchema.parse({ ...minimalAction, outputMode: mode })).not.toThrow();
   });
 });

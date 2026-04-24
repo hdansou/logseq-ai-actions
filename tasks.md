@@ -80,7 +80,8 @@ Every item here: failing Vitest test first, implementation second.
 - [x] `grammar` prompt + schema-validated literal
 - [x] `rewrite` prompt + schema-validated literal
 - [x] `summarize` prompt + schema-validated literal
-- [x] Slash commands registered for each: `/AI Spellcheck`, `/AI Grammar`, `/AI Rewrite`, `/AI Summarize`. Handler reads current block → calls `LLMProvider.complete` → `updateBlock` → success/failure toast. Busy toast while waiting.
+- [x] `key-points` prompt + schema-validated literal (subtree → child blocks via new `append-children` output mode)
+- [x] Slash commands registered for each: `/AI Spellcheck`, `/AI Grammar`, `/AI Rewrite`, `/AI Summarize`, `/AI Key Points`. Handler reads current block → calls `LLMProvider.complete` → applies per action.outputMode → success/failure toast. Busy toast while waiting.
 - [ ] Golden-fixture tests for each prompt (record desired input→output pairs; run against a real local model in Tier 2 integration tests)
 - [ ] Ship `actions.example.json` with 2–3 user-action examples
 

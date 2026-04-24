@@ -13,6 +13,8 @@ const REWRITE_PROMPT = `Rewrite the text to be clearer and more concise while pr
 
 const SUMMARIZE_PROMPT = `Summarize the text in 2 to 3 sentences, capturing the key points. Use plain prose; do not use bullet lists. Preserve any essential wiki-style [[links]] or #tags if they appear. Return ONLY the summary — no preamble, no explanation, no surrounding quotes.`;
 
+const KEY_POINTS_PROMPT = `Extract the key points from the text. Return ONLY a plain list — one point per line, no prefix or bullet character, no numbering, no headings, no commentary. Each point should stand alone as a complete short sentence. Aim for 3 to 7 points unless the text clearly warrants more. Do not include "Here are" preambles or closing remarks.`;
+
 /**
  * Built-in seed actions for v1. Each is validated against `ActionSchema`
  * at module-load time so any drift between the TS literal and the schema
@@ -58,6 +60,15 @@ export const SEED_ACTIONS: readonly Action[] = Object.freeze([
     scope: "subtree",
     outputMode: "diff-panel",
     systemPrompt: SUMMARIZE_PROMPT,
+  }),
+  parseAction({
+    id: "key-points",
+    title: "Key Points",
+    description:
+      "Extract the key points from the current block and its children. Each point is inserted as a new child block under the current block. Non-destructive — the existing content is not changed.",
+    scope: "subtree",
+    outputMode: "append-children",
+    systemPrompt: KEY_POINTS_PROMPT,
   }),
 ]);
 
