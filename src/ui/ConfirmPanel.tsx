@@ -11,10 +11,13 @@ import { LocalRemoteBadge } from "./LocalRemoteBadge";
 export interface ConfirmPanelProps {
   readonly actionTitle: string;
   readonly message: string;
-  readonly preview: string;
+  /** Optional — rendered as a <pre> block below the message. Omit for plain notices. */
+  readonly preview?: string;
   readonly acceptLabel: string;
   /** When provided, renders a LOCAL/REMOTE badge in the header. */
   readonly baseUrl?: string;
+  /** When true, hides the Reject button — use for acknowledgement-only notices. */
+  readonly hideReject?: boolean;
   readonly onAccept: () => void;
   readonly onReject: () => void;
 }
@@ -25,6 +28,7 @@ export const ConfirmPanel: FunctionComponent<ConfirmPanelProps> = ({
   preview,
   acceptLabel,
   baseUrl,
+  hideReject = false,
   onAccept,
   onReject,
 }) => {
@@ -57,13 +61,15 @@ export const ConfirmPanel: FunctionComponent<ConfirmPanelProps> = ({
 
         <section class="diag-body">
           <p class="diag-confirm-message">{message}</p>
-          <pre class="diag-pre">{preview}</pre>
+          {preview ? <pre class="diag-pre">{preview}</pre> : null}
         </section>
 
         <footer class="diff-footer">
-          <button type="button" class="diff-btn" onClick={onReject}>
-            Reject
-          </button>
+          {hideReject ? null : (
+            <button type="button" class="diff-btn" onClick={onReject}>
+              Reject
+            </button>
+          )}
           <button type="button" class="diff-btn diff-btn-primary" onClick={onAccept}>
             {acceptLabel}
           </button>
