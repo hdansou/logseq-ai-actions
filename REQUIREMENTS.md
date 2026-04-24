@@ -60,11 +60,11 @@ Additional behaviours:
 
 ## 7. Extensibility
 
-- **Hybrid.** Built-in seed actions in TS source; user-defined actions in a JSON file inside the user's graph at `logseq/plugins/logseq-action/actions.json` (path subject to confirmation at scaffold time).
-- Both share the same **Zod schema**.
-- Plugin watches the file and hot-reloads the registry on change.
+- **Hybrid.** Built-in seed actions in TS source; user-defined actions authored as a JSON array in the plugin's `userActionsJson` setting (textarea). The file-in-graph path (`logseq/plugins/logseq-action/actions.json`) is deferred behind a Desktop-Electron adapter — the settings-stored approach works identically on Logseq Web and Desktop today.
+- Both share the same **Zod schema** (`ActionSchema`).
+- Plugin rebuilds the registry on `onSettingsChanged` when `userActionsJson` changes. Editing an existing action's title / prompt / scope hot-reloads — the slash handler looks up its action by id at invocation time. Adding or removing an entry still requires a plugin toggle (Logseq has no slash-command deregister API).
 - No form-based UI in v1.
-- A user action whose `id` matches a built-in **shadows** the built-in (console warning).
+- A user action whose `id` matches a built-in **shadows** the built-in (swap in-place at same slash-menu slot).
 
 ## 8. Privacy, consent, endpoint trust
 

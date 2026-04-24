@@ -85,11 +85,12 @@ Every item here: failing Vitest test first, implementation second.
 - [ ] Golden-fixture tests for each prompt (record desired input→output pairs; run against a real local model in Tier 2 integration tests)
 - [ ] Ship `actions.example.json` with 2–3 user-action examples
 
-## Phase 7 — User JSON hot-reload
+## Phase 7 — User actions
 
-- [ ] File-watcher on `logseq/plugins/logseq-action/actions.json`
-- [ ] Validation failure UX (toast + console, don't crash)
-- [ ] Shadow-warning log line when user id matches a built-in
+- [x] Storage via `userActionsJson` plugin setting (textarea) — works on Web and Desktop alike. File-based storage under `logseq/plugins/logseq-action/actions.json` deferred until a Desktop-Electron adapter is worth its maintenance.
+- [x] Validation failure UX (toast on startup + console detail; invalid entries skipped, valid ones still load).
+- [x] Shadow handling when user id matches a built-in (swaps in-place at same slash-menu slot; no warning — intended feature per REQUIREMENTS §7).
+- [x] Hot reload: editing existing action's title/prompt takes effect on next invocation (handler resolves by id against `activeActions`). Adding/removing actions still requires a plugin toggle (Logseq's slash API has no deregister).
 
 ## Phase 8 — Documentation
 
