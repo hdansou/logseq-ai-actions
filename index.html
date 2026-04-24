@@ -52,7 +52,135 @@
         font-family:
           -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
         color: var(--fg);
+      }
+
+      /* The iframe is hidden until logseq.showMainUI() is called, so
+         a backdrop here only shows when the diff panel is live. */
+      body {
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        overflow-y: auto;
+        min-height: 100vh;
+      }
+
+      /* Diff panel — rendered into #app by src/ui/show-diff.ts */
+      .diff-root {
+        width: min(1100px, 95vw);
+        margin: 48px 16px;
+      }
+      .diff-modal {
         background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .diff-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .diff-hint {
+        color: var(--muted);
+        font-size: 0.85em;
+      }
+      .diff-hint kbd {
+        background: var(--hover);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-family: inherit;
+        font-size: 0.9em;
+      }
+      .diff-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1px;
+        background: var(--border);
+        min-height: 240px;
+      }
+      .diff-column {
+        background: var(--bg);
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+      }
+      .diff-column h4 {
+        margin: 0;
+        font-size: 0.85em;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .diff-pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.95em;
+        line-height: 1.55;
+      }
+      .diff-edit {
+        width: 100%;
+        min-height: 220px;
+        resize: vertical;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        font-size: 0.95em;
+        line-height: 1.55;
+        padding: 8px;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+      }
+      .diff-added {
+        background: color-mix(in oklab, var(--success) 18%, transparent);
+        border-radius: 3px;
+        padding: 0 2px;
+      }
+      .diff-removed {
+        background: color-mix(in oklab, var(--danger) 16%, transparent);
+        border-radius: 3px;
+        padding: 0 2px;
+        text-decoration: line-through;
+      }
+      .diff-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 12px 20px;
+        border-top: 1px solid var(--border);
+      }
+      .diff-btn {
+        padding: 6px 14px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit;
+        cursor: pointer;
+      }
+      .diff-btn:hover {
+        background: var(--hover);
+      }
+      .diff-btn-primary {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+      }
+      .diff-btn-primary:hover {
+        background: var(--accent-hover);
       }
     </style>
   </head>
