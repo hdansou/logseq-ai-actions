@@ -30,6 +30,7 @@ Release notes are authored via [changesets](https://github.com/changesets/change
 - Slash commands: `/AI Spellcheck`, `/AI Grammar`, `/AI Rewrite`, `/AI Summarize`. Each runs the corresponding seed action against the block the cursor is in, reads the current block via `logseq.Editor.getCurrentBlock` (preferring `title` over the deprecated `content` per runtime-gotchas §13), POSTs to the configured endpoint, replaces the block content on success. Shows busy + success/failure toasts. Cmd-Z undoes the replacement.
 - README: dedicated **CORS** subsection under Quick start. Documents that Logseq Desktop is not CORS-gated (requests route through Electron's main process) while Logseq Web is, and provides the specific knob for each preset — LM Studio's "Cross-Origin-Resource-Sharing" toggle / `lms server start --cors`, Ollama's `OLLAMA_ORIGINS="*"` env var, Custom-endpoint header guidance.
 
+- `computeDiff(original, proposed): DiffSegment[]` — pure word-level diff wrapping `jsdiff`'s `diffWords`. Emits a tagged-union stream (`same` / `added` / `removed`) with empty-value segments dropped. Round-trip invariant: concatenating `same + added` reconstructs proposed; `same + removed` reconstructs original. 6 tests.
 - GitHub Actions CI workflow (`.github/workflows/ci.yml`): Tier 1 validation on every push + PR. Steps: pnpm install with frozen lockfile, `biome ci` (stricter than local `biome check`), `tsc --noEmit`, Vitest with the 80 % coverage gate, `vite build`. 10-minute timeout. Concurrency group cancels redundant runs on the same ref.
 
 ### Changed
