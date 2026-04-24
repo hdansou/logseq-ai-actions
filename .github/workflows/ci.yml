@@ -1,0 +1,55 @@
+name: CI
+
+# Tier 1 per REQUIREMENTS §9: every push + PR. Tier 3 (Playwright e2e)
+# and Tier 2 (live-LLM integration) are deliberately not yet wired — the
+# test files don't exist. Land them with the jobs themselves so CI stays
+# green and meaningful.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tier1:
+    name: Tier 1 (lint + typecheck + unit tests + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (Biome CI mode)
+        # `biome ci` is the CI-tuned variant — fails on any lint or format
+        # deviation, no `--write` side effect. Local `pnpm lint` uses the
+        # non-CI `biome check` so developers can see the reports.
+        run: pnpm exec biome ci .
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests + coverage (80 % gate)
+        # vitest.config.ts pins thresholds at 80 % lines/statements/
+        # branches/functions on the pure `src/**` modules. Anything below
+        # fails the job.
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
