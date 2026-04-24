@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { ActionScope, OutputMode } from "./types";
 
 const SCOPES: readonly ActionScope[] = ["selection", "block", "subtree"];
-const OUTPUT_MODES: readonly OutputMode[] = ["replace", "diff-panel"];
+const OUTPUT_MODES: readonly OutputMode[] = ["replace", "diff-panel", "append-children"];
 
 /**
  * Canonical Action shape. Single source of truth for both built-in seed

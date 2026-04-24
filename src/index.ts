@@ -2,10 +2,12 @@ import "@logseq/libs";
 
 import type { Action } from "./action";
 import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "./debug-log";
+import { parsePoints } from "./parse-points";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
 import { SEED_ACTIONS } from "./seed-actions";
 import { type BlockNode, flattenSubtree } from "./subtree";
+import { showConfirm } from "./ui/show-confirm";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showDiffPanel } from "./ui/show-diff";
 
@@ -325,6 +327,35 @@ async function runAction(action: Action): Promise<void> {
       }
       await logseq.Editor.updateBlock(input.uuid, accepted);
       logseq.UI.showMsg(`${action.title} applied`, "success");
+      return;
+    }
+
+    if (action.outputMode === "append-children") {
+      const points = parsePoints(output);
+      if (points.length === 0) {
+        logseq.UI.showMsg(`${action.title}: no points extracted`, "warning");
+        return;
+      }
+      const preview = points.map((p) => `• ${p}`).join("\n");
+      const accepted = await showConfirm(action.title, {
+        message: `Add ${points.length} new child block${points.length === 1 ? "" : "s"} under the current block?`,
+        preview,
+        acceptLabel: "Add as children",
+      });
+      if (!accepted) {
+        logseq.UI.showMsg(`${action.title} discarded`, "info");
+        return;
+      }
+      for (const point of points) {
+        // Ordered sequential inserts preserve top-down order. `sibling:
+        // false` attaches under the current block rather than as a
+        // sibling.
+        await logseq.Editor.insertBlock(input.uuid, point, { sibling: false });
+      }
+      logseq.UI.showMsg(
+        `${action.title}: added ${points.length} child block${points.length === 1 ? "" : "s"}`,
+        "success",
+      );
       return;
     }
 

@@ -61,12 +61,7 @@ export const DiagnosticsPanel: FunctionComponent<DiagnosticsPanelProps> = ({ buf
               action.
             </p>
           ) : (
-            entries.map((entry, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: entries render is
-              // top-level + entries are never reordered between renders, so
-              // index is stable for this list.
-              <DiagnosticEntry entry={entry} key={i} />
-            ))
+            entries.map((entry, i) => <DiagnosticEntry entry={entry} key={i} />)
           )}
         </section>
 

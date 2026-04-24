@@ -6,7 +6,7 @@
 export type ActionScope = "selection" | "block" | "subtree";
 
 /** How the LLM output is applied. See REQUIREMENTS §6. */
-export type OutputMode = "replace" | "diff-panel";
+export type OutputMode = "replace" | "diff-panel" | "append-children";
 
 /** Trust classification of the configured LLM endpoint. See REQUIREMENTS §8. */
 export type EndpointTrust = "local" | "remote";

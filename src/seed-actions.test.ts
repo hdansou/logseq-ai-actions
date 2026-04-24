@@ -3,12 +3,13 @@ import { ActionSchema } from "./action";
 import { findSeedAction, SEED_ACTIONS } from "./seed-actions";
 
 describe("SEED_ACTIONS", () => {
-  it("contains spellcheck, grammar, rewrite, summarize in that order", () => {
+  it("contains spellcheck, grammar, rewrite, summarize, key-points in that order", () => {
     expect(SEED_ACTIONS.map((a) => a.id)).toEqual([
       "spellcheck",
       "grammar",
       "rewrite",
       "summarize",
+      "key-points",
     ]);
   });
 
@@ -30,23 +31,25 @@ describe("SEED_ACTIONS", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("scope assignments match the seed set: summarize is subtree, rest are block", () => {
+  it("scope assignments match the seed set", () => {
     const byId = Object.fromEntries(SEED_ACTIONS.map((a) => [a.id, a.scope]));
     expect(byId).toEqual({
       spellcheck: "block",
       grammar: "block",
       rewrite: "block",
       summarize: "subtree",
+      "key-points": "subtree",
     });
   });
 
-  it("outputMode assignments: spellcheck/grammar = replace; rewrite/summarize = diff-panel", () => {
+  it("outputMode assignments match the seed set", () => {
     const byId = Object.fromEntries(SEED_ACTIONS.map((a) => [a.id, a.outputMode]));
     expect(byId).toEqual({
       spellcheck: "replace",
       grammar: "replace",
       rewrite: "diff-panel",
       summarize: "diff-panel",
+      "key-points": "append-children",
     });
   });
 });

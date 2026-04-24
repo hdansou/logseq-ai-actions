@@ -43,11 +43,18 @@ One `Action` declaration auto-wires every surface. Adding an action is a **singl
 | `grammar` | selection → block | replace |
 | `rewrite` | selection → block | diff-panel |
 | `summarize` | subtree | diff-panel |
+| `key-points` | subtree | append-children |
 
 ## 6. Output handling
 
-- **Default:** replace block text with LLM output.
-- **Opt-in:** diff view in the side panel — accept / reject / edit.
+Three output modes; each action declares its default:
+
+- **`replace`** — overwrite the block's text with the LLM output.
+- **`diff-panel`** — show a side panel with original vs proposed; user accepts / rejects / edits before applying.
+- **`append-children`** — append the LLM output as *new child blocks* under the current block (one line per child). Non-destructive: the parent and existing children are untouched. Used by list-producing actions (e.g. Key Points).
+
+Additional behaviours:
+
 - One-click undo (in-session revert of pre-action content).
 - Streaming updates live into block (replace mode) or into "proposed" side (diff panel).
 
