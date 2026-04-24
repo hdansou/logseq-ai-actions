@@ -60,11 +60,13 @@ Additional behaviours:
 
 ## 7. Extensibility
 
-- **Hybrid.** Built-in seed actions in TS source; user-defined actions authored as a JSON array in the plugin's `userActionsJson` setting (textarea). The file-in-graph path (`logseq/plugins/logseq-action/actions.json`) is deferred behind a Desktop-Electron adapter — the settings-stored approach works identically on Logseq Web and Desktop today.
+- **Hybrid.** Built-in seed actions in TS source; user-defined actions stored as a JSON array in the plugin's `userActionsJson` setting. The file-in-graph path (`logseq/plugins/logseq-action/actions.json`) is deferred behind a Desktop-Electron adapter — the settings-stored approach works identically on Logseq Web and Desktop today.
 - Both share the same **Zod schema** (`ActionSchema`).
+- Two authoring surfaces, round-tripping through the same setting:
+  1. **`ManageActionsPanel`** (primary) — opened via `/AI Manage Actions`, the palette entry, or the toolbar picker's footer. CRUD UI with per-field validation, Up/Down reorder, shadowed-built-in indicators, **Import JSON** (paste + append), and **Copy all** (clipboard export).
+  2. **Native settings textarea** (power-user) — the `userActionsJson` field in the plugin's gear settings. Useful for scripting, migration, or hand-editing.
 - Plugin rebuilds the registry on `onSettingsChanged` when `userActionsJson` changes. Editing an existing action's title / prompt / scope hot-reloads — the slash handler looks up its action by id at invocation time. Adding or removing an entry still requires a plugin toggle (Logseq has no slash-command deregister API).
-- No form-based UI in v1.
-- A user action whose `id` matches a built-in **shadows** the built-in (swap in-place at same slash-menu slot).
+- A user action whose `id` matches a built-in **shadows** the built-in (swap in-place at same slash-menu slot; Manage UI shows a "shadowed by user" badge).
 
 ## 8. Privacy, consent, endpoint trust
 
@@ -88,7 +90,7 @@ Additional behaviours:
 
 ## 10. Tooling
 
-- **Build:** Vite + `vite-plugin-logseq` (verify exact package at scaffold time).
+- **Build:** Vite 8, vanilla config. `vite-plugin-logseq` is not needed — Logseq loads the plugin directly from the dev-server URL.
 - **Package manager:** pnpm.
 - **Lint + format:** Biome (single binary, replaces ESLint + Prettier).
 - **UI framework:** Preact (React-compatible API, tiny runtime).
@@ -101,10 +103,10 @@ Additional behaviours:
 
 - `tasks.md` at repo root — primary task tracker.
 - `CHANGELOG.md` — Keep a Changelog format, driven by changesets.
-- `README.md` — setup, preset table, LOCAL/REMOTE warning, "don't invoke on sensitive content", example user `actions.json`.
-- `actions.example.json` — reference for user-defined actions.
+- `README.md` — setup, preset table, CORS guide, privacy note, user-actions primer pointing at the Manage UI.
+- ~~`actions.example.json`~~ — superseded by the Manage Actions UI + README example snippet. Dropped.
 - MIT license.
-- Semantic versioning. **v1.0.0 ships only** when the seed actions + diff panel + preset picker + LOCAL/REMOTE label + first-run modal are implemented and covered by Tier 1 + Tier 3 tests.
+- Semantic versioning. **v1.0.0 release gate** — every runtime feature (seed actions, diff panel, preset picker, LOCAL/REMOTE label, first-run modal, Manage UI, streaming, all five entry points) is **shipped**. Remaining blockers: Tier 3 e2e tests (Phase 9) and release-prep checklist (Phase 10 — author + repo confirmation, first changeset, tag, marketplace submission).
 
 ## 12. Identity
 

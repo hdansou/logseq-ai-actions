@@ -12,115 +12,129 @@ Legend: `[ ]` todo, `[~]` in progress, `[x]` done, `[-]` dropped.
 - [x] Write `REQUIREMENTS.md` (2026-04-23)
 - [x] Initialize `tasks.md` and `CHANGELOG.md`
 - [x] Draft `AGENTS.md` (non-discoverable landmines only)
-- [ ] Confirm author display name and GitHub repo URL *(before first public release, not before first commit)*
+- [ ] Confirm author display name and GitHub repo URL — done for author (Danzu) and repo (`https://github.com/hdansou/logseq-ai-actions`), email exposure in `package.json` `author` still to confirm before first public release
 - [x] `git init` + first commit (requirements-only baseline) — `6c781b8`
-- [ ] Decide whether the local dir rename `logseq-action/` → `logseq-ai-actions/` is worth it *(default: keep, document mismatch)*
+- [-] Local dir rename `logseq-action/` → `logseq-ai-actions/` — rejected, mismatch documented in AGENTS.md + README
 
 ## Phase 1 — Tooling scaffold
 
 - [x] `pnpm init`; pin Node LTS in `.nvmrc` / `engines` (Node 22)
-- [x] Add Vite (vanilla — `vite-plugin-logseq` unnecessary; Logseq loads from Vite dev server directly)
-- [x] Add TypeScript (`tsc`), strict `tsconfig.json` with `moduleResolution: bundler`
+- [x] Add Vite (vanilla — no `vite-plugin-logseq`; Logseq loads from the dev-server URL directly)
+- [x] Add TypeScript, strict `tsconfig.json` with `moduleResolution: bundler`
 - [x] Add Biome; minimal `biome.json`
-- [x] Add Vitest + `@vitest/coverage-v8` with 80 % gate on `src/**` (excluding `index.ts`, `__sdk_guard__.ts`, `adapter/`, `ui/`)
+- [x] Add Vitest + `@vitest/coverage-v8` with 80 % gate
 - [x] Add Zod
-- [x] Add Preact + `preact/compat` alias; JSX via `tsconfig.json` (esbuild reads it automatically — Vite 8 doesn't expose `esbuild.jsx` in types)
+- [x] Add Preact + `preact/compat` alias; JSX via `tsconfig.json`
 - [x] Add changesets (`.changeset/config.json` with `access: public`)
 - [x] Add `simple-git-hooks` pre-commit: `biome check --write` + `tsc --noEmit`
-- [x] `package.json` scripts: `dev`, `build`, `typecheck`, `test`, `test:watch`, `test:integration`, `test:e2e`, `lint`, `lint:fix`, `format`, `changeset`, `release`, `prepare`
-- [x] `LICENSE` (MIT) — landed in Phase 0 baseline
-- [x] `.gitignore` — landed in Phase 0 baseline
+- [x] `package.json` scripts wired (dev, build, typecheck, test, lint, lint:fix, format, changeset, release, prepare)
+- [x] `LICENSE` (MIT) — Phase 0 baseline
+- [x] `.gitignore` — Phase 0 baseline
 - [x] `src/__sdk_guard__.ts` — compile-time floor at `@logseq/libs ≥ 0.3.1` (references `getCurrentRoute`)
 - [x] `index.html` with light/dark CSS variable scaffolding
-- [x] GitHub Actions workflow — Tier 1 (lint + typecheck + test + build) on every push and PR. Tier 2/3 jobs will land with the respective test suites (not as empty placeholders).
+- [x] GitHub Actions workflow — Tier 1 (lint + typecheck + test + build) on every push and PR
 
 ## Phase 2 — Pure core (TDD)
 
-Every item here: failing Vitest test first, implementation second.
-
 - [x] `classifyEndpoint(baseUrl)` — LOCAL vs REMOTE (strict loopback; fail-closed on invalid)
 - [x] Endpoint presets (LM Studio / Ollama / Goose / Custom) with `findPreset` lookup
-- [x] Zod schema for `Action` (id, title, description, scope, outputMode, systemPrompt) — `src/action.ts`, 10 tests
-- [x] Action registry pipeline — `buildRegistry(builtin, userJsonRaw)` in `src/registry.ts`, 10 tests, 100 % lines. Shadowing, dedup, individual entry validation without blocking valid ones, stable order.
-- [ ] ~~Scope resolver~~ — block + subtree handled inline in `resolveInput`; selection deferred per REQUIREMENTS §14. Revisit when selection-scope work resumes (needs `spliceText` + `detectSelection`).
+- [x] `ActionSchema` (Zod) + `parseAction` — 10 tests
+- [x] Registry pipeline — `buildRegistry` + `parseUserActions` (public split) — shadowing, dedup, individual entry validation, stable order
+- [-] Scope resolver — block + subtree handled inline in `resolveInput`; selection deferred per REQUIREMENTS §14
 - [x] Subtree flattener (`flattenSubtree` — Markdown outline, 2-space indent per depth, 10 tests)
-- [ ] Prompt templater: `{{content}}`, `{{selection}}`, etc.
-- [x] Streaming chunk parser (OpenAI Chat Completions SSE format) — `src/sse.ts`, stateful push/flush API, 11 tests, 100 % lines
-- [x] Diff model — `computeDiff(original, proposed): DiffSegment[]` wrapping jsdiff's `diffWords` (6 tests, 100% coverage)
-- [x] Debug log ring buffer — `createRingBuffer<T>(capacity)` + `truncate(s, limit)` + `debugLog` singleton at capacity 50. 10 tests. In-memory only per REQUIREMENTS §8.
+- [x] Diff module — `computeDiff(original, proposed)` wrapping jsdiff (6 tests, 100 % coverage)
+- [x] Streaming chunk parser (`src/sse.ts`, 11 tests, 100 % lines)
+- [x] Debug log ring buffer — `createRingBuffer<T>(capacity)` + `truncate` + `debugLog` singleton (cap 50; 10 tests)
+- [x] `parsePoints` — tolerates bullet prefixes, code fences, "Here are…" preambles (9 tests)
+- [ ] Prompt templater (`{{content}}`, `{{selection}}`, etc.) — deferred; seed prompts use plain interpolation, no templating needed yet
 
 ## Phase 3 — LLM provider
 
 - [x] `LLMProvider` interface (`src/provider.ts`)
-- [x] OpenAI-compatible implementation, non-streaming (10 tests covering happy path, auth header, trailing slash, HTTP error, timeout, network error, empty choices, whitespace trim)
-- [ ] Streaming variant (SSE parsing) — lands when we wire diff-panel in Phase 5
-- [ ] Preset table (LM Studio / Ollama / Goose / Custom) with default base URLs
-- [ ] Integration test (Tier 2) against a live endpoint, gated by `TEST_LIVE_LLM=1`
+- [x] Non-streaming implementation — 10 tests (happy path, auth header, trailing slash, HTTP error, timeout, network error, empty choices, whitespace trim)
+- [x] Streaming implementation — `provider.stream(req, onChunk)`, 5 tests with mocked ReadableStreams
+- [x] Preset table (Phase 2 item — same module)
+- [x] `fetchImpl` injection + `logseqFetch` shim (falls back to `globalThis.fetch` when host scope unreachable)
+- [ ] Tier 2 integration test against a live endpoint, gated by `TEST_LIVE_LLM=1` — placeholder
 
-## Phase 4 — Logseq adapter (thin)
+## Phase 4 — Logseq adapter (inlined)
 
-- [ ] `editor` adapter: read current block, selection, subtree
-- [ ] `editor` adapter: write (replace, splice selection)
-- [ ] `registry` adapter: register slash / context-menu / palette / shortcut / toolbar from a single list
-- [ ] `settings` adapter: typed getter/setter wrapping `logseq.settings`
+Originally specced as separate adapter modules; v1 reality is all of this lives in `src/index.ts` as thin helpers. Works fine; extract to `src/adapter/*` only if multiple callers emerge.
+
+- [x] Block read — `logseq.Editor.getCurrentBlock` / `getBlock(uuid, {includeChildren})` via `resolveInput(action, explicitBlockUuid?)`
+- [x] Block write — `updateBlock` for replace / diff-panel accept; `insertBlock` with `sibling: false` for append-children
+- [x] Registration — slash + palette + context menu + toolbar all wired from one action list (`rebuildRegistry`), gated by `registeredInvocationIds`
+- [x] Settings adapter — `readSettings()` snapshot helper; `readPrivateSetting(k, fallback)` for the underscore-prefixed persistence keys (`_consentSeen`, `_lastEndpointTrust`)
 
 ## Phase 5 — UI (Preact)
 
-- [ ] First-run consent modal
-- [x] Settings panel via **native** `logseq.useSettingsSchema` (preset picker, baseUrl, model, API key, temperature, timeout, debug-log toggle) + preset-change auto-fill for baseUrl/model
-- [x] Diff side panel (Preact) — `DiffPanel` + `showDiffPanel` mount helper. Renders side-by-side Original/Proposed with word-level highlights, Edit mode, Accept/Reject buttons, keyboard shortcuts (Esc, Cmd/Ctrl-Enter). Wired into `runAction` for `outputMode: "diff-panel"`.
-- [ ] Replace native settings with Preact settings panel (adds LOCAL/REMOTE badge, REMOTE warning modal, inline validation)
-- [ ] LOCAL/REMOTE badge component (used in settings + palette + modals)
-- [ ] Diff side panel (original / proposed / accept / reject / edit)
-- [ ] Debug log viewer (opt-in panel)
+- [x] Native settings via `logseq.useSettingsSchema` (preset picker, baseUrl, model, API key, temperature, timeout, debug-log toggle, userActionsJson) + preset-change auto-fill
+- [x] First-run consent modal (one-time, backed by `_consentSeen` hidden setting)
+- [x] LOCAL/REMOTE endpoint badge — `LocalRemoteBadge` component, rendered in every panel header
+- [x] LOCAL → REMOTE one-time transition warning modal (`_lastEndpointTrust` tracks)
+- [x] `DiffPanel` — side-by-side Original/Proposed with word-level highlights, Edit mode, action bar (Rewrite / Summarize re-run), streaming support
+- [x] `ConfirmPanel` — single preview + Accept/Reject; `hideReject` for acknowledgement-only notices
+- [x] `DiagnosticsPanel` + `/AI Diagnostics` — read-only debug-log viewer with Copy all / Clear all
+- [x] `ManageActionsPanel` + `/AI Manage Actions` — full CRUD for user-defined actions, with Import / Export JSON
+- [x] `ActionPickerPanel` + toolbar ✨ button — discovery surface listing every action plus Manage / Diagnostics links
+- [ ] Replace native settings with a Preact settings panel (would enable inline validation + prettier LOCAL/REMOTE preview) — **v2**
 
 ## Phase 6 — Seed actions
 
-- [x] `spellcheck` prompt + schema-validated literal
-- [x] `grammar` prompt + schema-validated literal
-- [x] `rewrite` prompt + schema-validated literal
-- [x] `summarize` prompt + schema-validated literal
-- [x] `key-points` prompt + schema-validated literal (subtree → child blocks via new `append-children` output mode)
-- [x] Slash commands registered for each: `/AI Spellcheck`, `/AI Grammar`, `/AI Rewrite`, `/AI Summarize`, `/AI Key Points`. Handler reads current block → calls `LLMProvider.complete` → applies per action.outputMode → success/failure toast. Busy toast while waiting.
-- [ ] Golden-fixture tests for each prompt (record desired input→output pairs; run against a real local model in Tier 2 integration tests)
-- [ ] Ship `actions.example.json` with 2–3 user-action examples
+- [x] `spellcheck` (block → replace)
+- [x] `grammar` (selection → block; replace)
+- [x] `rewrite` (selection → block; diff-panel, streaming)
+- [x] `summarize` (subtree; diff-panel, streaming)
+- [x] `key-points` (subtree → append-children)
+- [x] Slash commands registered for each + `/AI Diagnostics` + `/AI Manage Actions`
+- [x] Command palette entries for each (`AI: <title>`) + Diagnostics + Manage Actions
+- [x] Block context menu entries (`"AI: <title>"`) for each
+- [x] Toolbar button → ActionPickerPanel listing all
+- [ ] Golden-fixture tests per prompt — deferred; needs Tier 2 live-LLM infra
+- [-] Ship `actions.example.json` — superseded by Manage Actions UI + inline README example
 
 ## Phase 7 — User actions
 
-- [x] Storage via `userActionsJson` plugin setting (textarea) — works on Web and Desktop alike. File-based storage under `logseq/plugins/logseq-action/actions.json` deferred until a Desktop-Electron adapter is worth its maintenance.
-- [x] Validation failure UX (toast on startup + console detail; invalid entries skipped, valid ones still load).
-- [x] Shadow handling when user id matches a built-in (swaps in-place at same slash-menu slot; no warning — intended feature per REQUIREMENTS §7).
-- [x] Hot reload: editing existing action's title/prompt takes effect on next invocation (handler resolves by id against `activeActions`). Adding/removing actions still requires a plugin toggle (Logseq's slash API has no deregister).
+- [x] Storage via `userActionsJson` plugin setting (textarea) — works Web and Desktop alike
+- [x] Validation failure UX (toast on startup + console detail; invalid entries skipped, valid ones still load)
+- [x] Shadow handling (user id == built-in id → swaps in place; Manage UI shows "shadowed by user" badge)
+- [x] Hot-reload: editing existing action's title/prompt applies on next invocation (handler resolves by id at call time); add/remove requires plugin toggle (Logseq has no deregister API)
+- [x] `ManageActionsPanel` — CRUD UI with per-field validation, reorder, Import/Export JSON. Round-trips through the same `userActionsJson` setting.
+- [x] `parseUserActions` extracted from `buildRegistry` as a public helper so the Manage UI can list only user entries (including shadow cases)
 
 ## Phase 8 — Documentation
 
-- [x] `README.md` — install, preset table, LOCAL/REMOTE warning, "don't invoke on sensitive content", quick-start
+- [x] `README.md` — install, preset table, CORS guide, privacy note, user-actions primer, development commands
 - [x] Plugin icon (`public/icon.svg` + rendered `public/icon.png`, 128×128)
-- [ ] Inline doc comments on public types (Action, LLMProvider — classifyEndpoint already documented)
-- [ ] README: user JSON example (after Phase 7 hot-reload lands)
+- [x] `REQUIREMENTS.md` §14 — selection-scope deferral memo with pain table, SDK gap, acceptance criteria for when we revisit
+- [x] `AGENTS.md` — non-discoverable landmines (author name, package-vs-dir mismatch, SDK import pattern, `pnpm dev --port` quirk, dist/ + public/ timing)
+- [ ] Inline doc comments on public types (`Action`, `LLMProvider`, `classifyEndpoint`, …) — partial; revisit before v1.0.0
 
-## Phase 9 — E2E
+## Phase 9 — E2E (blocker for v1.0.0)
 
 - [ ] Playwright setup against local Logseq (reuse `logseq-plugin-tester` skill)
 - [ ] MSW mock LLM server for deterministic responses
-- [ ] One golden-path e2e per seed action (slash → expected outcome)
+- [ ] One golden-path e2e per seed action (invoke → expected outcome on a DB graph fixture)
+- [ ] CI Tier 3 job (`.github/workflows/ci.yml` placeholder to replace)
 
 ## Phase 10 — Release 1.0.0
 
-- [ ] Confirm author + repo URL with user
-- [ ] First changeset summarizing v1.0.0
+- [ ] Confirm author email exposure in `package.json` `author` (currently `Danzu <hdansou@gmail.com>` — public OK?)
+- [ ] First changeset summarising v1.0.0
 - [ ] Tag + GitHub release
 - [ ] Submit to Logseq Marketplace (separate PR to marketplace repo)
+- [ ] Freeze REQUIREMENTS.md; future changes go through a versioned PR
 
----
+## Deferred / v2 candidates
 
-## Backlog / v2 candidates
-
+- True `selection` scope with block-range splicing — see REQUIREMENTS §14
 - Whole-page and multi-select scopes
-- Per-invocation scope / output-mode override (e.g., Shift-click)
-- Form-based settings UI for user actions
-- Cloud LLM provider
+- Per-invocation scope / output-mode override
+- Form-based settings UI replacing native settings
+- Cloud LLM provider adapter
 - Embedded WebLLM provider
-- Redaction / content filtering (e.g., skip `#private` blocks)
-- Action history panel
+- File-in-graph storage path for user actions (Desktop-Electron adapter)
+- Redaction / content filtering
+- Action history panel (piggybacks on the debug ring buffer)
 - Prompt library / community action gallery
+- Block-context-menu / toolbar icon replacing ✨ with an SVG asset
