@@ -6,6 +6,7 @@ import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
 import { SEED_ACTIONS } from "./seed-actions";
 import { type BlockNode, flattenSubtree } from "./subtree";
+import { showDiagnostics } from "./ui/show-diagnostics";
 import { showDiffPanel } from "./ui/show-diff";
 
 // Plugin entry point. Keep this module SHALLOW — it is the only place that
@@ -358,7 +359,11 @@ async function main(): Promise<void> {
     });
   }
 
-  console.info(`logseq-ai-actions: ready — registered ${SEED_ACTIONS.length} slash commands`);
+  logseq.Editor.registerSlashCommand("AI Diagnostics", async () => {
+    await showDiagnostics();
+  });
+
+  console.info(`logseq-ai-actions: ready — registered ${SEED_ACTIONS.length + 1} slash commands`);
 }
 
 logseq.ready(main).catch((err) => {

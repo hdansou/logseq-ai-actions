@@ -182,6 +182,79 @@
       .diff-btn-primary:hover {
         background: var(--accent-hover);
       }
+      .diff-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* Diagnostics panel — reuses .diff-root / .diff-modal / .diff-header /
+         .diff-footer and adds its own body + entry styles. */
+      .diag-body {
+        padding: 16px 20px;
+        overflow-y: auto;
+        max-height: 60vh;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        background: var(--bg);
+      }
+      .diag-empty {
+        color: var(--muted);
+        text-align: center;
+        padding: 40px 20px;
+      }
+      .diag-entry {
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        background: var(--bg);
+      }
+      .diag-entry-header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+        flex-wrap: wrap;
+      }
+      .diag-entry-header code {
+        font-family: ui-monospace, monospace;
+        color: var(--accent);
+        font-weight: 600;
+      }
+      .diag-meta {
+        color: var(--muted);
+        font-size: 0.85em;
+        font-weight: normal;
+      }
+      .diag-label {
+        font-size: 0.78em;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-top: 8px;
+        margin-bottom: 3px;
+      }
+      .diag-pre {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.85em;
+        background: var(--hover);
+        padding: 8px 10px;
+        border-radius: 4px;
+      }
+      .diag-error {
+        background: color-mix(in oklab, var(--danger) 14%, transparent);
+        color: var(--danger);
+      }
+      .diag-status {
+        color: var(--muted);
+        font-size: 0.9em;
+        margin-right: auto;
+      }
     </style>
   </head>
   <body>
