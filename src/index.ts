@@ -174,6 +174,20 @@ function rebuildRegistry(showToastOnError: boolean): void {
       { key: `logseq-ai-actions/${action.id}`, label: `AI: ${action.title}` },
       handler,
     );
+    // Block context-menu entry: handler receives the clicked block's
+    // uuid, which we pass to runAction so the action runs on that
+    // specific block rather than wherever the cursor happens to be.
+    logseq.Editor.registerBlockContextMenuItem(`AI: ${action.title}`, async (e) => {
+      const fresh = activeActions.find((a) => a.id === action.id);
+      if (!fresh) {
+        logseq.UI.showMsg(
+          `Action '${action.id}' is no longer available — reload the plugin to refresh the menus`,
+          "warning",
+        );
+        return;
+      }
+      await runAction(fresh, e.uuid);
+    });
   }
 }
 
@@ -388,18 +402,30 @@ interface ResolvedInput {
 type ResolveResult = ResolvedInput | { readonly uuid: null; readonly reason: string };
 
 /**
- * Resolve the LLM input for an action from the block the cursor is in.
+ * Resolve the LLM input for an action from the block the cursor is in,
+ * or from a specific block uuid when the invocation surface provides
+ * one (e.g., block context menu).
+ *
  *   - `block`: both LLM input and diff "original" are the block's own text.
  *   - `subtree`: LLM input is the flattened outline; diff "original" stays
  *     the parent block's own text (what actually gets replaced). Otherwise
  *     the diff view shows "outline → summary" which lights up every word
  *     as "changed" and is misleading.
  *   - `selection`: treated as `block` until the selection-range adapter
- *     lands.
+ *     lands (REQUIREMENTS §14).
  */
-async function resolveInput(action: Action): Promise<ResolveResult> {
-  const current = await logseq.Editor.getCurrentBlock();
-  if (!current?.uuid) return { uuid: null, reason: "Place your cursor inside a block first." };
+async function resolveInput(action: Action, explicitBlockUuid?: string): Promise<ResolveResult> {
+  const current = explicitBlockUuid
+    ? await logseq.Editor.getBlock(explicitBlockUuid)
+    : await logseq.Editor.getCurrentBlock();
+  if (!current?.uuid) {
+    return {
+      uuid: null,
+      reason: explicitBlockUuid
+        ? "Couldn't read that block — was it deleted?"
+        : "Place your cursor inside a block first.",
+    };
+  }
 
   const currentText = String(
     (current as unknown as { title?: string; content?: string }).title ??
@@ -429,10 +455,10 @@ async function resolveInput(action: Action): Promise<ResolveResult> {
  * children as supporting detail). Future work (Phase 5): `diff-panel`
  * output mode and `selection` scope.
  */
-async function runAction(action: Action): Promise<void> {
+async function runAction(action: Action, explicitBlockUuid?: string): Promise<void> {
   const settings = readSettings();
 
-  const input = await resolveInput(action);
+  const input = await resolveInput(action, explicitBlockUuid);
   if (input.uuid === null) {
     logseq.UI.showMsg(input.reason, "warning");
     return;
@@ -453,7 +479,10 @@ async function runAction(action: Action): Promise<void> {
     ): Promise<{ finalText: string; actionTitle: string }> => {
       const a = activeActions.find((x) => x.id === actionId);
       if (!a) throw new Error(`Unknown action: ${actionId}`);
-      const inp = await resolveInput(a);
+      // Carry the explicit uuid into re-runs so switching actions in
+      // the diff-panel action bar stays on the same block even when
+      // the user's cursor has since moved.
+      const inp = await resolveInput(a, explicitBlockUuid);
       if (inp.uuid === null) throw new Error(inp.reason);
       // Read settings fresh — user may have changed preset/model
       // between the initial invocation and a re-run (runtime-gotchas §7).
@@ -590,8 +619,19 @@ async function main(): Promise<void> {
     }
   });
 
-  // Initial registry build — also registers slash commands for every
-  // built-in + user action in one pass.
+  // Defer the heavy registration (20+ postMessages — slash, palette,
+  // context-menu entries for every active action, plus Diagnostics +
+  // Manage Actions utilities) to the next macrotask so main() resolves
+  // fast. Logseq emits a "plugin takes too long to load" warning if the
+  // ready() handshake hangs on synchronous work, and that threshold is
+  // easy to hit once we cross ~15 registrations.
+  setTimeout(() => {
+    registerAllInvocations();
+    void runFirstRunFlow();
+  }, 0);
+}
+
+function registerAllInvocations(): void {
   rebuildRegistry(true);
 
   const diagnosticsHandler = async () => {
@@ -627,11 +667,6 @@ async function main(): Promise<void> {
   console.info(
     `logseq-ai-actions: ready — ${activeActions.length} action${activeActions.length === 1 ? "" : "s"} registered (${activeActions.length - SEED_ACTIONS.length >= 0 ? activeActions.length - SEED_ACTIONS.length : 0} user-defined)`,
   );
-
-  // Fire-and-forget: first-run consent + initial trust record. Don't
-  // await in main() — logseq.ready's handshake depends on main's
-  // promise resolving promptly, and the consent modal is user-paced.
-  void runFirstRunFlow();
 }
 
 /**
