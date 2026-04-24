@@ -19,11 +19,11 @@ A Logseq plugin that runs AI-driven actions on blocks. v1 ships a seed set (spel
 
 All five Logseq surfaces, driven by one action registry:
 
-- Block context menu (`AI → <action>`)
-- Slash commands (`/ai-<action>`)
-- Command palette (auto-registered)
-- Keyboard shortcuts (registered, **unbound by default**, user-assignable)
-- Toolbar button (action picker)
+- Block context menu (`AI → <action>`) — *not yet shipped*
+- Slash commands (`/AI <action>`) — **shipped**
+- Command palette (`logseq.App.registerCommandPalette`, `"AI: <title>"`) — **shipped**
+- Keyboard shortcuts — ships *for free* with palette entries (Logseq's keymap UI lets users bind any palette command); no default bindings
+- Toolbar button (action picker) — *not yet shipped*
 
 One `Action` declaration auto-wires every surface. Adding an action is a **single-file change**.
 
@@ -125,3 +125,63 @@ Additional behaviours:
 - Embedded WebLLM provider
 - Redaction / content filtering
 - Action history panel (may piggyback on the debug ring buffer later)
+- **True `selection` scope with block-range splicing** — see §14 for the full memo.
+
+## 14. Deferred — true `selection` scope with block-range splicing
+
+Grammar and Rewrite are specced (§5) to operate on the user's highlighted text when present, falling back to block content when not. In v1 the fallback is the only path — `selection`-scoped actions always resolve to block scope in practice. This section captures why, and what a future implementation would need.
+
+### The pain
+
+Every invocation path we've shipped destroys or can't read the DOM text selection before our handler sees it:
+
+| Entry point | Fate of the selection |
+|---|---|
+| **Slash command** (`/AI Grammar`) | Typing `/` into Logseq's block editor *replaces the active selection* with the `/` character. By the time the slash handler fires, selection is gone. Unrecoverable. |
+| **Command palette** (`logseq.App.registerCommandPalette`, shipped in v1) | Cmd-K opens a modal overlay — no typing into the block, so the DOM selection is preserved in the underlying contenteditable. **But reading it is the hard part** (see below). |
+| **Block context menu** (not yet registered) | Right-click preserves selection through the menu. Same "reading it" problem. |
+| **Keyboard shortcut** (bindable via Logseq keymap) | Same as palette — preserves selection, but reading it is still the blocker. |
+
+The blocker for all the non-slash surfaces is **reading the selection from the plugin iframe**:
+
+- **Logseq Desktop (Electron):** the plugin iframe is same-origin with the host. `window.parent.getSelection()?.toString()` *should* work. **Unverified empirically — confirm before building.**
+- **Logseq Web (shadow-cljs watch, the current user's environment):** the plugin iframe is served from `localhost:8282` while Logseq is at `localhost:3001` — cross-origin. `parent.getSelection()` throws `SecurityError` and is unrecoverable without new SDK support.
+
+### What the SDK exposes today (as of `@logseq/libs@0.3.2`)
+
+- `logseq.Editor.getEditingCursorPosition()` → `{ top, left, pos, rect, dir } | null` — **integer cursor position only, no anchor/focus range**.
+- `logseq.Editor.getCurrentBlock()` / `getEditingBlockContent()` → block text; no selection metadata.
+- No method returns a selection range.
+
+Until Logseq adds one, Web-build users have no path to selection-scope support.
+
+### What a workable v2 implementation looks like
+
+1. **Verify empirically** on Logseq Desktop that a command-palette handler (or a block-context-menu item) can read `window.parent.getSelection()` and extract the selected substring + its offsets within the block. Sanity check that the block's `:title` contains the substring at those offsets (handles block vs. page-title edge cases).
+2. Add `src/selection.ts` pure module:
+   - `spliceText(content: string, range: { start: number; end: number }, replacement: string): string` — TDD'd; maps (fullBlockContent, range, llmOutput) → updated block content. Straightforward.
+3. Adapter changes:
+   - Add a `detectSelection()` helper that tries `parent.getSelection()` inside try/catch. Returns `{ text, range: {start, end}, blockUuid } | null`.
+   - Extend `ResolvedInput` with optional `selectionRange` + `fullBlockContent`.
+   - `resolveInput(action, options?)` — when `action.scope === "selection"` and `options.invocationPath !== "slash"`, call `detectSelection()`. If it returns a range *and* the selected text is a substring of the current block's content at the expected offsets, use it; otherwise fall back to block scope silently.
+   - `runAction`'s apply path (both `replace` and `diff-panel` accept) switches on `input.selectionRange`: when set, `spliceText` before `updateBlock`; when absent, `updateBlock` with the full output as today.
+4. DiffPanel's `Original` column shows just the selected substring when `selectionRange` is set. User iterates on the highlighted phrase, not the whole block. The accept splice handles the surrounding content.
+5. Slash-command invocations keep falling back silently — the slash path never gets a selection, and that's documented user behaviour.
+
+### What the SDK would need to unblock Logseq Web
+
+Either of these unlocks Web:
+
+- `logseq.Editor.getEditingSelection(): { start: number; end: number; blockUuid: string } | null` — block-relative offsets of the current selection, same RPC treatment as `getEditingCursorPosition`.
+- A context parameter on command-palette / context-menu handlers that includes a selection snapshot captured at invocation time.
+
+**Action item when we return**: raise this as an upstream issue in `logseq/logseq` before investing in the desktop-only version — the SDK design might shift the implementation shape meaningfully.
+
+### Acceptance criteria (when revisited)
+
+- [ ] Palette-triggered Grammar / Rewrite on highlighted text (Logseq Desktop) shows a diff panel whose Original column is the *selection*, not the full block.
+- [ ] Accepting replaces only the selection range; rest of the block untouched.
+- [ ] No active selection → falls back to block scope silently, no error toast.
+- [ ] Slash-command invocations still fall back to block (no regression).
+- [ ] Logseq Web behaviour: either (a) SDK gained a selection API and Web works too, or (b) one-time notice on first selection-scoped invocation explaining "selection scope is Desktop-only for now," mirroring the LOCAL→REMOTE warning pattern.
+- [ ] `spliceText` pure helper TDD'd to 100 % line coverage, including empty ranges and edge offsets (start === 0, end === content.length).
