@@ -45,7 +45,7 @@ Every item here: failing Vitest test first, implementation second.
 - [ ] Scope resolver: pure `(editorState) => { text, blockUuid, range? }` for each scope
 - [x] Subtree flattener (`flattenSubtree` — Markdown outline, 2-space indent per depth, 10 tests)
 - [ ] Prompt templater: `{{content}}`, `{{selection}}`, etc.
-- [ ] Streaming chunk parser (OpenAI Chat Completions SSE format)
+- [x] Streaming chunk parser (OpenAI Chat Completions SSE format) — `src/sse.ts`, stateful push/flush API, 11 tests, 100 % lines
 - [x] Diff model — `computeDiff(original, proposed): DiffSegment[]` wrapping jsdiff's `diffWords` (6 tests, 100% coverage)
 - [x] Debug log ring buffer — `createRingBuffer<T>(capacity)` + `truncate(s, limit)` + `debugLog` singleton at capacity 50. 10 tests. In-memory only per REQUIREMENTS §8.
 
