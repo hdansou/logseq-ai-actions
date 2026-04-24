@@ -133,7 +133,7 @@ function readSettings(): ResolvedSettings {
  * a slash-command deregister API.
  */
 let activeActions: readonly Action[] = SEED_ACTIONS;
-const registeredSlashIds = new Set<string>();
+const registeredInvocationIds = new Set<string>();
 
 function rebuildRegistry(showToastOnError: boolean): void {
   const { userActionsJson } = readSettings();
@@ -150,24 +150,29 @@ function rebuildRegistry(showToastOnError: boolean): void {
     }
   }
 
-  // Register slash commands for any IDs we haven't seen before. Logseq
-  // has no deregister API, so actions removed from the user JSON still
-  // have live slash entries; invoking one will warn at runtime when the
-  // lookup fails.
+  // Register both the slash command and the command-palette entry for
+  // each action id we haven't seen before. Logseq has no deregister API
+  // for either, so actions removed from the user JSON still have live
+  // menu entries; invoking one warns at runtime when the lookup fails.
   for (const action of activeActions) {
-    if (registeredSlashIds.has(action.id)) continue;
-    registeredSlashIds.add(action.id);
-    logseq.Editor.registerSlashCommand(slashLabelFor(action), async () => {
+    if (registeredInvocationIds.has(action.id)) continue;
+    registeredInvocationIds.add(action.id);
+    const handler = async () => {
       const fresh = activeActions.find((a) => a.id === action.id);
       if (!fresh) {
         logseq.UI.showMsg(
-          `Action '${action.id}' is no longer available — reload the plugin to refresh the slash menu`,
+          `Action '${action.id}' is no longer available — reload the plugin to refresh the menus`,
           "warning",
         );
         return;
       }
       await runAction(fresh);
-    });
+    };
+    logseq.Editor.registerSlashCommand(slashLabelFor(action), handler);
+    logseq.App.registerCommandPalette(
+      { key: `logseq-ai-actions/${action.id}`, label: `AI: ${action.title}` },
+      handler,
+    );
   }
 }
 
@@ -588,9 +593,14 @@ async function main(): Promise<void> {
   // built-in + user action in one pass.
   rebuildRegistry(true);
 
-  logseq.Editor.registerSlashCommand("AI Diagnostics", async () => {
+  const diagnosticsHandler = async () => {
     await showDiagnostics();
-  });
+  };
+  logseq.Editor.registerSlashCommand("AI Diagnostics", diagnosticsHandler);
+  logseq.App.registerCommandPalette(
+    { key: "logseq-ai-actions/diagnostics", label: "AI: Diagnostics" },
+    diagnosticsHandler,
+  );
 
   console.info(
     `logseq-ai-actions: ready — ${activeActions.length} action${activeActions.length === 1 ? "" : "s"} registered (${activeActions.length - SEED_ACTIONS.length >= 0 ? activeActions.length - SEED_ACTIONS.length : 0} user-defined)`,
