@@ -1,5 +1,6 @@
 import type { FunctionComponent } from "preact";
 import { useEffect } from "preact/hooks";
+import { LocalRemoteBadge } from "./LocalRemoteBadge";
 
 /**
  * Minimal confirmation panel used when the action's output is additive
@@ -12,6 +13,8 @@ export interface ConfirmPanelProps {
   readonly message: string;
   readonly preview: string;
   readonly acceptLabel: string;
+  /** When provided, renders a LOCAL/REMOTE badge in the header. */
+  readonly baseUrl?: string;
   readonly onAccept: () => void;
   readonly onReject: () => void;
 }
@@ -21,6 +24,7 @@ export const ConfirmPanel: FunctionComponent<ConfirmPanelProps> = ({
   message,
   preview,
   acceptLabel,
+  baseUrl,
   onAccept,
   onReject,
 }) => {
@@ -42,7 +46,10 @@ export const ConfirmPanel: FunctionComponent<ConfirmPanelProps> = ({
     <div class="diff-root" role="dialog" aria-label={`${actionTitle} — confirm`}>
       <div class="diff-modal">
         <header class="diff-header">
-          <strong>{actionTitle}</strong>
+          <span class="diff-header-main">
+            <strong>{actionTitle}</strong>
+            {baseUrl ? <LocalRemoteBadge baseUrl={baseUrl} /> : null}
+          </span>
           <span class="diff-hint">
             <kbd>Esc</kbd> reject · <kbd>⌘ ↵</kbd> {acceptLabel.toLowerCase()}
           </span>

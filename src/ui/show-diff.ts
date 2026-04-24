@@ -5,6 +5,7 @@ import { DiffPanel, type DiffPanelActionDesc } from "./DiffPanel";
 export interface ShowDiffPanelOptions {
   readonly currentActionId: string;
   readonly actionTitle: string;
+  readonly baseUrl: string;
   readonly original: string;
   readonly proposed: string;
   readonly actions: readonly DiffPanelActionDesc[];
@@ -51,6 +52,7 @@ export function showDiffPanel(options: ShowDiffPanelOptions): Promise<string | n
       h(DiffPanel, {
         currentActionId: options.currentActionId,
         actionTitle: options.actionTitle,
+        baseUrl: options.baseUrl,
         original: options.original,
         proposed: options.proposed,
         actions: options.actions,

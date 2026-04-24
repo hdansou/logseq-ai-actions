@@ -1,6 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { computeDiff, type DiffSegment } from "../diff";
+import { LocalRemoteBadge } from "./LocalRemoteBadge";
 
 /** One action surfaced in the panel's top bar. */
 export interface DiffPanelActionDesc {
@@ -13,6 +14,8 @@ export interface DiffPanelProps {
   readonly currentActionId: string;
   /** Title shown in the header. Updates when the user picks a different action from the bar. */
   readonly actionTitle: string;
+  /** Endpoint URL — rendered as a LOCAL/REMOTE badge in the header. */
+  readonly baseUrl: string;
   readonly original: string;
   readonly proposed: string;
   /** Buttons rendered in the top bar. Empty array hides the bar entirely. */
@@ -91,7 +94,10 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
     <div class="diff-root" role="dialog" aria-label={`${actionTitle} — review changes`}>
       <div class="diff-modal">
         <header class="diff-header">
-          <strong>{actionTitle}</strong>
+          <span class="diff-header-main">
+            <strong>{actionTitle}</strong>
+            <LocalRemoteBadge baseUrl={props.baseUrl} />
+          </span>
           <span class="diff-hint">
             <kbd>Esc</kbd> reject · <kbd>⌘ ↵</kbd> accept
           </span>

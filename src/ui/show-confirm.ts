@@ -6,6 +6,7 @@ export interface ShowConfirmOptions {
   readonly message: string;
   readonly preview: string;
   readonly acceptLabel?: string;
+  readonly baseUrl?: string;
 }
 
 /**
@@ -39,6 +40,7 @@ export function showConfirm(actionTitle: string, options: ShowConfirmOptions): P
         message: options.message,
         preview: options.preview,
         acceptLabel: options.acceptLabel ?? "Accept",
+        ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
         onAccept: () => teardown(true),
         onReject: () => teardown(false),
       }),
