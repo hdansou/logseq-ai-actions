@@ -4,6 +4,7 @@ import type { Action } from "./action";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
 import { SEED_ACTIONS } from "./seed-actions";
+import { type BlockNode, flattenSubtree } from "./subtree";
 
 // Plugin entry point. Keep this module SHALLOW — it is the only place that
 // loads `@logseq/libs` for its side-effects. Every other module uses a
@@ -138,28 +139,52 @@ function handlePresetChange(
 const provider = createOpenAIProvider();
 
 /**
+ * Resolve the LLM input for an action from the block the cursor is in.
+ * For `scope: "block"` we read the current block's own text; for
+ * `scope: "subtree"` we re-fetch with children and flatten into a
+ * Markdown outline. `selection` scope is treated as `block` until the
+ * selection-range adapter lands.
+ */
+async function resolveInput(
+  action: Action,
+): Promise<{ uuid: string; text: string } | { uuid: null; reason: string }> {
+  const current = await logseq.Editor.getCurrentBlock();
+  if (!current?.uuid) return { uuid: null, reason: "Place your cursor inside a block first." };
+
+  if (action.scope === "subtree") {
+    const full = (await logseq.Editor.getBlock(current.uuid, {
+      includeChildren: true,
+    })) as unknown as BlockNode & { uuid: string };
+    const text = flattenSubtree(full).trim();
+    if (!text || text === "-") {
+      return { uuid: null, reason: "This block and its children have no text to process." };
+    }
+    return { uuid: current.uuid, text };
+  }
+
+  // scope === "block" (or "selection" fallback for MVP).
+  const text = String(
+    (current as unknown as { title?: string; content?: string }).title ??
+      (current as unknown as { content?: string }).content ??
+      "",
+  ).trim();
+  if (!text) return { uuid: null, reason: "This block has no text to process." };
+  return { uuid: current.uuid, text };
+}
+
+/**
  * Run a single seed action against the block the cursor is currently in.
- * MVP behaviour: block scope + replace mode for all four seed actions.
- * Future work (Phase 5): honour `action.scope` (selection, subtree) and
- * `action.outputMode` (diff-panel).
+ * MVP behaviour: `replace` mode for all four seed actions (summarize now
+ * uses subtree scope — writes the summary into the parent block, leaves
+ * children as supporting detail). Future work (Phase 5): `diff-panel`
+ * output mode and `selection` scope.
  */
 async function runAction(action: Action): Promise<void> {
   let busyToastKey: string | number | null = null;
   try {
-    const block = await logseq.Editor.getCurrentBlock();
-    if (!block?.uuid) {
-      logseq.UI.showMsg("Place your cursor inside a block first.", "warning");
-      return;
-    }
-
-    // Per runtime-gotchas §13, prefer `title` over the deprecated `content`.
-    const content = String(
-      (block as unknown as { title?: string; content?: string }).title ??
-        (block as unknown as { content?: string }).content ??
-        "",
-    ).trim();
-    if (!content) {
-      logseq.UI.showMsg("This block has no text to process.", "warning");
+    const input = await resolveInput(action);
+    if (input.uuid === null) {
+      logseq.UI.showMsg(input.reason, "warning");
       return;
     }
 
@@ -173,7 +198,7 @@ async function runAction(action: Action): Promise<void> {
       baseUrl: settings.baseUrl,
       model: settings.model,
       system: action.systemPrompt,
-      user: content,
+      user: input.text,
       temperature: settings.temperature,
       timeoutMs: settings.timeoutMs,
       ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
@@ -193,7 +218,7 @@ async function runAction(action: Action): Promise<void> {
       return;
     }
 
-    await logseq.Editor.updateBlock(block.uuid, output);
+    await logseq.Editor.updateBlock(input.uuid, output);
     logseq.UI.showMsg(`${action.title} applied`, "success");
   } catch (err) {
     if (busyToastKey !== null) {

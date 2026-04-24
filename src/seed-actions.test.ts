@@ -30,11 +30,14 @@ describe("SEED_ACTIONS", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("every seed action currently uses block scope (MVP)", () => {
-    // When subtree-scoped summarize lands, update this test.
-    for (const a of SEED_ACTIONS) {
-      expect(a.scope).toBe("block");
-    }
+  it("scope assignments match the seed set: summarize is subtree, rest are block", () => {
+    const byId = Object.fromEntries(SEED_ACTIONS.map((a) => [a.id, a.scope]));
+    expect(byId).toEqual({
+      spellcheck: "block",
+      grammar: "block",
+      rewrite: "block",
+      summarize: "subtree",
+    });
   });
 });
 
