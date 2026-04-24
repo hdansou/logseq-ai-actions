@@ -5,6 +5,7 @@ import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "./debug-log";
 import { parsePoints } from "./parse-points";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
+import { buildRegistry } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
 import { type BlockNode, flattenSubtree } from "./subtree";
 import { showConfirm } from "./ui/show-confirm";
@@ -81,6 +82,15 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
     description:
       "Keep an in-memory ring buffer of the last 50 requests, viewable in the plugin diagnostics panel. Never written to disk.",
   },
+  {
+    key: "userActionsJson",
+    type: "string",
+    inputAs: "textarea",
+    default: "",
+    title: "User-defined actions (JSON)",
+    description:
+      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children), systemPrompt, description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
+  },
 ];
 
 interface ResolvedSettings {
@@ -90,6 +100,7 @@ interface ResolvedSettings {
   readonly temperature: number;
   readonly timeoutMs: number;
   readonly debugLog: boolean;
+  readonly userActionsJson: string;
 }
 
 /**
@@ -107,7 +118,56 @@ function readSettings(): ResolvedSettings {
     temperature: Number(s.temperature ?? 0.3),
     timeoutMs: Number(s.timeoutMs ?? 60_000),
     debugLog: Boolean(s.debugLog ?? false),
+    userActionsJson: String(s.userActionsJson ?? ""),
   };
+}
+
+/**
+ * Active action registry — built-ins merged with user-defined actions
+ * from `userActionsJson`. Rebuilt at startup and whenever the setting
+ * changes. Slash-command handlers resolve their action by `id` against
+ * this list at INVOCATION time, so editing a user action's prompt /
+ * title hot-reloads without a plugin restart. Adding or removing an
+ * action still requires a plugin toggle because Logseq doesn't expose
+ * a slash-command deregister API.
+ */
+let activeActions: readonly Action[] = SEED_ACTIONS;
+const registeredSlashIds = new Set<string>();
+
+function rebuildRegistry(showToastOnError: boolean): void {
+  const { userActionsJson } = readSettings();
+  const result = buildRegistry(SEED_ACTIONS, userActionsJson);
+  activeActions = result.actions;
+  if (result.errors.length > 0) {
+    console.warn("logseq-ai-actions: user actions validation errors", result.errors);
+    if (showToastOnError) {
+      logseq.UI.showMsg(
+        `AI Actions: ${result.errors.length} user action${result.errors.length === 1 ? "" : "s"} skipped — see console or /AI Diagnostics for details`,
+        "warning",
+        { timeout: 6000 },
+      );
+    }
+  }
+
+  // Register slash commands for any IDs we haven't seen before. Logseq
+  // has no deregister API, so actions removed from the user JSON still
+  // have live slash entries; invoking one will warn at runtime when the
+  // lookup fails.
+  for (const action of activeActions) {
+    if (registeredSlashIds.has(action.id)) continue;
+    registeredSlashIds.add(action.id);
+    logseq.Editor.registerSlashCommand(slashLabelFor(action), async () => {
+      const fresh = activeActions.find((a) => a.id === action.id);
+      if (!fresh) {
+        logseq.UI.showMsg(
+          `Action '${action.id}' is no longer available — reload the plugin to refresh the slash menu`,
+          "warning",
+        );
+        return;
+      }
+      await runAction(fresh);
+    });
+  }
 }
 
 /**
@@ -349,12 +409,11 @@ async function runAction(action: Action): Promise<void> {
     if (action.outputMode === "diff-panel") {
       // Panel-compatible actions get a top-bar toolbar so the user can
       // switch proposals without closing + re-running the slash command.
-      const panelActions = SEED_ACTIONS.filter((a) => a.outputMode === "diff-panel").map((a) => ({
-        id: a.id,
-        title: a.title,
-      }));
+      const panelActions = activeActions
+        .filter((a) => a.outputMode === "diff-panel")
+        .map((a) => ({ id: a.id, title: a.title }));
       const reRun = async (actionId: string) => {
-        const newAction = SEED_ACTIONS.find((a) => a.id === actionId);
+        const newAction = activeActions.find((a) => a.id === actionId);
         if (!newAction) throw new Error(`Unknown action: ${actionId}`);
         const newInput = await resolveInput(newAction);
         if (newInput.uuid === null) throw new Error(newInput.reason);
@@ -450,22 +509,25 @@ async function main(): Promise<void> {
         newSettings as Record<string, unknown>,
         oldSettings as Record<string, unknown>,
       );
+      const prev = String((oldSettings as Record<string, unknown>).userActionsJson ?? "");
+      const next = String((newSettings as Record<string, unknown>).userActionsJson ?? "");
+      if (prev !== next) rebuildRegistry(true);
     } catch (err) {
-      console.error("logseq-ai-actions: preset change handler failed", err);
+      console.error("logseq-ai-actions: settings-change handler failed", err);
     }
   });
 
-  for (const action of SEED_ACTIONS) {
-    logseq.Editor.registerSlashCommand(slashLabelFor(action), async () => {
-      await runAction(action);
-    });
-  }
+  // Initial registry build — also registers slash commands for every
+  // built-in + user action in one pass.
+  rebuildRegistry(true);
 
   logseq.Editor.registerSlashCommand("AI Diagnostics", async () => {
     await showDiagnostics();
   });
 
-  console.info(`logseq-ai-actions: ready — registered ${SEED_ACTIONS.length + 1} slash commands`);
+  console.info(
+    `logseq-ai-actions: ready — ${activeActions.length} action${activeActions.length === 1 ? "" : "s"} registered (${activeActions.length - SEED_ACTIONS.length >= 0 ? activeActions.length - SEED_ACTIONS.length : 0} user-defined)`,
+  );
 }
 
 logseq.ready(main).catch((err) => {

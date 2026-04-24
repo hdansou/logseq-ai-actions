@@ -77,6 +77,54 @@ Then in Logseq:
 
 Open the plugin's settings (gear icon on the plugin card). Pick a preset — `baseUrl` and `model` are auto-filled. Override anything you need. Changing the `baseUrl` away from `localhost` will trigger a one-time REMOTE-endpoint warning.
 
+### 4. (Optional) Add your own actions
+
+The plugin ships five built-in actions. You can add unlimited custom ones by pasting a JSON array into the **User-defined actions (JSON)** field in the plugin settings. Each entry satisfies the same schema as the built-ins.
+
+```json
+[
+  {
+    "id": "action-items",
+    "title": "Action Items",
+    "description": "Extract TODO items from meeting notes.",
+    "scope": "subtree",
+    "outputMode": "append-children",
+    "systemPrompt": "Extract concrete action items from the notes. Return ONLY a list, one action per line, no bullet characters, no numbering, no preamble. Each item should start with a verb and be short enough to copy into a TODO list."
+  },
+  {
+    "id": "simplify",
+    "title": "Simplify",
+    "description": "Rewrite using simpler vocabulary.",
+    "scope": "block",
+    "outputMode": "diff-panel",
+    "systemPrompt": "Rewrite the text using simpler vocabulary, shorter sentences, and a more direct tone. Preserve meaning and any Markdown/wiki syntax. Return ONLY the rewritten text."
+  },
+  {
+    "id": "elaborate",
+    "title": "Elaborate",
+    "description": "Expand a terse note into fuller prose.",
+    "scope": "block",
+    "outputMode": "diff-panel",
+    "systemPrompt": "Expand the text into fuller prose while preserving the author's voice and meaning. Add concrete detail only where implied by the source. Do not invent facts. Return ONLY the expanded text."
+  }
+]
+```
+
+Each entry needs:
+
+| Field | Values |
+|---|---|
+| `id` | Unique identifier. Matching a built-in id (`spellcheck`, `grammar`, `rewrite`, `summarize`, `key-points`) **shadows** it. |
+| `title` | Display name in the slash menu (prefixed with `AI `). |
+| `scope` | `block` \| `subtree` \| `selection` |
+| `outputMode` | `replace` \| `diff-panel` \| `append-children` |
+| `systemPrompt` | The LLM system prompt. Tune for your model — small models need explicit "return ONLY …" instructions. |
+| `description` | Optional, one-line. |
+
+**Hot reload:** editing an existing entry's title or prompt takes effect on the next invocation. Adding or removing entries **requires toggling the plugin off and on** — Logseq has no way to deregister a slash command from a plugin API call.
+
+**Validation:** invalid entries are skipped silently (your other actions still load); a warning toast + console entry tell you how many were skipped, with the failing index and id. Full detail lives in the console.
+
 ## Privacy & data egress
 
 - The plugin sends **exactly the scope of content the action is configured for** (selection / block / block + children) to the configured endpoint, nothing more.
