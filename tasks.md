@@ -46,7 +46,7 @@ Every item here: failing Vitest test first, implementation second.
 - [x] Subtree flattener (`flattenSubtree` — Markdown outline, 2-space indent per depth, 10 tests)
 - [ ] Prompt templater: `{{content}}`, `{{selection}}`, etc.
 - [ ] Streaming chunk parser (OpenAI Chat Completions SSE format)
-- [ ] Diff model: produce segments for the diff panel from `original`/`proposed`
+- [x] Diff model — `computeDiff(original, proposed): DiffSegment[]` wrapping jsdiff's `diffWords` (6 tests, 100% coverage)
 - [ ] Debug log ring buffer (capped at 50, truncation rules)
 
 ## Phase 3 — LLM provider
