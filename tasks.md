@@ -32,7 +32,7 @@ Legend: `[ ]` todo, `[~]` in progress, `[x]` done, `[-]` dropped.
 - [x] `.gitignore` — landed in Phase 0 baseline
 - [x] `src/__sdk_guard__.ts` — compile-time floor at `@logseq/libs ≥ 0.3.1` (references `getCurrentRoute`)
 - [x] `index.html` with light/dark CSS variable scaffolding
-- [ ] Add GitHub Actions workflow (Phase 1b — tracked as task #4): Tier 1 on push, Tier 3 on PR-to-main, Tier 2 nightly placeholder
+- [x] GitHub Actions workflow — Tier 1 (lint + typecheck + test + build) on every push and PR. Tier 2/3 jobs will land with the respective test suites (not as empty placeholders).
 
 ## Phase 2 — Pure core (TDD)
 
