@@ -41,7 +41,7 @@ Every item here: failing Vitest test first, implementation second.
 - [x] `classifyEndpoint(baseUrl)` — LOCAL vs REMOTE (strict loopback; fail-closed on invalid)
 - [x] Endpoint presets (LM Studio / Ollama / Goose / Custom) with `findPreset` lookup
 - [x] Zod schema for `Action` (id, title, description, scope, outputMode, systemPrompt) — `src/action.ts`, 10 tests
-- [ ] Action registry pipeline: `(builtinActions, userJson) => { actions, errors }` (shadowing, validation)
+- [x] Action registry pipeline — `buildRegistry(builtin, userJsonRaw)` in `src/registry.ts`, 10 tests, 100 % lines. Shadowing, dedup, individual entry validation without blocking valid ones, stable order.
 - [ ] Scope resolver: pure `(editorState) => { text, blockUuid, range? }` for each scope
 - [x] Subtree flattener (`flattenSubtree` — Markdown outline, 2-space indent per depth, 10 tests)
 - [ ] Prompt templater: `{{content}}`, `{{selection}}`, etc.
