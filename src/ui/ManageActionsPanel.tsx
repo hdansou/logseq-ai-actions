@@ -350,48 +350,54 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
   const showEmptyState = userActions.length === 0 && query.trim().length === 0;
 
   return (
-    <ManageRoot label="Manage AI Actions">
+    <ManageRoot
+      label="AI actions"
+      headerExtra={
+        <OverflowMenu
+          items={[
+            {
+              label: "Copy all",
+              onClick: () => void copyAll(),
+              disabled: userActions.length === 0,
+              title: "Copy the current user-actions list to clipboard as JSON",
+            },
+          ]}
+        />
+      }
+    >
       <div class="manage-toolbar">
         <div class="manage-search">
-          <span aria-hidden="true">🔍</span>
           <input
             type="text"
-            placeholder="Search actions by title, id, or prompt…"
+            placeholder="Search actions"
             value={query}
             onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
             aria-label="Search actions"
           />
         </div>
-        <button type="button" class="diff-btn diff-btn-primary" onClick={openCreate}>
-          + New action
+        <button type="button" class="diff-btn" onClick={openCreate}>
+          New
         </button>
         <button type="button" class="diff-btn" onClick={() => setView({ kind: "import" })}>
-          Import JSON
-        </button>
-        <button
-          type="button"
-          class="diff-btn"
-          onClick={() => void copyAll()}
-          disabled={userActions.length === 0}
-          title="Copy the current user-actions list to clipboard as JSON"
-        >
-          Copy all
+          Import
         </button>
       </div>
 
       <div class="manage-body">
         {filteredBuiltin.length > 0 ? (
           <>
-            <div class="manage-section-label">Built-ins</div>
-            <div class="manage-grid">
+            <div class="manage-section-header">
+              <span class="manage-section-label">Built-in</span>
+            </div>
+            <div class="manage-row-list">
               {filteredBuiltin.map((a) => {
                 const shadowed = userActions.some((u) => u.id === a.id);
                 return (
-                  <BuiltinCard
+                  <ActionRow
                     key={a.id}
                     action={a}
                     shadowed={shadowed}
-                    onView={() => openViewBuiltin(a.id)}
+                    onClick={() => openViewBuiltin(a.id)}
                   />
                 );
               })}
@@ -399,35 +405,32 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
           </>
         ) : null}
 
-        <div class="manage-section-label">Your actions</div>
+        <div class="manage-section-header">
+          <span class="manage-section-label">Your actions</span>
+          <button type="button" class="manage-create-btn" onClick={openCreate}>
+            + Create
+          </button>
+        </div>
         {showEmptyState ? (
-          <EmptyState onCreate={openCreate} onImport={() => setView({ kind: "import" })} />
+          <p class="manage-empty-line">
+            No custom actions yet. Add your own to capture workflows you'd type into a chatbot more
+            than once.
+          </p>
+        ) : filteredUser.length === 0 && query.trim().length > 0 ? (
+          <p class="manage-row-empty-search">No user actions match "{query}".</p>
         ) : (
-          <div class="manage-grid">
+          <div class="manage-row-list">
             {filteredUser.map((a) => {
-              // Find true index in unfiltered list so edit/delete target the right entry.
               const trueIndex = userActions.indexOf(a);
               return (
-                <UserCard
+                <ActionRow
                   key={`u-${a.id}-${trueIndex}`}
                   action={a}
                   shadowsBuiltin={builtinIds.has(a.id)}
                   onClick={() => openEdit(trueIndex)}
-                  onEdit={() => openEdit(trueIndex)}
-                  onDelete={() => requestDelete(trueIndex)}
                 />
               );
             })}
-            {query.trim().length === 0 ? (
-              <button type="button" class="manage-card manage-new-card" onClick={openCreate}>
-                + New action
-              </button>
-            ) : null}
-            {filteredUser.length === 0 && query.trim().length > 0 ? (
-              <div class="manage-card-desc" style="padding:12px 0;">
-                No user actions match "{query}".
-              </div>
-            ) : null}
           </div>
         )}
       </div>
@@ -463,16 +466,22 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
 
 // ─── Sub-components ────────────────────────────────────────────────────
 
-const ManageRoot: FunctionComponent<{ label: string; children: ComponentChildren }> = ({
-  label,
-  children,
-}) => (
+const ManageRoot: FunctionComponent<{
+  label: string;
+  /** Optional element rendered in the header just before the "Esc close" hint
+   * (used for the "..." overflow menu in the gallery view). */
+  headerExtra?: ComponentChildren;
+  children: ComponentChildren;
+}> = ({ label, headerExtra, children }) => (
   <div class="diff-root" role="dialog" aria-label={label}>
     <div class="diff-modal manage-modal">
       <header class="diff-header">
         <strong>{label}</strong>
-        <span class="diff-hint">
-          <kbd>Esc</kbd> close
+        <span class="diff-hint" style="display:inline-flex;align-items:center;gap:8px;">
+          {headerExtra}
+          <span>
+            <kbd>Esc</kbd> close
+          </span>
         </span>
       </header>
       {children}
@@ -480,136 +489,135 @@ const ManageRoot: FunctionComponent<{ label: string; children: ComponentChildren
   </div>
 );
 
-interface BuiltinCardProps {
+interface ActionRowProps {
   readonly action: Action;
-  readonly shadowed: boolean;
-  readonly onView: () => void;
+  /** True when this is a built-in that has been shadowed by a user action. */
+  readonly shadowed?: boolean;
+  /** True when this is a user action whose id matches a built-in (it shadows one). */
+  readonly shadowsBuiltin?: boolean;
+  readonly onClick: () => void;
 }
-const BuiltinCard: FunctionComponent<BuiltinCardProps> = ({ action, shadowed, onView }) => {
+
+/**
+ * One row in the action gallery. Title + tags inline, optional description
+ * underneath in muted text, divider below. Click opens detail (read-only
+ * inspect for built-ins, editor for user actions).
+ *
+ * Renders as a real `<button>` — there are no nested interactive elements
+ * (the per-row edit/delete icons from the previous design are gone), so
+ * full keyboard semantics fall out for free.
+ */
+const ActionRow: FunctionComponent<ActionRowProps> = ({
+  action,
+  shadowed,
+  shadowsBuiltin,
+  onClick,
+}) => {
   const isVision = action.kind === "vision";
+  const cls = `manage-row${shadowed ? " manage-row-shadowed" : ""}`;
   return (
-    <button
-      type="button"
-      class={`manage-card manage-card-builtin${shadowed ? " manage-card-shadowed" : ""}`}
-      onClick={onView}
-      aria-label={`View built-in ${action.title}`}
-    >
-      <div class="manage-card-header">
-        <span class="manage-card-title">{action.title}</span>
-        <span class="manage-card-meta">
-          {isVision ? <span class="manage-tag manage-tag-vision">vision</span> : null}
-          <span class="manage-tag">{action.scope}</span>
-          <span class="manage-tag">{outputModeLabel(action.outputMode)}</span>
-          {shadowed ? <span class="manage-tag manage-tag-shadow">shadowed</span> : null}
+    <button type="button" class={cls} onClick={onClick} aria-label={`Open ${action.title}`}>
+      <div class="manage-row-header">
+        <span class="manage-row-title">{action.title}</span>
+        <span class="manage-row-tags">
+          {isVision ? <span class="manage-tag-vision">vision</span> : null}
+          {isVision ? <span class="sep">·</span> : null}
+          <span>{action.scope}</span>
+          <span class="sep">·</span>
+          <span>{outputModeLabel(action.outputMode)}</span>
+          {shadowed ? (
+            <>
+              <span class="sep">·</span>
+              <span class="manage-tag-shadow">shadowed</span>
+            </>
+          ) : null}
+          {shadowsBuiltin ? (
+            <>
+              <span class="sep">·</span>
+              <span class="manage-tag-shadow">shadows built-in</span>
+            </>
+          ) : null}
         </span>
       </div>
-      {action.description ? <p class="manage-card-desc">{action.description}</p> : null}
-      <div class="manage-card-actions">
-        <span class="manage-icon-btn" aria-hidden="true" title="View prompt">
-          👁
-        </span>
-      </div>
+      {action.description ? <p class="manage-row-desc">{action.description}</p> : null}
     </button>
   );
 };
 
-interface UserCardProps {
-  readonly action: Action;
-  readonly shadowsBuiltin: boolean;
+interface OverflowMenuItem {
+  readonly label: string;
   readonly onClick: () => void;
-  readonly onEdit: () => void;
-  readonly onDelete: () => void;
+  readonly disabled?: boolean;
+  readonly title?: string;
 }
-const UserCard: FunctionComponent<UserCardProps> = ({
-  action,
-  shadowsBuiltin,
-  onClick,
-  onEdit,
-  onDelete,
-}) => {
-  const isVision = action.kind === "vision";
-  // Card is a div (not a button) because it contains nested buttons for
-  // edit / delete — HTML forbids interactive descendants of <button>. We
-  // restore button semantics manually: tabindex makes it focusable, the
-  // keydown handler triggers the click on Enter / Space.
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      onClick();
+interface OverflowMenuProps {
+  readonly items: ReadonlyArray<OverflowMenuItem>;
+}
+/**
+ * The "..." menu in the modal header. Holds global actions that don't
+ * earn a toolbar slot (currently just Copy all). Click outside / Esc
+ * closes it; selecting an item closes too.
+ */
+const OverflowMenu: FunctionComponent<OverflowMenuProps> = ({ items }) => {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     }
-  };
-  // Card is a div (not a <button>) because it contains nested edit/delete
-  // <button>s — HTML disallows interactive descendants of <button>. The
-  // div+role+tabIndex+onKeyDown pattern restores keyboard activation.
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+      }
+    }
+    window.addEventListener("mousedown", handleClick);
+    window.addEventListener("keydown", handleKey);
+    return () => {
+      window.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleKey);
+    };
+  }, [open]);
+
   return (
-    // biome-ignore lint/a11y/useSemanticElements: see comment above
-    <div class="manage-card" onClick={onClick} onKeyDown={handleKeyDown} role="button" tabIndex={0}>
-      <div class="manage-card-header">
-        <span class="manage-card-title">{action.title}</span>
-        <span class="manage-card-meta">
-          {isVision ? <span class="manage-tag manage-tag-vision">vision</span> : null}
-          <span class="manage-tag">{action.scope}</span>
-          <span class="manage-tag">{outputModeLabel(action.outputMode)}</span>
-          {shadowsBuiltin ? (
-            <span class="manage-tag manage-tag-shadow">shadows built-in</span>
-          ) : null}
-        </span>
-      </div>
-      {action.description ? <p class="manage-card-desc">{action.description}</p> : null}
-      <div class="manage-card-actions">
-        <button
-          type="button"
-          class="manage-icon-btn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit();
-          }}
-          title="Edit"
-          aria-label={`Edit ${action.title}`}
-        >
-          ✎
-        </button>
-        <button
-          type="button"
-          class="manage-icon-btn manage-icon-btn-danger"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          title="Delete"
-          aria-label={`Delete ${action.title}`}
-        >
-          ⌫
-        </button>
-      </div>
+    <div class="manage-overflow-wrap" ref={wrapRef}>
+      <button
+        type="button"
+        class="manage-overflow-btn"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        ⋯
+      </button>
+      {open ? (
+        <div class="manage-overflow-menu" role="menu">
+          {items.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              class="manage-overflow-item"
+              role="menuitem"
+              disabled={item.disabled}
+              title={item.title}
+              onClick={() => {
+                setOpen(false);
+                item.onClick();
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 };
-
-interface EmptyStateProps {
-  readonly onCreate: () => void;
-  readonly onImport: () => void;
-}
-const EmptyState: FunctionComponent<EmptyStateProps> = ({ onCreate, onImport }) => (
-  <div class="manage-empty-state">
-    <div class="manage-empty-icon">✨</div>
-    <h3 class="manage-empty-title">You haven't added any custom actions yet</h3>
-    <p class="manage-empty-desc">
-      Built-ins cover the basics — spellcheck, grammar, rewrite tones, summarize, OCR, image titles.
-      Add your own to capture the workflows specific to how you write: project-specific
-      summarization templates, translation pairs, bug-report polishing, anything you'd type into a
-      chatbot more than once.
-    </p>
-    <div class="manage-empty-actions">
-      <button type="button" class="diff-btn diff-btn-primary" onClick={onCreate}>
-        + Create your first action
-      </button>
-      <button type="button" class="diff-btn" onClick={onImport}>
-        Import from JSON
-      </button>
-    </div>
-  </div>
-);
 
 interface DetailEditorProps {
   readonly mode: "edit" | "create";

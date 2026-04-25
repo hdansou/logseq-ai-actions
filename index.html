@@ -364,9 +364,8 @@
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 12px 20px;
-        border-bottom: 1px solid var(--border);
-        background: var(--soft);
+        padding: 14px 24px 16px 24px;
+        background: var(--bg);
       }
       .manage-search {
         flex: 1;
@@ -376,7 +375,7 @@
         border: 1px solid var(--border);
         background: var(--bg);
         border-radius: 6px;
-        padding: 5px 10px;
+        padding: 7px 12px;
       }
       .manage-search:focus-within {
         border-color: var(--accent);
@@ -391,172 +390,194 @@
       }
 
       /* — Grid + cards — */
+      /* Bigger / bolder header for the Manage panel — distinct from
+         other modals (DiffPanel, ConfirmPanel) that share .diff-header. */
+      .manage-modal .diff-header strong {
+        font-size: 1.25em;
+        font-weight: 700;
+      }
+      /* Section label row — uppercase muted label on the left, optional
+         action button (e.g. "+ Create") on the right. */
+      .manage-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 24px 6px 24px;
+      }
       .manage-section-label {
-        padding: 14px 20px 6px 20px;
         font-size: 0.72em;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--muted);
       }
-      .manage-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 12px;
-        padding: 0 20px 16px 20px;
-      }
-      .manage-card {
-        position: relative;
+      /* Small outlined "+ Create" button rendered inline with the
+         "Your actions" section label. */
+      .manage-create-btn {
+        padding: 4px 12px;
         border: 1px solid var(--border);
         background: var(--bg);
-        border-radius: 8px;
-        padding: 10px 12px;
+        color: var(--fg);
+        border-radius: 6px;
+        font: inherit;
+        font-size: 0.85em;
         cursor: pointer;
-        /* No min-height — cards hug content. Within a row, the grid still
-           equalises card heights, but row height is the tallest card,
-           not a hard-coded floor. Big space saver on rows of short
-           descriptions. */
-        display: flex;
-        flex-direction: column;
-        transition: border-color 100ms;
       }
-      .manage-card:hover {
+      .manage-create-btn:hover {
+        background: var(--hover);
         border-color: var(--accent);
-        background: var(--soft);
       }
-      .manage-card-builtin {
-        background: var(--soft);
+      /* Two-column row list (newspaper-flow). Each row is a single
+         action — title + tags inline, description below in muted text,
+         horizontal divider underneath. No card chrome. */
+      .manage-row-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 28px;
+        padding: 0 24px 6px 24px;
       }
-      .manage-card-shadowed {
+      .manage-row {
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+        background: transparent;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        text-align: left;
+        cursor: pointer;
+        font: inherit;
+        color: inherit;
+        width: 100%;
+      }
+      .manage-row:hover {
+        background: color-mix(in oklab, var(--accent) 5%, transparent);
+      }
+      .manage-row-shadowed {
         opacity: 0.55;
       }
-      .manage-card-header {
+      .manage-row-header {
         display: flex;
         align-items: baseline;
         justify-content: space-between;
-        gap: 8px;
-        margin-bottom: 4px;
+        gap: 12px;
+        margin-bottom: 2px;
       }
-      .manage-card-title {
-        font-size: 0.98em;
+      .manage-row-title {
+        font-size: 1em;
         font-weight: 600;
+        color: var(--fg);
       }
-      .manage-card-meta {
+      .manage-row-tags {
         display: inline-flex;
-        gap: 4px;
-        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 6px;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.78em;
+        white-space: nowrap;
       }
-      .manage-tag {
+      .manage-row-tags .sep {
+        color: var(--border);
+      }
+      /* Vision badge stays a pill so it stands out from the plain
+         monospace tags. */
+      .manage-tag-vision {
         display: inline-block;
-        font-size: 0.74em;
         padding: 1px 7px;
         border-radius: 999px;
-        background: var(--hover);
-        color: var(--muted);
-        font-family: ui-monospace, monospace;
-      }
-      .manage-tag-vision {
-        background: color-mix(in oklab, var(--accent) 18%, transparent);
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
         color: var(--accent);
+        font-family: ui-monospace, monospace;
+        font-size: 0.92em;
       }
       .manage-tag-shadow {
-        background: color-mix(in oklab, var(--warning) 18%, transparent);
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: color-mix(in oklab, var(--warning) 16%, transparent);
         color: var(--warning);
+        font-family: ui-monospace, monospace;
+        font-size: 0.78em;
       }
-      .manage-card-desc {
-        flex: 1;
+      .manage-row-desc {
         margin: 0;
         color: var(--muted);
-        font-size: 0.86em;
+        font-size: 0.88em;
         line-height: 1.45;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
       }
-      .manage-card-actions {
-        display: flex;
-        gap: 4px;
-        justify-content: flex-end;
-        margin-top: 8px;
-        opacity: 0;
-        transition: opacity 100ms;
+      .manage-row-empty-search {
+        padding: 18px 24px;
+        color: var(--muted);
+        font-size: 0.9em;
       }
-      .manage-card:hover .manage-card-actions,
-      .manage-card:focus-within .manage-card-actions {
-        opacity: 1;
+
+      /* — Empty state (no user actions yet) — single muted line under
+         the YOUR ACTIONS section label, per the v3 mockup. */
+      .manage-empty-line {
+        padding: 12px 24px 16px 24px;
+        color: var(--muted);
+        font-size: 0.88em;
+        line-height: 1.5;
       }
-      .manage-icon-btn {
-        width: 26px;
-        height: 26px;
+
+      /* — Header overflow menu (the "..." in the top-right of the
+         manage modal). Holds Copy all and any future global actions
+         that don't deserve toolbar real estate. — */
+      .manage-overflow-wrap {
+        position: relative;
+        display: inline-block;
+        margin-right: 8px;
+      }
+      .manage-overflow-btn {
+        width: 28px;
+        height: 28px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: 6px;
-        font-size: 0.92em;
         color: var(--muted);
+        font-size: 1.1em;
         cursor: pointer;
       }
-      .manage-icon-btn:hover:not(:disabled) {
+      .manage-overflow-btn:hover {
         background: var(--hover);
         color: var(--fg);
       }
-      .manage-icon-btn:disabled {
-        opacity: 0.4;
-        cursor: default;
-      }
-      .manage-icon-btn-danger:hover:not(:disabled) {
-        background: color-mix(in oklab, var(--danger) 12%, transparent);
-        color: var(--danger);
-        border-color: var(--danger);
-      }
-      .manage-new-card {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px dashed var(--border);
-        background: transparent;
-        color: var(--muted);
-        /* Match the natural height of a 3-line-description card so the
-           "+ New action" placeholder doesn't dominate the row. */
-        min-height: 90px;
-        font-size: 0.95em;
-        cursor: pointer;
-      }
-      .manage-new-card:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-      }
-
-      /* — Empty state (no user actions yet) — */
-      .manage-empty-state {
+      .manage-overflow-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
+        min-width: 160px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+        padding: 4px;
+        z-index: 10;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        text-align: center;
-        margin: 0 20px 16px 20px;
-        padding: 36px 24px 28px 24px;
-        border: 1px dashed var(--border);
-        border-radius: 10px;
-        background: var(--soft);
       }
-      .manage-empty-icon {
-        font-size: 28px;
-        margin-bottom: 6px;
+      .manage-overflow-item {
+        text-align: left;
+        background: none;
+        border: none;
+        color: var(--fg);
+        font: inherit;
+        padding: 6px 12px;
+        border-radius: 4px;
+        cursor: pointer;
       }
-      .manage-empty-title {
-        font-size: 1.05em;
-        font-weight: 600;
-        margin: 0 0 4px 0;
+      .manage-overflow-item:hover:not(:disabled) {
+        background: var(--hover);
       }
-      .manage-empty-desc {
-        margin: 0 0 16px 0;
-        color: var(--muted);
-        font-size: 0.9em;
-        max-width: 540px;
-        line-height: 1.55;
+      .manage-overflow-item:disabled {
+        opacity: 0.45;
+        cursor: default;
       }
+      /* Legacy compat: a few old class names still appear in the codebase
+         until the next refactor pass. Keep the ones that the new layout
+         doesn't otherwise repurpose. */
       .manage-empty-actions {
         display: flex;
         gap: 8px;
