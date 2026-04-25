@@ -1,0 +1,93 @@
+/* Shared visual palette pulled from src/index.html so all three
+   mockups feel consistent with the actual plugin chrome. */
+:root {
+  --bg: #ffffff;
+  --fg: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --hover: #f3f4f6;
+  --soft: #f9fafb;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --danger: #dc2626;
+  --warning: #d97706;
+  --success: #059669;
+
+  --endpoint-local-bg: #dcfce7;
+  --endpoint-local-fg: #166534;
+  --endpoint-remote-bg: #fef3c7;
+  --endpoint-remote-fg: #92400e;
+}
+html.dark {
+  --bg: #1f2024;
+  --fg: #e5e7eb;
+  --muted: #9ca3af;
+  --border: #2c2e36;
+  --hover: #2a2c32;
+  --soft: #24262c;
+  --accent: #60a5fa;
+  --accent-hover: #3b82f6;
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --success: #34d399;
+
+  --endpoint-local-bg: #14532d;
+  --endpoint-local-fg: #bbf7d0;
+  --endpoint-remote-bg: #78350f;
+  --endpoint-remote-fg: #fde68a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--bg);
+}
+button { font: inherit; cursor: pointer; }
+input, textarea, select { font: inherit; color: inherit; }
+.theme-toggle {
+  position: fixed; top: 10px; right: 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  background: var(--bg); color: var(--fg);
+  padding: 4px 10px; font-size: 12px;
+  z-index: 100;
+}
+.mockup-banner {
+  background: var(--soft);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mockup-banner strong { color: var(--fg); }
+.mockup-banner a { color: var(--accent); text-decoration: none; }
+.mockup-banner a:hover { text-decoration: underline; }
+.endpoint-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.endpoint-badge-local {
+  background: var(--endpoint-local-bg);
+  color: var(--endpoint-local-fg);
+}
+.endpoint-badge-remote {
+  background: var(--endpoint-remote-bg);
+  color: var(--endpoint-remote-fg);
+}
+kbd {
+  background: var(--hover);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: inherit;
+  font-size: 0.85em;
+}

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup C — Create new action</title>
+<link rel="stylesheet" href="_shared.css">
+<link rel="stylesheet" href="_C-styles.css">
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner banner-c">
+  <span><strong>Mockup C — Create</strong> · empty form for a new action</span>
+  <span><a href="index.html">← All mockups</a></span>
+</div>
+
+<div class="modal">
+  <div class="modal-header">
+    <span class="modal-title">Manage AI Actions</span>
+    <button class="modal-close">✕</button>
+  </div>
+
+  <div class="detail">
+    <div class="detail-breadcrumb">
+      <a>← Back to all actions</a>  /  New action
+    </div>
+
+    <h2>New action</h2>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Title</label>
+        <input type="text" placeholder="e.g. Summarize as tweet">
+      </div>
+      <div class="field">
+        <label class="field-label">Id</label>
+        <input type="text" placeholder="auto-generated from title…">
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Description (optional)</label>
+      <input type="text" placeholder="One short sentence shown in the gallery card and the diff-panel header">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Scope</label>
+        <div class="radio-group">
+          <label>○ selection</label>
+          <label class="checked">● block</label>
+          <label>○ subtree</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Kind</label>
+        <div class="radio-group">
+          <label class="checked">● text</label>
+          <label>○ vision</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Output mode</label>
+      <select>
+        <option>diff-panel  (review side-by-side, accept/reject)</option>
+        <option>replace  (overwrite block with no review)</option>
+        <option>append-children  (add as new children, one per line)</option>
+        <option>outline-replace  (replace existing children with a generated outline)</option>
+        <option>outline-append  (append a generated outline alongside existing children)</option>
+        <option>picker-replace  (show N candidates, user picks one)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="field-label">System prompt</label>
+      <div class="prompt-wrap">
+        <textarea class="prompt" placeholder="Describe the task to the model. End with: &quot;Return ONLY the transformed text — no preamble, no explanation, no surrounding quotes.&quot; …so small local models don't add noise to the output."></textarea>
+        <div class="prompt-toolbar">
+          <span>Lines: 0 · Chars: 0</span>
+          <span>
+            Insert variable
+            <select>
+              <option>{{block_text}}</option>
+              <option>{{selection}}</option>
+              <option>{{block_title}}</option>
+            </select>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <button class="btn btn-primary">Save action</button>
+      <button class="btn">Cancel</button>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted);">
+        <kbd>⌘ ↵</kbd> save · <kbd>esc</kbd> cancel
+      </span>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <span>3 user actions · synced with <code>userActionsJson</code></span>
+    <span><kbd>esc</kbd> close</span>
+  </div>
+</div>
+</body>
+</html>

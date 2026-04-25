@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup C — View built-in (read-only)</title>
+<link rel="stylesheet" href="_shared.css">
+<link rel="stylesheet" href="_C-styles.css">
+<style>
+.readonly-banner {
+  display: flex; align-items: center; gap: 8px;
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  border-left: 3px solid var(--accent);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 12.5px;
+  color: var(--fg);
+  margin-bottom: 14px;
+}
+.readonly-banner code {
+  background: var(--hover);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.field input[disabled],
+.field textarea[disabled],
+.field select[disabled] {
+  background: var(--soft);
+  color: var(--muted);
+  cursor: default;
+}
+.radio-group label.disabled {
+  background: var(--soft);
+  color: var(--muted);
+  cursor: default;
+  border-color: var(--border);
+}
+.radio-group label.disabled.checked {
+  background: var(--soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner banner-c">
+  <span><strong>Mockup C — View built-in</strong> · read-only inspect</span>
+  <span><a href="index.html">← All mockups</a></span>
+</div>
+
+<div class="modal">
+  <div class="modal-header">
+    <span class="modal-title">Manage AI Actions</span>
+    <button class="modal-close">✕</button>
+  </div>
+
+  <div class="detail">
+    <div class="detail-breadcrumb">
+      <a>← Back to all actions</a>  /  Rewrite Professional  <span class="tag">built-in</span>
+    </div>
+
+    <div class="readonly-banner">
+      <span>👁</span>
+      <span>This is a built-in action — read-only. To customise, use <strong>Duplicate as user action</strong> (creates an editable copy with a different id) or shadow it by creating a user action with the same id <code>rewrite-professional</code>.</span>
+    </div>
+
+    <h2>Rewrite Professional</h2>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Title</label>
+        <input type="text" disabled value="Rewrite Professional">
+      </div>
+      <div class="field">
+        <label class="field-label">Id</label>
+        <input type="text" disabled value="rewrite-professional">
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Description</label>
+      <input type="text" disabled value='Rewrite the current block following "Writing the Amazon Way" principles — declarative sentences, active voice, concrete nouns, no weasel words. Review the proposed text in a diff panel before applying.'>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Scope</label>
+        <div class="radio-group">
+          <label class="disabled">○ selection</label>
+          <label class="disabled checked">● block</label>
+          <label class="disabled">○ subtree</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Kind</label>
+        <div class="radio-group">
+          <label class="disabled checked">● text</label>
+          <label class="disabled">○ vision</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Output mode</label>
+      <select disabled>
+        <option>diff-panel</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="field-label">System prompt</label>
+      <div class="prompt-wrap">
+        <textarea class="prompt" disabled>Rewrite the text following "Writing the Amazon Way" principles. Use clear, declarative sentences in active voice, one idea per sentence. Prefer concrete nouns and specific data over vague adjectives. Remove weasel words ("very", "really", "many", "some", "could be", "might", "basically") and filler. Keep sentences short and direct. Do not add new information or change the meaning. Preserve any Markdown or wiki-style syntax ([[links]], #tags, **bold**, etc.). Return ONLY the rewritten text — no preamble, no explanation, no surrounding quotes.</textarea>
+        <div class="prompt-toolbar">
+          <span>Lines: 1 · Chars: 712</span>
+          <span style="opacity:0.6;">read-only · cannot edit built-in</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <button class="btn btn-primary">⧉ Duplicate as user action</button>
+      <button class="btn">▶ Test on current block</button>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted);"><kbd>esc</kbd> back</span>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <span>3 user actions · synced with <code>userActionsJson</code></span>
+    <span><kbd>esc</kbd> close</span>
+  </div>
+</div>
+</body>
+</html>
