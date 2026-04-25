@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI Actions — config UX mockups</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.shell { max-width: 920px; margin: 0 auto; padding: 36px 24px 80px 24px; }
+h1 { margin: 0 0 6px 0; font-size: 22px; }
+.lede { color: var(--muted); margin: 0 0 28px 0; }
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.card {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 18px 16px 18px;
+  background: var(--soft);
+  text-decoration: none; color: var(--fg);
+  transition: border-color 100ms, transform 100ms;
+}
+.card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.card .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+.card h2 { margin: 0 0 6px 0; font-size: 16px; }
+.card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; flex: 1; }
+.card .meta {
+  margin-top: 12px;
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.tag {
+  display: inline-block;
+  background: var(--hover); color: var(--muted);
+  padding: 1px 7px; border-radius: 999px;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+}
+.tag.lean {
+  background: color-mix(in oklab, var(--success) 14%, transparent);
+  color: var(--success);
+}
+footer {
+  margin-top: 40px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+
+<div class="shell">
+  <h1>AI Actions — config-editing UX mockups</h1>
+  <p class="lede">Three directions for redesigning the action-management experience. Click into each to see it. All three share the plugin's existing color palette so the chrome looks the way it would in Logseq.</p>
+
+  <div class="cards">
+    <a class="card" href="A-sidebar.html">
+      <div class="label">Mockup A</div>
+      <h2>Native sidebar with live preview</h2>
+      <p>Move the editor into Logseq's right sidebar so users can edit and test against the cursor's block in real time. Auto-save replaces the staged-and-commit flow.</p>
+      <div class="meta"><span class="tag">storage: userActionsJson</span><span class="tag">cost: medium</span></div>
+    </a>
+    <a class="card" href="B-blocks.html">
+      <div class="label">Mockup B</div>
+      <h2>Actions are blocks</h2>
+      <p>Stop hiding actions in JSON. Each action is a real Logseq block tagged <code>#ai-action</code>, edited the way users edit anything else. Plugin watches DB for changes.</p>
+      <div class="meta"><span class="tag">storage: graph blocks</span><span class="tag">cost: medium-high</span></div>
+    </a>
+    <a class="card" href="C-gallery.html">
+      <div class="label">Mockup C</div>
+      <h2>Action gallery (refined modal)</h2>
+      <p>Stay in the modal, refine the layout. Card grid, search, inline editor expansion, bigger prompt area with a char counter and variable-insert helper.</p>
+      <div class="meta"><span class="tag">storage: userActionsJson</span><span class="tag">cost: low-medium</span><span class="tag lean">my lean</span></div>
+    </a>
+  </div>
+
+  <h2 style="margin-top:48px;font-size:18px;">Mockup C — CRUD states <span style="font-size:13px;color:var(--muted);font-weight:400;">(chosen direction)</span></h2>
+  <p class="lede" style="margin-bottom:18px;">Each card below is a different state of the same modal — what the user sees in different CRUD scenarios.</p>
+
+  <div class="cards">
+    <a class="card" href="C-gallery.html">
+      <div class="label">Read</div>
+      <h2>Gallery + edit</h2>
+      <p>The default landing view: cards for built-ins and user actions. Click a user action to expand the inline editor (also in this file).</p>
+    </a>
+    <a class="card" href="C-empty.html">
+      <div class="label">Read · first-run</div>
+      <h2>Empty state</h2>
+      <p>What a brand-new user sees: built-ins shown, "Your actions" section is an empty-state CTA with three onramps (Create, Import, Read the guide).</p>
+    </a>
+    <a class="card" href="C-create.html">
+      <div class="label">Create</div>
+      <h2>New action</h2>
+      <p>Empty form variant of the editor. Same shape as Update so users only learn one form. Output mode and scope have sensible defaults.</p>
+    </a>
+    <a class="card" href="C-view-builtin.html">
+      <div class="label">Read · built-in</div>
+      <h2>View built-in (read-only)</h2>
+      <p>Inspecting a built-in shows the prompt with all fields disabled, plus a banner explaining read-only and offering "Duplicate as user action".</p>
+    </a>
+    <a class="card" href="C-validation.html">
+      <div class="label">Update · errors</div>
+      <h2>Validation errors</h2>
+      <p>What an invalid edit looks like: error summary at top, per-field red borders + error messages, Save button disabled until fixed.</p>
+    </a>
+    <a class="card" href="C-delete.html">
+      <div class="label">Delete</div>
+      <h2>Delete confirmation</h2>
+      <p>Modal-over-modal confirm. Names the action being deleted and explains the slash/palette consequence (no deregister API in Logseq).</p>
+    </a>
+  </div>
+
+  <footer>
+    All mockups are visual only — no LLM calls, no persistence. Toggle dark mode in the top-right of any mockup.
+  </footer>
+</div>
+</body>
+</html>

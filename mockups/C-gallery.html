@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup C — Action gallery (refined modal)</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+body {
+  background: rgba(0, 0, 0, 0.45);
+  min-height: 100vh;
+  padding: 36px 16px;
+}
+html.dark body { background: rgba(0, 0, 0, 0.6); }
+.modal {
+  max-width: 1080px;
+  margin: 0 auto;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-title { font-size: 16px; font-weight: 600; }
+.modal-close {
+  background: none; border: none;
+  color: var(--muted); font-size: 18px;
+  padding: 4px 8px;
+}
+.toolbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--soft);
+}
+.search {
+  flex: 1;
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+.search input {
+  flex: 1; border: none; outline: none;
+  background: transparent;
+}
+.btn {
+  padding: 5px 12px; border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg); color: var(--fg);
+  font-size: 13px;
+}
+.btn:hover { background: var(--hover); }
+.btn-primary {
+  background: var(--accent); color: white; border-color: var(--accent);
+}
+.btn-primary:hover { background: var(--accent-hover); }
+
+.section-label {
+  padding: 14px 20px 8px 20px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  padding: 0 20px 20px 20px;
+}
+.card {
+  position: relative;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: border-color 100ms;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+}
+.card:hover { border-color: var(--accent); background: var(--soft); }
+.card.builtin { background: var(--soft); }
+.card-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 6px; margin-bottom: 4px;
+}
+.card-title { font-weight: 600; font-size: 14px; }
+.card-meta {
+  display: inline-flex; gap: 4px;
+}
+.tag {
+  display: inline-block;
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--hover);
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+}
+.tag.kind-vision { background: color-mix(in oklab, var(--accent) 16%, transparent); color: var(--accent); }
+.tag.builtin-tag {
+  background: color-mix(in oklab, var(--accent) 10%, transparent);
+  color: var(--accent);
+}
+.card-desc {
+  flex: 1;
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-actions {
+  display: flex; gap: 4px; justify-content: flex-end;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 100ms;
+}
+.card:hover .card-actions { opacity: 1; }
+.icon-btn {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.icon-btn:hover { background: var(--hover); color: var(--fg); }
+.new-card {
+  display: flex; align-items: center; justify-content: center;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted);
+  min-height: 130px;
+  font-size: 14px;
+}
+.new-card:hover {
+  border-color: var(--accent); color: var(--accent);
+}
+.modal-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--soft);
+  font-size: 12px; color: var(--muted);
+}
+
+/* Detail / editor view */
+.detail {
+  padding: 16px 20px 20px 20px;
+  display: none;
+}
+.detail.open { display: block; }
+.grid.hidden { display: none; }
+.section-label.hidden { display: none; }
+.detail-breadcrumb {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--muted);
+  margin-bottom: 14px;
+}
+.detail-breadcrumb a { color: var(--accent); text-decoration: none; cursor: pointer; }
+.detail-breadcrumb a:hover { text-decoration: underline; }
+.detail h2 { margin: 0 0 14px 0; font-size: 17px; }
+.field { margin-bottom: 14px; }
+.field-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field input[type="text"],
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: 2px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+.radio-group { display: flex; gap: 6px; }
+.radio-group label {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.radio-group label.checked {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.prompt-wrap {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  overflow: hidden;
+}
+.prompt-wrap:focus-within {
+  outline: 2px solid color-mix(in oklab, var(--accent) 40%, transparent);
+  outline-offset: -1px;
+  border-color: var(--accent);
+}
+textarea.prompt {
+  width: 100%;
+  border: none; outline: none;
+  padding: 9px 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  background: var(--bg); color: var(--fg);
+  min-height: 200px;
+  resize: vertical;
+}
+.prompt-toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--soft);
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.prompt-toolbar select {
+  font-size: 11.5px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+.run-row {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+  display: flex; align-items: center; gap: 12px;
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner" style="background:transparent;border-color:transparent;max-width:1080px;margin:0 auto -8px auto;">
+  <span style="color:rgba(255,255,255,0.85)"><strong style="color:white;">Mockup C</strong> — action gallery (refined modal)</span>
+  <span><a href="index.html" style="color:#a5b4fc;">← All mockups</a></span>
+</div>
+
+<div class="modal">
+  <div class="modal-header">
+    <span class="modal-title">Manage AI Actions</span>
+    <button class="modal-close" onclick="alert('would close the modal')">✕</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search">
+      🔍 <input type="text" placeholder="Search actions by title, id, or prompt…">
+    </div>
+    <button class="btn btn-primary" onclick="showDetail()">+ New action</button>
+    <button class="btn">⤓ Import JSON</button>
+    <button class="btn">⤴ Copy all</button>
+  </div>
+
+  <!-- Gallery view -->
+  <div id="gallery">
+    <div class="section-label">Built-ins</div>
+    <div class="grid">
+      <div class="card builtin">
+        <div class="card-header">
+          <span class="card-title">Spellcheck</span>
+          <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+        </div>
+        <div class="card-desc">Fix spelling errors in the current block. Review the proposed text in a diff panel before applying.</div>
+        <div class="card-actions">
+          <button class="icon-btn" title="View prompt">👁</button>
+        </div>
+      </div>
+      <div class="card builtin">
+        <div class="card-header">
+          <span class="card-title">Grammar</span>
+          <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+        </div>
+        <div class="card-desc">Fix grammar and punctuation in the current block. Review the proposed text in a diff panel before applying.</div>
+        <div class="card-actions"><button class="icon-btn">👁</button></div>
+      </div>
+      <div class="card builtin">
+        <div class="card-header">
+          <span class="card-title">Rewrite Professional</span>
+          <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+        </div>
+        <div class="card-desc">Rewrite following "Writing the Amazon Way" — declarative sentences, active voice, concrete nouns, no weasel words.</div>
+        <div class="card-actions"><button class="icon-btn">👁</button></div>
+      </div>
+      <div class="card builtin">
+        <div class="card-header">
+          <span class="card-title">Generate Title</span>
+          <span class="card-meta"><span class="tag kind-vision">vision</span><span class="tag">pick</span></span>
+        </div>
+        <div class="card-desc">Analyze an image asset block with a vision model and propose three candidate titles to set as the block's title.</div>
+        <div class="card-actions"><button class="icon-btn">👁</button></div>
+      </div>
+      <div class="card builtin">
+        <div class="card-header">
+          <span class="card-title">Extract Image Text</span>
+          <span class="card-meta"><span class="tag kind-vision">vision</span><span class="tag">outline</span></span>
+        </div>
+        <div class="card-desc">Extract all visible text from an image asset block via a vision model and append it as nested child blocks in outline format.</div>
+        <div class="card-actions"><button class="icon-btn">👁</button></div>
+      </div>
+      <div class="card builtin">
+        <div class="card-header">
+          <span class="card-title">Outline (append)</span>
+          <span class="card-meta"><span class="tag">subtree</span><span class="tag">outline</span></span>
+        </div>
+        <div class="card-desc">Generate a nested outline of the current block and its children, and append it as new descendants.</div>
+        <div class="card-actions"><button class="icon-btn">👁</button></div>
+      </div>
+    </div>
+
+    <div class="section-label">Your actions</div>
+    <div class="grid">
+      <div class="card" onclick="showDetail()">
+        <div class="card-header">
+          <span class="card-title">Summarize as tweet</span>
+          <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+        </div>
+        <div class="card-desc">Cut the block to a 280-character tweet, preserving the gist and the author's voice.</div>
+        <div class="card-actions">
+          <button class="icon-btn" title="Edit">✎</button>
+          <button class="icon-btn" title="Delete">⌫</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Translate to French</span>
+          <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+        </div>
+        <div class="card-desc">Render the block in formal French. Preserves Markdown, wikilinks, and tags.</div>
+        <div class="card-actions">
+          <button class="icon-btn">✎</button>
+          <button class="icon-btn">⌫</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Bug-report polish</span>
+          <span class="card-meta"><span class="tag">subtree</span><span class="tag">diff</span></span>
+        </div>
+        <div class="card-desc">Take rough bug notes and rewrite as Steps to reproduce / Expected / Actual / Environment.</div>
+        <div class="card-actions">
+          <button class="icon-btn">✎</button>
+          <button class="icon-btn">⌫</button>
+        </div>
+      </div>
+      <div class="card new-card" onclick="showDetail()">+ New action</div>
+    </div>
+  </div>
+
+  <!-- Detail / editor view -->
+  <div id="detail" class="detail">
+    <div class="detail-breadcrumb">
+      <a onclick="showGallery()">← Back to all actions</a>  /  Summarize as tweet
+    </div>
+
+    <h2>Summarize as tweet</h2>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Title</label>
+        <input type="text" value="Summarize as tweet">
+      </div>
+      <div class="field">
+        <label class="field-label">Id</label>
+        <input type="text" value="summarize-tweet">
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Description</label>
+      <input type="text" value="Cut the block to a 280-character tweet, preserving the gist and the author's voice.">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Scope</label>
+        <div class="radio-group">
+          <label>○ selection</label>
+          <label class="checked">● block</label>
+          <label>○ subtree</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Kind</label>
+        <div class="radio-group">
+          <label class="checked">● text</label>
+          <label>○ vision</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Output mode</label>
+      <select>
+        <option>diff-panel</option>
+        <option>replace</option>
+        <option>append-children</option>
+        <option>outline-replace</option>
+        <option>outline-append</option>
+        <option>picker-replace</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="field-label">System prompt</label>
+      <div class="prompt-wrap">
+        <textarea class="prompt">Summarize the text below as a single tweet of 280 characters or fewer. Preserve the gist and the author's voice. Return ONLY the tweet text — no preamble, no explanation, no surrounding quotes.</textarea>
+        <div class="prompt-toolbar">
+          <span>Lines: 4 · Chars: 198</span>
+          <span>
+            Insert variable
+            <select>
+              <option>{{block_text}}</option>
+              <option>{{selection}}</option>
+              <option>{{block_title}}</option>
+            </select>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <button class="btn btn-primary">▶ Test on current block</button>
+      <span style="font-size:12px;color:var(--muted);">runs against the cursor's block · <span class="endpoint-badge endpoint-badge-local"><strong>LOCAL</strong></span></span>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted);"><kbd>⌘ ↵</kbd> save · <kbd>esc</kbd> back</span>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <span>3 user actions · synced with <code>userActionsJson</code></span>
+    <span><kbd>esc</kbd> close</span>
+  </div>
+</div>
+
+<script>
+function showDetail() {
+  document.getElementById('gallery').style.display = 'none';
+  document.getElementById('detail').classList.add('open');
+  document.querySelectorAll('.section-label').forEach(el => el.classList.add('hidden'));
+}
+function showGallery() {
+  document.getElementById('gallery').style.display = '';
+  document.getElementById('detail').classList.remove('open');
+  document.querySelectorAll('.section-label').forEach(el => el.classList.remove('hidden'));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup A — Native sidebar with live preview</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.shell {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  height: 100vh;
+}
+.fake-graph {
+  background: var(--soft);
+  border-right: 1px solid var(--border);
+  padding: 24px 32px;
+  overflow-y: auto;
+  position: relative;
+}
+.fake-graph h2 {
+  margin: 0 0 12px 0;
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.fake-graph .dot {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--muted);
+  vertical-align: middle; margin: 0 8px 0 -16px;
+}
+.block { padding: 4px 0; padding-left: 16px; }
+.block.selected { background: color-mix(in oklab, var(--accent) 12%, transparent); border-radius: 4px; }
+.block-text { color: var(--fg); }
+.block-children { margin-left: 18px; border-left: 1px dashed var(--border); padding-left: 10px; }
+
+.sidebar {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.sidebar-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+}
+.sidebar-tab {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.sidebar-tab.active { color: var(--fg); border-bottom-color: var(--accent); }
+.sidebar-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-search input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  background: var(--soft);
+  color: var(--fg);
+}
+.sidebar-search button {
+  padding: 5px 10px; font-size: 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent); color: white;
+  border-radius: 6px;
+}
+.action-list {
+  overflow-y: auto;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  max-height: 38vh;
+}
+.action-section-label {
+  font-size: 0.72em;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  padding: 8px 4px 4px 4px;
+}
+.action-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.action-row:hover { background: var(--hover); }
+.action-row.active { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+.action-handle { color: var(--muted); cursor: grab; user-select: none; }
+.action-name { flex: 1; }
+.action-meta { color: var(--muted); font-size: 11px; font-family: ui-monospace, monospace; }
+.action-row.builtin .action-handle { visibility: hidden; }
+
+.editor {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  background: var(--soft);
+}
+.editor h3 {
+  margin: 0 0 4px 0;
+  font-size: 15px;
+}
+.editor .save-state {
+  font-size: 11px; color: var(--muted);
+  margin-bottom: 14px;
+}
+.field { margin-bottom: 12px; }
+.field-label {
+  display: block;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.field input[type="text"],
+.field select,
+.field textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.radio-group { display: flex; gap: 8px; }
+.radio-group label {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.radio-group label.checked {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+textarea.prompt {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  line-height: 1.55;
+  min-height: 140px;
+  resize: vertical;
+}
+.run-bar {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 6px; padding: 8px 0; border-top: 1px solid var(--border);
+}
+.run-btn {
+  padding: 6px 12px;
+  background: var(--accent); color: white; border: none;
+  border-radius: 6px; font-weight: 500;
+}
+.run-btn:hover { background: var(--accent-hover); }
+.run-hint { color: var(--muted); font-size: 12px; }
+
+.preview {
+  margin-top: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.preview-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+.preview-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+  background: var(--border);
+}
+.preview-col { background: var(--bg); padding: 10px 12px; min-height: 90px; }
+.preview-col h4 {
+  margin: 0 0 6px 0; font-size: 11px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.preview-col p { margin: 0; font-size: 13px; }
+.added { background: color-mix(in oklab, var(--success) 22%, transparent); border-radius: 3px; padding: 0 2px; }
+.removed { background: color-mix(in oklab, var(--danger) 18%, transparent); border-radius: 3px; padding: 0 2px; text-decoration: line-through; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner">
+  <span><strong>Mockup A</strong> — native sidebar with live preview</span>
+  <span><a href="index.html">← All mockups</a></span>
+</div>
+
+<div class="shell">
+  <!-- Fake Logseq editor on the left, illustrating that the sidebar opens beside the user's work -->
+  <div class="fake-graph">
+    <h2>journal · 2026-04-25</h2>
+    <div class="block"><span class="dot"></span><span class="block-text">Met with the design team to review the new dashboard.</span>
+      <div class="block-children">
+        <div class="block selected"><span class="dot"></span><span class="block-text">Their are still some open questions about the data freshness garantee, witch we should track and there for prioritise.</span></div>
+        <div class="block"><span class="dot"></span><span class="block-text">Action items captured below.</span></div>
+      </div>
+    </div>
+    <div class="block"><span class="dot"></span><span class="block-text">Followups for tomorrow…</span></div>
+  </div>
+
+  <!-- Right sidebar: action list + editor + live preview -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="sidebar-tab active">AI Actions</div>
+      <div class="sidebar-tab">Diagnostics</div>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" placeholder="Search actions…">
+      <button>+ New</button>
+    </div>
+
+    <div class="action-list">
+      <div class="action-section-label">Built-ins</div>
+      <div class="action-row builtin">
+        <span class="action-handle">⋮⋮</span>
+        <span class="action-name">Spellcheck</span>
+        <span class="action-meta">block · diff</span>
+      </div>
+      <div class="action-row builtin">
+        <span class="action-handle">⋮⋮</span>
+        <span class="action-name">Grammar</span>
+        <span class="action-meta">block · diff</span>
+      </div>
+      <div class="action-row builtin">
+        <span class="action-handle">⋮⋮</span>
+        <span class="action-name">Rewrite Professional</span>
+        <span class="action-meta">block · diff</span>
+      </div>
+      <div class="action-row builtin">
+        <span class="action-handle">⋮⋮</span>
+        <span class="action-name">Generate Title</span>
+        <span class="action-meta">block · vision · pick</span>
+      </div>
+
+      <div class="action-section-label">Your actions  <span style="text-transform:none;letter-spacing:0;font-size:10px;">drag to reorder</span></div>
+      <div class="action-row">
+        <span class="action-handle">⋮⋮</span>
+        <span class="action-name">Summarize as tweet</span>
+        <span class="action-meta">block · diff</span>
+      </div>
+      <div class="action-row active">
+        <span class="action-handle">⋮⋮</span>
+        <span class="action-name">Translate to French</span>
+        <span class="action-meta">block · diff</span>
+      </div>
+      <div class="action-row">
+        <span class="action-handle">⋮⋮</span>
+        <span class="action-name">Bug-report polish</span>
+        <span class="action-meta">block · diff</span>
+      </div>
+    </div>
+
+    <div class="editor">
+      <h3>Translate to French</h3>
+      <div class="save-state">Saved 8 seconds ago · auto-save · <a href="#" style="color:var(--accent);text-decoration:none;">undo</a></div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Title</label>
+          <input type="text" value="Translate to French">
+        </div>
+        <div class="field">
+          <label class="field-label">Id</label>
+          <input type="text" value="translate-fr">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Scope</label>
+        <div class="radio-group">
+          <label>○ selection</label>
+          <label class="checked">● block</label>
+          <label>○ subtree</label>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Output mode</label>
+          <select>
+            <option>diff-panel</option>
+            <option>replace</option>
+            <option>append-children</option>
+            <option>outline-replace</option>
+            <option>outline-append</option>
+            <option>picker-replace</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="field-label">Kind</label>
+          <select>
+            <option>text</option>
+            <option>vision</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">System prompt</label>
+        <textarea class="prompt">Translate the text below into formal French. Preserve any Markdown or wiki-style syntax ([[links]], #tags, **bold**). Do not add commentary. Return ONLY the translated text — no preamble, no explanation, no surrounding quotes.</textarea>
+      </div>
+
+      <div class="run-bar">
+        <button class="run-btn">▶ Run on current block</button>
+        <span class="run-hint">tests against the cursor's block · <span class="endpoint-badge endpoint-badge-local"><strong>LOCAL</strong></span></span>
+      </div>
+
+      <div class="preview">
+        <div class="preview-header">
+          <span>Live preview · qwen3.5:2b · 1.4 s</span>
+          <span><kbd>⌘ ↵</kbd> apply  ·  <kbd>esc</kbd> dismiss</span>
+        </div>
+        <div class="preview-cols">
+          <div class="preview-col">
+            <h4>Original</h4>
+            <p>Their are still some open questions about the data freshness garantee, witch we should track and there for prioritise.</p>
+          </div>
+          <div class="preview-col">
+            <h4>Proposed</h4>
+            <p><span class="added">Il reste encore</span> <span class="removed">Their are still some</span> <span class="added">des</span> <span class="removed">open</span> questions <span class="added">en suspens</span> <span class="removed">about the data</span> <span class="added">au sujet de la fraîcheur des données, que nous devrions suivre et donc prioriser.</span><span class="removed"> freshness garantee, witch we should track and there for prioritise.</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

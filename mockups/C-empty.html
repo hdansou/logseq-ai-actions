@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup C — Empty state (first run)</title>
+<link rel="stylesheet" href="_shared.css">
+<link rel="stylesheet" href="_C-styles.css">
+<style>
+.empty-state {
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center;
+  margin: 0 20px 20px 20px;
+  padding: 40px 24px 30px 24px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  background: var(--soft);
+}
+.empty-state .icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+.empty-state h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: var(--fg);
+}
+.empty-state p {
+  margin: 0 0 18px 0;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 540px;
+  line-height: 1.55;
+}
+.empty-actions {
+  display: flex; gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.icon-btn {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.card-actions {
+  display: flex; gap: 4px; justify-content: flex-end;
+  margin-top: 8px;
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner banner-c">
+  <span><strong>Mockup C — Empty state</strong> · first-run, no user actions yet</span>
+  <span><a href="index.html">← All mockups</a></span>
+</div>
+
+<div class="modal">
+  <div class="modal-header">
+    <span class="modal-title">Manage AI Actions</span>
+    <button class="modal-close">✕</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search">🔍 <input type="text" placeholder="Search actions…"></div>
+    <button class="btn btn-primary">+ New action</button>
+    <button class="btn">⤓ Import JSON</button>
+  </div>
+
+  <div class="section-label">Built-ins</div>
+  <div class="grid">
+    <div class="card builtin">
+      <div class="card-header">
+        <span class="card-title">Spellcheck</span>
+        <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+      </div>
+      <div class="card-desc">Fix spelling errors in the current block. Review the proposed text in a diff panel before applying.</div>
+      <div class="card-actions"><button class="icon-btn">👁</button></div>
+    </div>
+    <div class="card builtin">
+      <div class="card-header">
+        <span class="card-title">Grammar</span>
+        <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+      </div>
+      <div class="card-desc">Fix grammar and punctuation. Logseq-aware — preserves bullet-style fragments and contractions.</div>
+      <div class="card-actions"><button class="icon-btn">👁</button></div>
+    </div>
+    <div class="card builtin">
+      <div class="card-header">
+        <span class="card-title">Rewrite Professional</span>
+        <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+      </div>
+      <div class="card-desc">Rewrite following "Writing the Amazon Way" — declarative sentences, active voice, no weasel words.</div>
+      <div class="card-actions"><button class="icon-btn">👁</button></div>
+    </div>
+    <div class="card builtin">
+      <div class="card-header">
+        <span class="card-title">Generate Title</span>
+        <span class="card-meta"><span class="tag kind-vision">vision</span><span class="tag">pick</span></span>
+      </div>
+      <div class="card-desc">Analyze an image asset and propose three candidate titles. Pick one.</div>
+      <div class="card-actions"><button class="icon-btn">👁</button></div>
+    </div>
+  </div>
+
+  <div class="section-label">Your actions</div>
+  <div class="empty-state">
+    <div class="icon">✨</div>
+    <h3>You haven't added any custom actions yet</h3>
+    <p>
+      Built-ins cover the basics — spellcheck, grammar, rewrite tones, summarize, OCR. Add your own to capture workflows specific to how you write: project-specific summarization templates, translation pairs, bug-report polishing, anything you'd type into ChatGPT more than once.
+    </p>
+    <div class="empty-actions">
+      <button class="btn btn-primary">+ Create your first action</button>
+      <button class="btn">⤓ Import from JSON</button>
+      <button class="btn">📖 Read the guide</button>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <span>0 user actions · ready to save to <code>userActionsJson</code></span>
+    <span><kbd>esc</kbd> close</span>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup B — Actions are blocks (data lives in the graph)</title>
+<link rel="stylesheet" href="_shared.css">
+<style>
+.shell {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px 28px 80px 28px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 12px 0 4px 0;
+  color: var(--fg);
+}
+.page-tags {
+  display: inline-flex; gap: 6px; align-items: center;
+  font-size: 12px; color: var(--muted);
+  margin-bottom: 14px;
+}
+.page-tag {
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--accent);
+  padding: 1px 7px; border-radius: 999px; font-size: 11px;
+}
+.page-meta {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.page-meta strong { color: var(--fg); }
+
+.block {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+}
+.bullet {
+  width: 14px; flex-shrink: 0;
+  display: flex; justify-content: center;
+  padding-top: 6px;
+}
+.bullet::before {
+  content: ""; display: block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--muted);
+}
+.bullet.collapsed::before { background: var(--fg); }
+.block-body { flex: 1; min-width: 0; }
+.block-children {
+  margin-left: 14px;
+  padding-left: 6px;
+  border-left: 1px dashed var(--border);
+}
+.block-text { color: var(--fg); }
+.tag-chip {
+  display: inline-block;
+  background: color-mix(in oklab, var(--accent) 12%, transparent);
+  color: var(--accent);
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  margin-left: 6px;
+}
+.props {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  background: var(--soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.prop-key {
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.prop-val { color: var(--fg); }
+.prop-val.enum {
+  font-family: ui-monospace, monospace;
+  font-size: 11.5px;
+  background: var(--hover);
+  border-radius: 4px;
+  padding: 0 6px;
+  display: inline-block;
+}
+.prompt-block {
+  white-space: pre-wrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg);
+}
+.action-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  background: var(--bg);
+}
+.action-card-header {
+  display: flex; align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.action-title {
+  font-size: 15px; font-weight: 600;
+}
+.new-action-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  text-align: center;
+  background: var(--soft);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 16px;
+}
+.new-action-btn:hover {
+  background: var(--hover);
+  color: var(--fg);
+  border-color: var(--accent);
+}
+.callout {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--fg);
+  margin-bottom: 18px;
+}
+.live-tail {
+  font-size: 11.5px; color: var(--muted);
+  margin-top: 4px;
+  font-family: ui-monospace, monospace;
+}
+.live-tail .ok { color: var(--success); }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner">
+  <span><strong>Mockup B</strong> — actions are blocks (data lives in the graph)</span>
+  <span><a href="index.html">← All mockups</a></span>
+</div>
+
+<div class="shell">
+  <h1 class="page-title">ai-actions</h1>
+  <div class="page-tags">
+    <span>tags:</span>
+    <span class="page-tag">#ai-action-registry</span>
+  </div>
+
+  <div class="callout">
+    AI actions live as blocks tagged <code>#ai-action</code> on this page. Edit them like any other block — properties for metadata, a child for the prompt. The plugin watches <code>DB.onChanged</code> and reloads the registry whenever a tagged block changes.
+  </div>
+
+  <div class="page-meta">
+    Auto-created on first run · 4 actions · last sync <strong>just now</strong> · <a href="#" style="color:var(--accent);text-decoration:none;">migrate from userActionsJson</a>
+  </div>
+
+  <div class="action-card">
+    <div class="block">
+      <div class="bullet"></div>
+      <div class="block-body">
+        <span class="block-text">Translate to French</span>
+        <span class="tag-chip">#ai-action</span>
+        <div class="props">
+          <span class="prop-key">id</span>          <span class="prop-val">translate-fr</span>
+          <span class="prop-key">scope</span>       <span class="prop-val enum">block</span>
+          <span class="prop-key">output-mode</span> <span class="prop-val enum">diff-panel</span>
+          <span class="prop-key">kind</span>        <span class="prop-val enum">text</span>
+        </div>
+        <div class="block-children">
+          <div class="block">
+            <div class="bullet"></div>
+            <div class="block-body">
+              <span class="block-text">Prompt</span>
+              <div class="block-children">
+                <div class="prompt-block">Translate the text below into formal French. Preserve any Markdown or wiki-style syntax ([[links]], #tags, **bold**). Do not add commentary. Return ONLY the translated text — no preamble, no explanation, no surrounding quotes.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="live-tail">→ <span class="ok">registered</span> · slash <code>/AI Translate to French</code> · palette <code>AI: Translate to French</code></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="block">
+      <div class="bullet"></div>
+      <div class="block-body">
+        <span class="block-text">Bug-report polish</span>
+        <span class="tag-chip">#ai-action</span>
+        <div class="props">
+          <span class="prop-key">id</span>          <span class="prop-val">bug-polish</span>
+          <span class="prop-key">scope</span>       <span class="prop-val enum">subtree</span>
+          <span class="prop-key">output-mode</span> <span class="prop-val enum">diff-panel</span>
+          <span class="prop-key">kind</span>        <span class="prop-val enum">text</span>
+        </div>
+        <div class="block-children">
+          <div class="block">
+            <div class="bullet"></div>
+            <div class="block-body">
+              <span class="block-text">Prompt</span>
+              <div class="block-children">
+                <div class="prompt-block">Take the bug notes below and rewrite them as a clear bug report with sections: Steps to reproduce, Expected, Actual, Environment. Keep it factual and short. Preserve technical terms verbatim. Return ONLY the report — no commentary.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="live-tail">→ <span class="ok">registered</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-card" style="opacity:0.85;">
+    <div class="block">
+      <div class="bullet"></div>
+      <div class="block-body">
+        <span class="block-text">Code review (broken)</span>
+        <span class="tag-chip" style="background:color-mix(in oklab,var(--danger) 14%,transparent);color:var(--danger);">#ai-action · skipped</span>
+        <div class="props">
+          <span class="prop-key">id</span>          <span class="prop-val">code-review</span>
+          <span class="prop-key">scope</span>       <span class="prop-val enum" style="color:var(--danger);">page</span>
+          <span class="prop-key">output-mode</span> <span class="prop-val enum">diff-panel</span>
+          <span class="prop-key">kind</span>        <span class="prop-val enum">text</span>
+        </div>
+        <div class="live-tail" style="color:var(--danger);">⚠ scope=<code>page</code> is not a valid value (one of: selection, block, subtree). action skipped at registry build · fix the property and the action re-registers automatically</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-card">
+    <div class="block">
+      <div class="bullet"></div>
+      <div class="block-body">
+        <span class="block-text">Summarize as tweet</span>
+        <span class="tag-chip">#ai-action</span>
+        <div class="props">
+          <span class="prop-key">id</span>          <span class="prop-val">summarize-tweet</span>
+          <span class="prop-key">scope</span>       <span class="prop-val enum">block</span>
+          <span class="prop-key">output-mode</span> <span class="prop-val enum">diff-panel</span>
+          <span class="prop-key">kind</span>        <span class="prop-val enum">text</span>
+        </div>
+        <div class="block-children">
+          <div class="block">
+            <div class="bullet"></div>
+            <div class="block-body">
+              <span class="block-text">Prompt</span>
+              <div class="block-children">
+                <div class="prompt-block">Summarize the text below as a single tweet of 280 characters or fewer. Preserve the gist and the author's voice. Return ONLY the tweet text — no preamble.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="live-tail">→ <span class="ok">registered</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="new-action-btn">⊕ New AI action — inserts the template skeleton</div>
+</div>
+</body>
+</html>

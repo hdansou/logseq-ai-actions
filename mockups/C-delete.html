@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup C — Delete confirmation</title>
+<link rel="stylesheet" href="_shared.css">
+<link rel="stylesheet" href="_C-styles.css">
+<style>
+.modal-dimmed::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.4);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.confirm-overlay {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 50;
+  pointer-events: none;
+}
+.confirm-card {
+  pointer-events: auto;
+  width: min(440px, 92vw);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 30px 70px rgba(0,0,0,0.5);
+  padding: 18px 20px 16px 20px;
+}
+.confirm-card h3 {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+}
+.confirm-card p {
+  margin: 0 0 14px 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.confirm-card code {
+  background: var(--hover);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.confirm-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+}
+.modal { position: relative; }
+.icon-btn {
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.card-actions {
+  display: flex; gap: 4px; justify-content: flex-end;
+  margin-top: 8px;
+}
+.card-actions .icon-btn.delete-target {
+  background: color-mix(in oklab, var(--danger) 12%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner banner-c">
+  <span><strong>Mockup C — Delete</strong> · confirm before removing</span>
+  <span><a href="index.html">← All mockups</a></span>
+</div>
+
+<div class="modal modal-dimmed">
+  <div class="modal-header">
+    <span class="modal-title">Manage AI Actions</span>
+    <button class="modal-close">✕</button>
+  </div>
+
+  <div class="toolbar">
+    <div class="search">🔍 <input type="text" placeholder="Search actions…"></div>
+    <button class="btn btn-primary">+ New action</button>
+    <button class="btn">⤓ Import JSON</button>
+  </div>
+
+  <div class="section-label">Your actions</div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Summarize as tweet</span>
+        <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+      </div>
+      <div class="card-desc">Cut the block to a 280-character tweet, preserving the gist and the author's voice.</div>
+      <div class="card-actions">
+        <button class="icon-btn">✎</button>
+        <button class="icon-btn">⌫</button>
+      </div>
+    </div>
+    <div class="card" style="border-color: var(--danger);">
+      <div class="card-header">
+        <span class="card-title">Translate to French</span>
+        <span class="card-meta"><span class="tag">block</span><span class="tag">diff</span></span>
+      </div>
+      <div class="card-desc">Render the block in formal French. Preserves Markdown, wikilinks, and tags.</div>
+      <div class="card-actions">
+        <button class="icon-btn">✎</button>
+        <button class="icon-btn delete-target">⌫</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Bug-report polish</span>
+        <span class="card-meta"><span class="tag">subtree</span><span class="tag">diff</span></span>
+      </div>
+      <div class="card-desc">Take rough bug notes and rewrite as Steps to reproduce / Expected / Actual / Environment.</div>
+      <div class="card-actions">
+        <button class="icon-btn">✎</button>
+        <button class="icon-btn">⌫</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <span>3 user actions · synced with <code>userActionsJson</code></span>
+    <span><kbd>esc</kbd> close</span>
+  </div>
+</div>
+
+<div class="confirm-overlay">
+  <div class="confirm-card">
+    <h3>Delete "Translate to French"?</h3>
+    <p>
+      This removes the action from <code>userActionsJson</code>. The slash command, palette entry, and context-menu item will stay registered until you reload the plugin (Logseq has no deregister API). Invoking a removed action shows a "no longer available" toast.
+    </p>
+    <div class="confirm-actions">
+      <button class="btn">Cancel</button>
+      <button class="btn btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

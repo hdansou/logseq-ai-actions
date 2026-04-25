@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Mockup C — Validation errors</title>
+<link rel="stylesheet" href="_shared.css">
+<link rel="stylesheet" href="_C-styles.css">
+<style>
+.error-summary {
+  display: flex; gap: 10px; align-items: flex-start;
+  background: color-mix(in oklab, var(--danger) 8%, transparent);
+  border-left: 3px solid var(--danger);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  font-size: 12.5px;
+  margin-bottom: 18px;
+}
+.error-summary strong { color: var(--danger); }
+.error-summary ul { margin: 4px 0 0 18px; padding: 0; color: var(--fg); }
+.error-summary li { margin: 2px 0; }
+</style>
+</head>
+<body>
+<button class="theme-toggle" onclick="document.documentElement.classList.toggle('dark')">Toggle dark</button>
+<div class="mockup-banner banner-c">
+  <span><strong>Mockup C — Validation</strong> · what invalid edit state looks like</span>
+  <span><a href="index.html">← All mockups</a></span>
+</div>
+
+<div class="modal">
+  <div class="modal-header">
+    <span class="modal-title">Manage AI Actions</span>
+    <button class="modal-close">✕</button>
+  </div>
+
+  <div class="detail">
+    <div class="detail-breadcrumb">
+      <a>← Back to all actions</a>  /  New action
+    </div>
+
+    <h2>New action</h2>
+
+    <div class="error-summary">
+      <span style="font-size:14px;">⚠</span>
+      <div>
+        <strong>3 issues to fix before saving:</strong>
+        <ul>
+          <li>Title is required</li>
+          <li>Id <code>spellcheck</code> is already in use by a built-in. Pick a different id, or proceed to <em>shadow</em> the built-in.</li>
+          <li>System prompt is required</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field error">
+        <label class="field-label">Title</label>
+        <input type="text" placeholder="Required" value="">
+        <div class="field-error-msg">Title is required.</div>
+      </div>
+      <div class="field error">
+        <label class="field-label">Id</label>
+        <input type="text" value="spellcheck">
+        <div class="field-error-msg">
+          Already used by a built-in. <a href="#" style="color:var(--danger);text-decoration:underline;">Shadow it instead?</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Description (optional)</label>
+      <input type="text" value="My version that also fixes capitalization.">
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">Scope</label>
+        <div class="radio-group">
+          <label>○ selection</label>
+          <label class="checked">● block</label>
+          <label>○ subtree</label>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">Kind</label>
+        <div class="radio-group">
+          <label class="checked">● text</label>
+          <label>○ vision</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Output mode</label>
+      <select>
+        <option>diff-panel</option>
+      </select>
+    </div>
+
+    <div class="field error">
+      <label class="field-label">System prompt</label>
+      <div class="prompt-wrap error">
+        <textarea class="prompt" placeholder="Required — describe the task to the model."></textarea>
+        <div class="prompt-toolbar">
+          <span style="color:var(--danger);">Lines: 0 · Chars: 0 · required</span>
+          <span>
+            Insert variable
+            <select>
+              <option>{{block_text}}</option>
+              <option>{{selection}}</option>
+            </select>
+          </span>
+        </div>
+      </div>
+      <div class="field-error-msg">System prompt is required.</div>
+    </div>
+
+    <div class="run-row">
+      <button class="btn btn-primary" disabled style="opacity:0.5;cursor:not-allowed;">Save action</button>
+      <button class="btn">Cancel</button>
+      <span style="margin-left:auto;font-size:12px;color:var(--muted);">Save is disabled until all 3 issues are fixed</span>
+    </div>
+  </div>
+
+  <div class="modal-footer">
+    <span>3 user actions · synced with <code>userActionsJson</code></span>
+    <span><kbd>esc</kbd> close</span>
+  </div>
+</div>
+</body>
+</html>
