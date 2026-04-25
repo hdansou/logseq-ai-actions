@@ -379,56 +379,58 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
         </button>
       </div>
 
-      {filteredBuiltin.length > 0 ? (
-        <>
-          <div class="manage-section-label">Built-ins</div>
+      <div class="manage-body">
+        {filteredBuiltin.length > 0 ? (
+          <>
+            <div class="manage-section-label">Built-ins</div>
+            <div class="manage-grid">
+              {filteredBuiltin.map((a) => {
+                const shadowed = userActions.some((u) => u.id === a.id);
+                return (
+                  <BuiltinCard
+                    key={a.id}
+                    action={a}
+                    shadowed={shadowed}
+                    onView={() => openViewBuiltin(a.id)}
+                  />
+                );
+              })}
+            </div>
+          </>
+        ) : null}
+
+        <div class="manage-section-label">Your actions</div>
+        {showEmptyState ? (
+          <EmptyState onCreate={openCreate} onImport={() => setView({ kind: "import" })} />
+        ) : (
           <div class="manage-grid">
-            {filteredBuiltin.map((a) => {
-              const shadowed = userActions.some((u) => u.id === a.id);
+            {filteredUser.map((a) => {
+              // Find true index in unfiltered list so edit/delete target the right entry.
+              const trueIndex = userActions.indexOf(a);
               return (
-                <BuiltinCard
-                  key={a.id}
+                <UserCard
+                  key={`u-${a.id}-${trueIndex}`}
                   action={a}
-                  shadowed={shadowed}
-                  onView={() => openViewBuiltin(a.id)}
+                  shadowsBuiltin={builtinIds.has(a.id)}
+                  onClick={() => openEdit(trueIndex)}
+                  onEdit={() => openEdit(trueIndex)}
+                  onDelete={() => requestDelete(trueIndex)}
                 />
               );
             })}
+            {query.trim().length === 0 ? (
+              <button type="button" class="manage-card manage-new-card" onClick={openCreate}>
+                + New action
+              </button>
+            ) : null}
+            {filteredUser.length === 0 && query.trim().length > 0 ? (
+              <div class="manage-card-desc" style="padding:12px 0;">
+                No user actions match "{query}".
+              </div>
+            ) : null}
           </div>
-        </>
-      ) : null}
-
-      <div class="manage-section-label">Your actions</div>
-      {showEmptyState ? (
-        <EmptyState onCreate={openCreate} onImport={() => setView({ kind: "import" })} />
-      ) : (
-        <div class="manage-grid">
-          {filteredUser.map((a) => {
-            // Find true index in unfiltered list so edit/delete target the right entry.
-            const trueIndex = userActions.indexOf(a);
-            return (
-              <UserCard
-                key={`u-${a.id}-${trueIndex}`}
-                action={a}
-                shadowsBuiltin={builtinIds.has(a.id)}
-                onClick={() => openEdit(trueIndex)}
-                onEdit={() => openEdit(trueIndex)}
-                onDelete={() => requestDelete(trueIndex)}
-              />
-            );
-          })}
-          {query.trim().length === 0 ? (
-            <button type="button" class="manage-card manage-new-card" onClick={openCreate}>
-              + New action
-            </button>
-          ) : null}
-          {filteredUser.length === 0 && query.trim().length > 0 ? (
-            <div class="manage-card-desc" style="padding:12px 0;">
-              No user actions match "{query}".
-            </div>
-          ) : null}
-        </div>
-      )}
+        )}
+      </div>
 
       <footer class="diff-footer">
         <span class="manage-footer-status">
