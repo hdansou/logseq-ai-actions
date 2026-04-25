@@ -5,14 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Actions</title>
     <style>
+      /* Theme variables — fallback values match Logseq DB's modern default
+         palette as closely as possible. The `var(--ls-*, …)` references
+         are no-ops in a cross-origin iframe today (Logseq doesn't propagate
+         these into plugin docs), but kept so any future SDK change flows
+         through automatically. Custom Logseq themes will still see our
+         fallbacks; that's a known v1 limitation. */
       :root {
-        --bg: #ffffff;
-        --fg: #111827;
-        --muted: #6b7280;
-        --border: #e5e7eb;
-        --hover: #f3f4f6;
-        --accent: #2563eb;
-        --accent-hover: #1d4ed8;
+        --bg: var(--ls-primary-background-color, #ffffff);
+        --soft: var(--ls-secondary-background-color, #f7f8fa);
+        --fg: var(--ls-primary-text-color, #1f2937);
+        --muted: var(--ls-secondary-text-color, #6b7280);
+        --border: var(--ls-border-color, #e5e7eb);
+        --hover: var(--ls-tertiary-background-color, #f3f4f6);
+        --accent: var(--ls-link-text-color, #2563eb);
+        --accent-hover: var(--ls-link-text-hover-color, #1d4ed8);
         --danger: #dc2626;
         --warning: #d97706;
         --success: #059669;
@@ -28,13 +35,14 @@
          logseq.App.onThemeModeChanged in src/index.ts.
          See logseq-plugin-dev runtime-gotchas.md §2. */
       html.dark {
-        --bg: #1f2024;
-        --fg: #e5e7eb;
-        --muted: #9ca3af;
-        --border: #2c2e36;
-        --hover: #2a2c32;
-        --accent: #60a5fa;
-        --accent-hover: #3b82f6;
+        --bg: var(--ls-primary-background-color, #1f2024);
+        --soft: var(--ls-secondary-background-color, #24262c);
+        --fg: var(--ls-primary-text-color, #e5e7eb);
+        --muted: var(--ls-secondary-text-color, #9ca3af);
+        --border: var(--ls-border-color, #2c2e36);
+        --hover: var(--ls-tertiary-background-color, #2a2c32);
+        --accent: var(--ls-link-text-color, #60a5fa);
+        --accent-hover: var(--ls-link-text-hover-color, #3b82f6);
         --danger: #f87171;
         --warning: #fbbf24;
         --success: #34d399;
@@ -330,34 +338,77 @@
         color: var(--fg);
       }
 
-      /* Manage Actions panel — reuses .diff-root/.diff-modal/.diff-header/
-         .diff-footer/.diff-btn; adds its own list + form styling. */
+      /* Manage Actions panel — refined gallery design.
+         Reuses .diff-root / .diff-modal / .diff-header / .diff-footer / .diff-btn
+         and adds its own toolbar / grid / detail / confirm-overlay styling. */
       .manage-modal {
-        max-width: 900px;
-        width: min(900px, 95vw);
+        max-width: 1080px;
+        width: min(1080px, 96vw);
       }
-      .manage-list {
-        padding: 14px 20px;
-        overflow-y: auto;
-        max-height: 60vh;
+
+      /* — Toolbar (search + actions row) — */
+      .manage-toolbar {
         display: flex;
-        flex-direction: column;
+        align-items: center;
         gap: 10px;
-        background: var(--bg);
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+        background: var(--soft);
       }
-      .manage-divider {
-        border: 0;
-        border-top: 1px dashed var(--border);
-        margin: 4px 0;
+      .manage-search {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        border-radius: 6px;
+        padding: 5px 10px;
+      }
+      .manage-search:focus-within {
+        border-color: var(--accent);
+      }
+      .manage-search input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--fg);
+        font: inherit;
+      }
+
+      /* — Grid + cards — */
+      .manage-section-label {
+        padding: 14px 20px 6px 20px;
+        font-size: 0.72em;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .manage-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 12px;
+        padding: 0 20px 16px 20px;
       }
       .manage-card {
+        position: relative;
         border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 14px;
         background: var(--bg);
+        border-radius: 8px;
+        padding: 12px 14px;
+        cursor: pointer;
+        min-height: 130px;
+        display: flex;
+        flex-direction: column;
+        transition: border-color 100ms;
+      }
+      .manage-card:hover {
+        border-color: var(--accent);
+        background: var(--soft);
       }
       .manage-card-builtin {
-        background: color-mix(in oklab, var(--muted) 6%, var(--bg));
+        background: var(--soft);
       }
       .manage-card-shadowed {
         opacity: 0.55;
@@ -366,98 +417,367 @@
         display: flex;
         align-items: baseline;
         justify-content: space-between;
-        gap: 10px;
-        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 4px;
       }
       .manage-card-title {
-        font-size: 1em;
+        font-size: 0.98em;
+        font-weight: 600;
       }
       .manage-card-meta {
         display: inline-flex;
-        align-items: baseline;
-        gap: 6px;
+        gap: 4px;
         flex-wrap: wrap;
-        font-size: 0.82em;
-        color: var(--muted);
       }
-      .manage-badge,
-      .manage-meta-pill {
+      .manage-tag {
+        display: inline-block;
+        font-size: 0.74em;
         padding: 1px 7px;
         border-radius: 999px;
-        font-size: 0.9em;
-      }
-      .manage-badge-builtin {
-        background: color-mix(in oklab, var(--accent) 16%, transparent);
-        color: var(--accent);
-      }
-      .manage-badge-shadow {
-        background: color-mix(in oklab, var(--warning) 16%, transparent);
-        color: var(--warning);
-      }
-      .manage-meta-pill {
         background: var(--hover);
         color: var(--muted);
         font-family: ui-monospace, monospace;
       }
+      .manage-tag-vision {
+        background: color-mix(in oklab, var(--accent) 18%, transparent);
+        color: var(--accent);
+      }
+      .manage-tag-shadow {
+        background: color-mix(in oklab, var(--warning) 18%, transparent);
+        color: var(--warning);
+      }
       .manage-card-desc {
-        margin: 6px 0 0 0;
-        color: var(--fg);
-        font-size: 0.92em;
+        flex: 1;
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.86em;
+        line-height: 1.45;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
       .manage-card-actions {
         display: flex;
-        gap: 6px;
+        gap: 4px;
         justify-content: flex-end;
         margin-top: 8px;
+        opacity: 0;
+        transition: opacity 100ms;
       }
-      .manage-row-btn {
-        min-width: 28px;
-        padding: 3px 8px;
+      .manage-card:hover .manage-card-actions,
+      .manage-card:focus-within .manage-card-actions {
+        opacity: 1;
+      }
+      .manage-icon-btn {
+        width: 26px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
         border: 1px solid var(--border);
         border-radius: 6px;
-        background: var(--bg);
-        color: var(--fg);
-        font: inherit;
+        font-size: 0.92em;
+        color: var(--muted);
         cursor: pointer;
       }
-      .manage-row-btn:hover:not(:disabled) {
+      .manage-icon-btn:hover:not(:disabled) {
         background: var(--hover);
+        color: var(--fg);
       }
-      .manage-row-btn:disabled {
+      .manage-icon-btn:disabled {
         opacity: 0.4;
         cursor: default;
       }
-      .manage-new-row {
+      .manage-icon-btn-danger:hover:not(:disabled) {
+        background: color-mix(in oklab, var(--danger) 12%, transparent);
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+      .manage-new-card {
         display: flex;
-        gap: 6px;
-        margin-top: 6px;
-        flex-wrap: wrap;
-      }
-      .manage-new-btn {
-        align-self: flex-start;
-      }
-      .manage-warning {
-        padding: 10px 20px;
-        border-top: 1px solid var(--border);
-        background: color-mix(in oklab, var(--warning) 8%, var(--bg));
+        align-items: center;
+        justify-content: center;
+        border: 1px dashed var(--border);
+        background: transparent;
         color: var(--muted);
-        font-size: 0.85em;
+        min-height: 130px;
+        font-size: 0.95em;
+        cursor: pointer;
+      }
+      .manage-new-card:hover {
+        border-color: var(--accent);
+        color: var(--accent);
       }
 
-      /* Editor form */
-      .manage-back-btn {
+      /* — Empty state (no user actions yet) — */
+      .manage-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        margin: 0 20px 16px 20px;
+        padding: 36px 24px 28px 24px;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        background: var(--soft);
+      }
+      .manage-empty-icon {
+        font-size: 28px;
+        margin-bottom: 6px;
+      }
+      .manage-empty-title {
+        font-size: 1.05em;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+      }
+      .manage-empty-desc {
+        margin: 0 0 16px 0;
+        color: var(--muted);
+        font-size: 0.9em;
+        max-width: 540px;
+        line-height: 1.55;
+      }
+      .manage-empty-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      /* — Status / dirty hint at the modal footer — */
+      .manage-footer-status {
+        flex: 1;
+        font-size: 0.85em;
+        color: var(--muted);
+      }
+      .manage-footer-status code {
+        background: var(--hover);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+
+      /* — Detail (view / edit / create) — */
+      .manage-detail {
+        padding: 14px 20px 18px 20px;
+        background: var(--bg);
+        max-height: 70vh;
+        overflow-y: auto;
+      }
+      .manage-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.86em;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+      .manage-breadcrumb-link {
+        color: var(--accent);
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        font: inherit;
+      }
+      .manage-breadcrumb-link:hover {
+        text-decoration: underline;
+      }
+      .manage-detail-title {
+        margin: 0 0 12px 0;
+        font-size: 1.05em;
+        font-weight: 600;
+      }
+      .manage-readonly-banner {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        background: color-mix(in oklab, var(--accent) 8%, transparent);
+        border-left: 3px solid var(--accent);
+        padding: 8px 12px;
+        border-radius: 0 6px 6px 0;
+        font-size: 0.86em;
+        margin-bottom: 14px;
+      }
+      .manage-readonly-banner code {
+        background: var(--hover);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 0.92em;
+      }
+
+      /* — Pill-style radio groups for scope / kind — */
+      .manage-radio-group {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .manage-radio {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.85em;
+        cursor: pointer;
+        user-select: none;
+      }
+      .manage-radio.checked {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+      .manage-radio.disabled {
+        background: var(--soft);
+        color: var(--muted);
+        cursor: default;
+      }
+      .manage-radio.disabled.checked {
+        background: var(--soft);
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+
+      /* — Validation summary (top-of-form) — */
+      .manage-error-summary {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: color-mix(in oklab, var(--danger) 8%, transparent);
+        border-left: 3px solid var(--danger);
+        padding: 10px 14px;
+        border-radius: 0 6px 6px 0;
+        font-size: 0.86em;
+        margin-bottom: 14px;
+      }
+      .manage-error-summary strong {
+        color: var(--danger);
+      }
+      .manage-error-summary ul {
+        margin: 4px 0 0 18px;
+        padding: 0;
+        color: var(--fg);
+      }
+      .manage-error-summary li {
+        margin: 2px 0;
+      }
+
+      /* — Per-field error styling (inputs go red, message renders below) — */
+      .manage-field.error .manage-input {
+        border-color: var(--danger);
+        background: color-mix(in oklab, var(--danger) 6%, var(--bg));
+      }
+
+      /* — Prompt textarea wrapper (textarea + char-count footer) — */
+      .manage-prompt-wrap {
         border: 1px solid var(--border);
         border-radius: 6px;
         background: var(--bg);
+        overflow: hidden;
+      }
+      .manage-prompt-wrap:focus-within {
+        outline: 2px solid color-mix(in oklab, var(--accent) 40%, transparent);
+        outline-offset: -1px;
+        border-color: var(--accent);
+      }
+      .manage-prompt-wrap.error {
+        border-color: var(--danger);
+        background: color-mix(in oklab, var(--danger) 6%, var(--bg));
+      }
+      .manage-prompt-wrap textarea {
+        width: 100%;
+        border: none;
+        outline: none;
+        padding: 9px 11px;
+        font-family:
+          ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 0.86em;
+        line-height: 1.55;
+        background: transparent;
         color: var(--fg);
-        padding: 2px 8px;
-        font: inherit;
-        cursor: pointer;
-        margin-right: 4px;
+        min-height: 200px;
+        resize: vertical;
+        box-sizing: border-box;
       }
-      .manage-back-btn:hover {
+      .manage-prompt-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 10px;
+        border-top: 1px solid var(--border);
+        background: var(--soft);
+        font-size: 0.78em;
+        color: var(--muted);
+      }
+
+      /* — Actions row at the bottom of the detail/editor — */
+      .manage-run-row {
+        margin-top: 14px;
+        padding-top: 12px;
+        border-top: 1px dashed var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .manage-run-spacer {
+        margin-left: auto;
+        font-size: 0.82em;
+        color: var(--muted);
+      }
+
+      /* — Delete confirmation overlay (inside the existing modal) — */
+      .manage-confirm-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+      .manage-confirm-card {
+        width: min(440px, 92vw);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+        padding: 18px 20px 16px 20px;
+      }
+      .manage-confirm-card h3 {
+        margin: 0 0 6px 0;
+        font-size: 1em;
+      }
+      .manage-confirm-card p {
+        margin: 0 0 14px 0;
+        color: var(--muted);
+        font-size: 0.9em;
+        line-height: 1.5;
+      }
+      .manage-confirm-card code {
         background: var(--hover);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 0.9em;
       }
+      .manage-confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+      .diff-btn-danger {
+        background: var(--danger);
+        color: white;
+        border-color: var(--danger);
+      }
+      .diff-btn-danger:hover {
+        filter: brightness(0.92);
+      }
+
+      /* Form (existing classes, used by editor inputs) */
       .manage-form {
         padding: 16px 20px;
         overflow-y: auto;
