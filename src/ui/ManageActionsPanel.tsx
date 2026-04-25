@@ -54,6 +54,39 @@ function suggestIdFromTitle(title: string): string {
     .slice(0, 40);
 }
 
+/**
+ * Inline hints rendered under the scope / output-mode / kind fields. The
+ * hint text refreshes whenever the user changes the selection so they
+ * read the description of the *current* choice — no dropdown spelunking.
+ */
+const SCOPE_HINTS: Readonly<Record<string, string>> = {
+  selection:
+    "Highlighted text within the block. v1 falls back to block scope (selection-range support is deferred — see REQUIREMENTS §14).",
+  block: "Text of the block under the cursor only. Most rewrites use this.",
+  subtree:
+    "The block plus all its descendants, flattened into a Markdown outline. Used for summarising or outlining accumulated content.",
+};
+
+const OUTPUT_MODE_HINTS: Readonly<Record<string, string>> = {
+  replace: "Overwrites the block's text with the model's response. No review step.",
+  "diff-panel":
+    "Side-by-side Original vs Proposed; Accept / Reject / switch to Edit mode before applying. Best for substantive changes.",
+  "append-children":
+    "Appends the model's response as new child blocks (one line per child). Non-destructive — the parent block and existing children are untouched.",
+  "outline-replace":
+    "Parses the response as a nested outline (with markdown-table support); deletes the block's existing direct children, then inserts the parsed tree. Destructive — confirm panel warns first.",
+  "outline-append":
+    "Same parser as outline-replace, but appends without deleting. Non-destructive — pre-existing children are preserved. Used by the OCR action.",
+  "picker-replace":
+    "Treats the response as N candidates (one per line); user picks one in a panel; replaces the block's text with the chosen value.",
+};
+
+const KIND_HINTS: Readonly<Record<string, string>> = {
+  text: "Sends the block's resolved text (per scope) to the model. Almost every action uses this.",
+  vision:
+    "Sends an image asset's bytes — only valid on Asset-tagged blocks with a raster image type (png/jpg/jpeg/gif/webp). Requires a vision-capable model (qwen3.5, qwen2.5-vl, llava). Uses the Vision model setting (falls back to Model when empty).",
+};
+
 /** Filter built-ins + user actions by a search query (matches title, id, prompt). */
 function filterByQuery<T extends Action>(actions: readonly T[], query: string): T[] {
   const q = query.trim().toLowerCase();
@@ -696,7 +729,7 @@ const DetailEditor: FunctionComponent<DetailEditorProps> = ({
       </Field>
 
       <div class="manage-field-row">
-        <Field label="Scope" error={liveErrors.scope}>
+        <Field label="Scope" error={liveErrors.scope} hint={SCOPE_HINTS[draft.scope]}>
           <PillRadio
             name="scope"
             value={draft.scope}
@@ -708,7 +741,7 @@ const DetailEditor: FunctionComponent<DetailEditorProps> = ({
             ]}
           />
         </Field>
-        <Field label="Kind" error={liveErrors.kind}>
+        <Field label="Kind" error={liveErrors.kind} hint={KIND_HINTS[draft.kind]}>
           <PillRadio
             name="kind"
             value={draft.kind}
@@ -721,7 +754,11 @@ const DetailEditor: FunctionComponent<DetailEditorProps> = ({
         </Field>
       </div>
 
-      <Field label="Output mode" error={liveErrors.outputMode}>
+      <Field
+        label="Output mode"
+        error={liveErrors.outputMode}
+        hint={OUTPUT_MODE_HINTS[draft.outputMode]}
+      >
         <select class="manage-input" value={draft.outputMode} onChange={update("outputMode")}>
           <option value="diff-panel">diff-panel — review side-by-side, accept/reject</option>
           <option value="replace">replace — overwrite block, no review</option>
@@ -837,7 +874,7 @@ const DetailReadonly: FunctionComponent<DetailReadonlyProps> = ({
       </Field>
 
       <div class="manage-field-row">
-        <Field label="Scope">
+        <Field label="Scope" hint={SCOPE_HINTS[action.scope]}>
           <PillRadio
             name="scope"
             value={action.scope}
@@ -849,7 +886,7 @@ const DetailReadonly: FunctionComponent<DetailReadonlyProps> = ({
             ]}
           />
         </Field>
-        <Field label="Kind">
+        <Field label="Kind" hint={KIND_HINTS[action.kind]}>
           <PillRadio
             name="kind"
             value={action.kind}
@@ -862,7 +899,7 @@ const DetailReadonly: FunctionComponent<DetailReadonlyProps> = ({
         </Field>
       </div>
 
-      <Field label="Output mode">
+      <Field label="Output mode" hint={OUTPUT_MODE_HINTS[action.outputMode]}>
         <input type="text" class="manage-input" disabled value={action.outputMode} />
       </Field>
 
@@ -1047,11 +1084,18 @@ const PillRadio: FunctionComponent<PillRadioProps> = ({
 const Field: FunctionComponent<{
   label: string;
   error?: string | undefined;
+  /**
+   * Optional inline hint rendered under the input. Used for scope /
+   * output-mode / kind so the user gets a description of the *currently
+   * selected* value without leaving the form.
+   */
+  hint?: string | undefined;
   children: ComponentChildren;
-}> = ({ label, error, children }) => (
+}> = ({ label, error, hint, children }) => (
   <div class={`manage-field${error ? " error" : ""}`}>
     <span class="manage-field-label">{label}</span>
     {children}
+    {hint ? <span class="manage-field-hint">{hint}</span> : null}
     {error ? <span class="manage-field-error">{error}</span> : null}
   </div>
 );
