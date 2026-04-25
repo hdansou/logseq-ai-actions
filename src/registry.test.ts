@@ -9,6 +9,7 @@ const BUILTIN: readonly Action[] = [
     description: "built-in",
     scope: "block",
     outputMode: "replace",
+    kind: "text",
     systemPrompt: "built-in spellcheck",
   },
   {
@@ -17,6 +18,7 @@ const BUILTIN: readonly Action[] = [
     description: "built-in",
     scope: "block",
     outputMode: "diff-panel",
+    kind: "text",
     systemPrompt: "built-in rewrite",
   },
 ];

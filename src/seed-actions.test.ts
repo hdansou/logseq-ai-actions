@@ -3,13 +3,20 @@ import { ActionSchema } from "./action";
 import { findSeedAction, SEED_ACTIONS } from "./seed-actions";
 
 describe("SEED_ACTIONS", () => {
-  it("contains spellcheck, grammar, rewrite, summarize, key-points in that order", () => {
+  it("contains the seed set in the documented order (rewrite variants sit after rewrite, summarize/key-points last)", () => {
     expect(SEED_ACTIONS.map((a) => a.id)).toEqual([
       "spellcheck",
       "grammar",
       "rewrite",
+      "rewrite-formal",
+      "rewrite-professional",
+      "rewrite-casual",
+      "rewrite-friendly",
       "summarize",
       "key-points",
+      "outline-replace",
+      "outline-append",
+      "image-title",
     ]);
   });
 
@@ -37,8 +44,15 @@ describe("SEED_ACTIONS", () => {
       spellcheck: "block",
       grammar: "block",
       rewrite: "block",
+      "rewrite-formal": "block",
+      "rewrite-professional": "block",
+      "rewrite-casual": "block",
+      "rewrite-friendly": "block",
       summarize: "subtree",
       "key-points": "subtree",
+      "outline-replace": "subtree",
+      "outline-append": "subtree",
+      "image-title": "block",
     });
   });
 
@@ -48,9 +62,33 @@ describe("SEED_ACTIONS", () => {
       spellcheck: "diff-panel",
       grammar: "diff-panel",
       rewrite: "diff-panel",
+      "rewrite-formal": "diff-panel",
+      "rewrite-professional": "diff-panel",
+      "rewrite-casual": "diff-panel",
+      "rewrite-friendly": "diff-panel",
       summarize: "diff-panel",
       "key-points": "append-children",
+      "outline-replace": "outline-replace",
+      "outline-append": "outline-append",
+      "image-title": "picker-replace",
     });
+  });
+
+  it("image-title is the only seed action with kind='vision'; everything else defaults to 'text'", () => {
+    const visionIds = SEED_ACTIONS.filter((a) => a.kind === "vision").map((a) => a.id);
+    expect(visionIds).toEqual(["image-title"]);
+    const textIds = SEED_ACTIONS.filter((a) => a.kind === "text").map((a) => a.id);
+    expect(textIds).toContain("spellcheck");
+    expect(textIds).toContain("rewrite");
+  });
+
+  it("image-title prompt asks for exactly 3 titles in 3-6 words, sentence case", () => {
+    const action = SEED_ACTIONS.find((a) => a.id === "image-title");
+    expect(action).toBeDefined();
+    const p = action?.systemPrompt.toLowerCase() ?? "";
+    expect(p).toMatch(/three|3/);
+    expect(p).toMatch(/3 to 6 words|3-6 words/);
+    expect(p).toMatch(/sentence case/);
   });
 
   it("spellcheck prompt is surgical — preserves proper nouns, code, URLs, wikilinks", () => {
@@ -76,6 +114,19 @@ describe("SEED_ACTIONS", () => {
     expect(prompt).toMatch(/code/);
     expect(prompt).toMatch(/url/);
     expect(prompt).toMatch(/\[\[|wikilink/);
+  });
+
+  it("each tone rewrite action names its target tone in the prompt", () => {
+    const byId = Object.fromEntries(SEED_ACTIONS.map((a) => [a.id, a.systemPrompt.toLowerCase()]));
+    expect(byId["rewrite-formal"]).toMatch(/formal/);
+    expect(byId["rewrite-casual"]).toMatch(/casual/);
+    expect(byId["rewrite-friendly"]).toMatch(/friendly/);
+  });
+
+  it("rewrite-professional prompt references the Amazon writing style", () => {
+    const prof = SEED_ACTIONS.find((a) => a.id === "rewrite-professional");
+    expect(prof).toBeDefined();
+    expect(prof?.systemPrompt.toLowerCase()).toMatch(/amazon/);
   });
 });
 
