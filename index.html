@@ -344,6 +344,19 @@
       .manage-modal {
         max-width: 1080px;
         width: min(1080px, 96vw);
+        /* Cap to the visible viewport (minus the diff-root margin) so the
+           whole panel fits on a 13" laptop. The toolbar + footer stay
+           pinned; .manage-body in the middle scrolls. */
+        max-height: calc(100vh - 96px);
+      }
+      /* Scrollable middle region inside the modal — sandwiched between
+         the toolbar and footer, which both stay visible. The min-height:0
+         is required for a flex child to actually scroll instead of
+         growing past its parent. */
+      .manage-body {
+        flex: 1;
+        overflow-y: auto;
+        min-height: 0;
       }
 
       /* — Toolbar (search + actions row) — */
@@ -396,9 +409,12 @@
         border: 1px solid var(--border);
         background: var(--bg);
         border-radius: 8px;
-        padding: 12px 14px;
+        padding: 10px 12px;
         cursor: pointer;
-        min-height: 130px;
+        /* No min-height — cards hug content. Within a row, the grid still
+           equalises card heights, but row height is the tallest card,
+           not a hard-coded floor. Big space saver on rows of short
+           descriptions. */
         display: flex;
         flex-direction: column;
         transition: border-color 100ms;
@@ -502,7 +518,9 @@
         border: 1px dashed var(--border);
         background: transparent;
         color: var(--muted);
-        min-height: 130px;
+        /* Match the natural height of a 3-line-description card so the
+           "+ New action" placeholder doesn't dominate the row. */
+        min-height: 90px;
         font-size: 0.95em;
         cursor: pointer;
       }
@@ -562,7 +580,11 @@
       .manage-detail {
         padding: 14px 20px 18px 20px;
         background: var(--bg);
-        max-height: 70vh;
+        /* Fill the available modal height (capped by manage-modal's
+           max-height) and scroll inside; keeps long forms from
+           overflowing on smaller screens. */
+        flex: 1;
+        min-height: 0;
         overflow-y: auto;
       }
       .manage-breadcrumb {
