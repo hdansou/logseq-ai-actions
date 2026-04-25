@@ -1,10 +1,10 @@
 # `logseq-ai-actions` — Requirements (v1)
 
-Status: **Signed off 2026-04-23.** Changes to this document must land via a PR and be reflected in `CHANGELOG.md`.
+Status: **Signed off 2026-04-23. Seed set and output-mode taxonomy extended 2026-04-25** (4 tone-rewrite variants, 2 outline modes + actions, vision support with `kind` field + `picker-replace` mode + 2 vision actions). Changes to this document must land via a PR and be reflected in `CHANGELOG.md`.
 
 ## 1. Purpose
 
-A Logseq plugin that runs AI-driven actions on blocks. v1 ships a seed set (spellcheck, grammar, rewrite, summarize) and an extension mechanism so new actions can be added without touching plugin source. Privacy-first: targets small, locally-hosted LLMs by default.
+A Logseq plugin that runs AI-driven actions on blocks. v1 ships a curated seed set covering text transformation (spellcheck, grammar, rewrite + tone variants, summarize, key-points, nested outlines) and image-asset analysis (title generation, OCR), plus an extension mechanism so new actions can be added without touching plugin source. Privacy-first: targets small, locally-hosted LLMs by default; vision actions work with multimodal models like `qwen3.5:2b`.
 
 **Graph target (v1):** Logseq **DB graphs only.** File-based graph support is out of scope for v1 (revisit in v2 based on user demand). Manifest declares `supportsDbGraph: true` and either omits or explicitly sets `supportsFileGraph: false`.
 
@@ -37,33 +37,45 @@ One `Action` declaration auto-wires every surface. Adding an action is a **singl
 
 ## 5. Seed actions
 
-| Action | Scope | Output mode |
-|---|---|---|
-| `spellcheck` | block | replace |
-| `grammar` | selection → block | replace |
-| `rewrite` | selection → block | diff-panel |
-| `summarize` | subtree | diff-panel |
-| `key-points` | subtree | append-children |
+| Action | Scope | Kind | Output mode | Notes |
+|---|---|---|---|---|
+| `spellcheck` | block | text | diff-panel | Surgical: preserves proper nouns, code, URLs, wikilinks, tags. |
+| `grammar` | selection → block | text | diff-panel | Logseq-aware: respects bullet fragments, contractions, lowercase starts. |
+| `rewrite` | selection → block | text | diff-panel | Streaming. |
+| `rewrite-formal` | block | text | diff-panel | Formal / business register. |
+| `rewrite-professional` | block | text | diff-panel | "Writing the Amazon Way" — declarative, active voice, no weasel words. |
+| `rewrite-casual` | block | text | diff-panel | Conversational. |
+| `rewrite-friendly` | block | text | diff-panel | Warm without forced enthusiasm. |
+| `summarize` | subtree | text | diff-panel | TL;DR; written into parent, children preserved. Streaming. |
+| `key-points` | subtree | text | append-children | 3–7 points as new children. |
+| `outline-replace` | subtree | text | outline-replace | Destructive: deletes existing children before inserting the generated outline tree. |
+| `outline-append` | subtree | text | outline-append | Non-destructive: appends the generated outline alongside existing children. |
+| `image-title` | block | vision | picker-replace | Image asset blocks only. Three candidate titles; chosen value writes to `:block/title`. |
+| `extract-image-text` | block | vision | outline-append | Image asset blocks only. OCR; preserves well-formed markdown tables as standalone blocks. |
 
 ## 6. Output handling
 
-Three output modes; each action declares its default:
+Six output modes; each action declares its default:
 
 - **`replace`** — overwrite the block's text with the LLM output.
 - **`diff-panel`** — show a side panel with original vs proposed; user accepts / rejects / edits before applying.
-- **`append-children`** — append the LLM output as *new child blocks* under the current block (one line per child). Non-destructive: the parent and existing children are untouched. Used by list-producing actions (e.g. Key Points).
+- **`append-children`** — append the LLM output as *new child blocks* under the current block (one line per child). Non-destructive.
+- **`outline-replace`** — parse the LLM output as a nested markdown outline (with table-block support); delete the block's existing direct children; insert the parsed tree as the block's new subtree. Block's own text is preserved. Destructive — confirm panel warns.
+- **`outline-append`** — same parser as `outline-replace`, but appends without deleting. Non-destructive. Used for OCR output and for the non-destructive outline action.
+- **`picker-replace`** — show the LLM-returned candidates in a `ChoicePanel` (1/2/3 hotkeys, Esc cancels). On accept, replace the block's text with the chosen candidate. Generic — first user is `image-title`, but reusable for text-action flows that want "show N options, user picks one".
 
 Additional behaviours:
 
 - One-click undo (in-session revert of pre-action content).
 - Streaming updates live into block (replace mode) or into "proposed" side (diff panel).
+- Vision-kind actions take an entirely separate runtime path (`runVisionAction`) that reads asset bytes via `logseq.Assets.makeUrl(assets/<uuid>.<ext>)`, base64-encodes, and POSTs an OpenAI-multimodal `messages` body to the same `/v1/chat/completions` endpoint. They dispatch on `outputMode` for the write step (picker-replace vs. outline-append at present).
 
 ## 7. Extensibility
 
 - **Hybrid.** Built-in seed actions in TS source; user-defined actions stored as a JSON array in the plugin's `userActionsJson` setting. The file-in-graph path (`logseq/plugins/logseq-action/actions.json`) is deferred behind a Desktop-Electron adapter — the settings-stored approach works identically on Logseq Web and Desktop today.
 - Both share the same **Zod schema** (`ActionSchema`).
 - Two authoring surfaces, round-tripping through the same setting:
-  1. **`ManageActionsPanel`** (primary) — opened via `/AI Manage Actions`, the palette entry, or the toolbar picker's footer. CRUD UI with per-field validation, Up/Down reorder, shadowed-built-in indicators, **Import JSON** (paste + append), and **Copy all** (clipboard export).
+  1. **`ManageActionsPanel`** (primary) — opened via `/AI Manage Actions`, the palette entry, or the toolbar picker's footer. **Gallery design (Mockup C, redesigned 2026-04-25):** card grid of all actions with built-ins shown read-only at top and user actions below; toolbar with search (filters by title / id / description / prompt), `+ New action`, `Import JSON`, and `Copy all`; clicking a built-in opens a read-only inspect view with a `⧉ Duplicate as user action` button that auto-increments the new id; clicking a user card opens the inline editor (shared form for Create / Update / View) with pill-style scope and kind selectors, output-mode dropdown, validation summary at the top after a save attempt and per-field red borders live; delete is an in-modal confirmation overlay.
   2. **Native settings textarea** (power-user) — the `userActionsJson` field in the plugin's gear settings. Useful for scripting, migration, or hand-editing.
 - Plugin rebuilds the registry on `onSettingsChanged` when `userActionsJson` changes. Editing an existing action's title / prompt / scope hot-reloads — the slash handler looks up its action by id at invocation time. Adding or removing an entry still requires a plugin toggle (Logseq has no slash-command deregister API).
 - A user action whose `id` matches a built-in **shadows** the built-in (swap in-place at same slash-menu slot; Manage UI shows a "shadowed by user" badge).
@@ -122,11 +134,14 @@ Additional behaviours:
 
 - Whole-page and multi-select scopes
 - Per-invocation scope or output-mode override
-- Form-based settings UI for user actions
+- ~~Form-based settings UI for user actions~~ — shipped (`ManageActionsPanel`, redesigned to gallery + inline editor 2026-04-25).
+- Replacing the native gear-icon plugin settings with a custom Preact settings panel (would enable inline LOCAL/REMOTE preview and prettier validation across all settings, not just user actions)
 - Cloud LLM provider
 - Embedded WebLLM provider
 - Redaction / content filtering
 - Action history panel (may piggyback on the debug ring buffer later)
+- Per-action vision-model override (today there's one global `visionModel` setting; per-action overrides would let, say, `extract-image-text` use a larger model than `image-title`)
+- Variable substitution in user prompts (`{{block_text}}`, `{{selection}}`, etc. — the Manage UI hints at it but the runtime doesn't substitute)
 - **True `selection` scope with block-range splicing** — see §14 for the full memo.
 
 ## 14. Deferred — true `selection` scope with block-range splicing

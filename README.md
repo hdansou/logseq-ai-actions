@@ -1,6 +1,6 @@
 # AI Actions for Logseq
 
-AI-driven actions on Logseq blocks — spellcheck, grammar, rewrite, summarize — powered by a **small, locally-hosted LLM** you control (LM Studio, Ollama, or any OpenAI-compatible endpoint).
+AI-driven actions on Logseq blocks — spellcheck, grammar, rewrite (with tone variants), summarize, key-point extraction, nested outlines, image titling, image OCR — powered by a **small, locally-hosted LLM** you control (LM Studio, Ollama, or any OpenAI-compatible endpoint). Vision actions work with multimodal models like `qwen3.5:2b`, `qwen2.5-vl`, or `llava`.
 
 > **DB graphs only** in v1. File-graph support is on the v2 backlog.
 > **Privacy-first**: by default, block content is sent to an endpoint on your own machine (`localhost`). The plugin labels endpoints LOCAL or REMOTE in the settings so you know exactly where your notes are going.
@@ -13,17 +13,23 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
 
 ## Features (v1)
 
-- **Seed actions**
-  - `spellcheck` — fix typos in the current block.
-  - `grammar` — fix grammar in the current block (or selection).
-  - `rewrite` — rephrase the current block (or selection); review via a side-panel diff before accepting.
-  - `summarize` — produce a summary of a block and its children; review via diff.
-- **Entry points**: slash commands (`/ai-*`), block context menu, command palette, assignable keyboard shortcuts, toolbar.
-- **Extensibility**: define your own actions in `logseq/plugins/logseq-action/actions.json` — hot-reloaded into the registry.
+- **Text seed actions** (run on a block or its subtree):
+  - `spellcheck` — fix typos. Surgical: preserves proper nouns, code, URLs, wikilinks, tags.
+  - `grammar` — fix objective grammatical errors. Logseq-aware: respects bullet-style fragments, contractions, lowercase starts.
+  - `rewrite` — rephrase for clarity and concision; review via diff before accepting.
+  - `rewrite-formal` / `rewrite-professional` / `rewrite-casual` / `rewrite-friendly` — tone variants. `rewrite-professional` follows "Writing the Amazon Way" (declarative sentences, active voice, no weasel words).
+  - `summarize` — TL;DR of a block and its descendants; written into the parent, children preserved.
+  - `key-points` — extract bullet-list points; appended as new children under the block.
+  - `outline-replace` / `outline-append` — generate a nested outline of a subtree. Replace destroys existing children; Append preserves them. Markdown tables in the LLM output are kept as standalone blocks.
+- **Vision seed actions** (run on image asset blocks — blocks tagged `:logseq.class/Asset`):
+  - `image-title` — analyze the image and propose three candidate titles in a picker; chosen value writes to `:block/title`.
+  - `extract-image-text` — OCR the image and append the extracted text as nested children. Well-formed tables in the source render as standalone markdown-table blocks.
+- **Entry points**: slash commands (`/AI <action>`), block context menu, command palette, assignable keyboard shortcuts, toolbar `✨` button (action picker).
+- **Extensibility**: add your own actions through the **Manage Actions** UI (gallery of cards + inline editor with live validation) or the hand-editable `userActionsJson` setting. Hot-reloads into the registry on save.
 - **Trust signals**: every UI surface that shows the configured endpoint labels it `LOCAL` or `REMOTE`. Switching to a non-loopback host triggers a one-time warning.
-- **Debug log (opt-in)**: in-memory ring buffer of the last 50 requests, viewable in settings. Never written to disk.
+- **Debug log (opt-in)**: in-memory ring buffer of the last 50 requests (request shape, response preview, duration, error if any), viewable in `/AI Diagnostics`. Never written to disk.
 
-> Planned for v2: whole-page and multi-select scopes, per-invocation scope/output override, form-based action editor, WebLLM provider. See [`tasks.md`](./tasks.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
+> Planned for v2: whole-page and multi-select scopes, per-invocation scope/output override, form-based settings panel, WebLLM provider, true selection-scope with block-range splicing. See [`tasks.md`](./tasks.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ## Quick start
 
@@ -77,11 +83,13 @@ Then in Logseq:
 
 Open the plugin's settings (gear icon on the plugin card). Pick a preset — `baseUrl` and `model` are auto-filled. Override anything you need. Changing the `baseUrl` away from `localhost` will trigger a one-time REMOTE-endpoint warning.
 
+**Vision model (optional).** Vision actions (`image-title`, `extract-image-text`) need a multimodal model. If your **Model** setting is already a unified multimodal model (e.g. `qwen3.5:2b` — Alibaba's natively-multimodal line), leave **Vision model** empty and the same model handles both text and vision. Run a smaller text-only model alongside a separate vision model? Set **Vision model** explicitly. Confirmed working: `qwen3.5:2b`, `qwen3.5:0.8b`, `qwen2.5-vl`, `llava`. Quality scales with model size — clean printed text OCRs well at 2B; dense or low-contrast pages benefit from a larger model.
+
 ### 4. (Optional) Add your own actions
 
-The plugin ships five built-in actions. You can add unlimited custom ones.
+The plugin ships 13 built-in actions. You can add unlimited custom ones.
 
-**Primary way — the Manage Actions panel.** Run `/AI Manage Actions` (or Cmd-K → `AI: Manage Actions`). You'll see a CRUD UI that lists built-ins at the top (read-only, shown with a "shadowed by user" label if you've overridden them) and your user actions below, with Up / Down reorder, Edit, and Delete controls. Click **+ New action** to add one; fields validate live, Save requires no errors. **Import JSON** and **Copy all** buttons let you paste in a list from another machine or copy your current list to share.
+**Primary way — the Manage Actions panel.** Run `/AI Manage Actions` (or Cmd-K → `AI: Manage Actions`). You'll see a gallery of cards: built-ins at the top (read-only — click any to inspect the prompt, with a `⧉ Duplicate as user action` button to make an editable copy), and your user actions below (hover for edit / delete icons). The toolbar has search, `+ New action`, `Import JSON`, and `Copy all`. Clicking a user card or `+ New` opens the inline editor — pill-style scope and kind selectors, dropdown for output mode, large prompt textarea with a char/line counter. Fields validate as you type; the top of the form summarises any blocking issues on Save. Delete asks for confirmation in an in-modal overlay (and reminds you that slash/palette entries persist until plugin reload).
 
 **Alternative — hand-edited JSON.** The gear-icon plugin settings still include a **User-defined actions (JSON)** textarea. The Manage panel round-trips through the same setting, so either authoring path works and you can switch between them. The textarea is useful for scripting or migrating — but for interactive editing the panel is less error-prone.
 
@@ -120,12 +128,13 @@ Each entry needs:
 
 | Field | Values |
 |---|---|
-| `id` | Unique identifier. Matching a built-in id (`spellcheck`, `grammar`, `rewrite`, `summarize`, `key-points`) **shadows** it. |
+| `id` | Unique identifier. Matching a built-in id (any of `spellcheck`, `grammar`, `rewrite`, `rewrite-formal`, `rewrite-professional`, `rewrite-casual`, `rewrite-friendly`, `summarize`, `key-points`, `outline-replace`, `outline-append`, `image-title`, `extract-image-text`) **shadows** it — the user version takes the slot in every menu surface. |
 | `title` | Display name in the slash menu (prefixed with `AI `). |
-| `scope` | `block` \| `subtree` \| `selection` |
-| `outputMode` | `replace` \| `diff-panel` \| `append-children` |
+| `scope` | `block` \| `subtree` \| `selection` (selection falls back to block in v1; see REQUIREMENTS §14) |
+| `outputMode` | `replace` (overwrite block) \| `diff-panel` (review side-by-side) \| `append-children` (add as new children, one per line) \| `outline-replace` (replace existing children with a generated nested outline) \| `outline-append` (append a generated nested outline) \| `picker-replace` (show N candidates, user picks one) |
+| `kind` | `text` (default) \| `vision` (sends an image asset to a multimodal model — only valid on `:logseq.class/Asset` blocks with raster image type) |
 | `systemPrompt` | The LLM system prompt. Tune for your model — small models need explicit "return ONLY …" instructions. |
-| `description` | Optional, one-line. |
+| `description` | Optional, one-line. Shown in the gallery card and the diff-panel header. |
 
 **Hot reload:** editing an existing entry's title or prompt takes effect on the next invocation. Adding or removing entries **requires toggling the plugin off and on** — Logseq has no way to deregister a slash command from a plugin API call.
 
