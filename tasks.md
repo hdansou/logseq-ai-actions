@@ -81,8 +81,8 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 
 ## Phase 6 — Seed actions
 
-- [x] `spellcheck` (block → replace)
-- [x] `grammar` (selection → block; replace)
+- [x] `spellcheck` (block → diff-panel)
+- [x] `grammar` (selection → block; diff-panel)
 - [x] `rewrite` (selection → block; diff-panel, streaming)
 - [x] `summarize` (subtree; diff-panel, streaming)
 - [x] `key-points` (subtree → append-children)

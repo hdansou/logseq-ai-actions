@@ -459,6 +459,14 @@ async function resolveInput(action: Action, explicitBlockUuid?: string): Promise
 async function runAction(action: Action, explicitBlockUuid?: string): Promise<void> {
   const settings = readSettings();
 
+  if (!settings.model.trim()) {
+    logseq.UI.showMsg(
+      "AI Actions: no model configured. Open plugin settings and set a model name.",
+      "warning",
+    );
+    return;
+  }
+
   const input = await resolveInput(action, explicitBlockUuid);
   if (input.uuid === null) {
     logseq.UI.showMsg(input.reason, "warning");
@@ -488,6 +496,9 @@ async function runAction(action: Action, explicitBlockUuid?: string): Promise<vo
       // Read settings fresh — user may have changed preset/model
       // between the initial invocation and a re-run (runtime-gotchas §7).
       const s = readSettings();
+      if (!s.model.trim()) {
+        throw new Error("No model configured. Open plugin settings and set a model name.");
+      }
       const text = await performLLMStream(a, inp, s, onChunk);
       return { finalText: text, actionTitle: a.title };
     };
