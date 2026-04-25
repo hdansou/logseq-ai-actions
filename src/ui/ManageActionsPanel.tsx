@@ -87,6 +87,16 @@ const KIND_HINTS: Readonly<Record<string, string>> = {
     "Sends an image asset's bytes — only valid on Asset-tagged blocks with a raster image type (png/jpg/jpeg/gif/webp). Requires a vision-capable model (qwen3.5, qwen2.5-vl, llava). Uses the Vision model setting (falls back to Model when empty).",
 };
 
+/**
+ * Display-sort actions alphabetically by title (case-insensitive). The
+ * underlying storage order in `userActionsJson` isn't touched — this is
+ * a render-time pass so the UI stays scannable when the seed set + user
+ * additions grow past a dozen entries.
+ */
+function sortByTitle<T extends { title: string }>(actions: readonly T[]): T[] {
+  return [...actions].sort((a, b) => a.title.toLowerCase().localeCompare(b.title.toLowerCase()));
+}
+
 /** Filter built-ins + user actions by a search query (matches title, id, prompt). */
 function filterByQuery<T extends Action>(actions: readonly T[], query: string): T[] {
   const q = query.trim().toLowerCase();
@@ -390,7 +400,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
               <span class="manage-section-label">Built-in</span>
             </div>
             <div class="manage-row-list">
-              {filteredBuiltin.map((a) => {
+              {sortByTitle(filteredBuiltin).map((a) => {
                 const shadowed = userActions.some((u) => u.id === a.id);
                 return (
                   <ActionRow
@@ -407,9 +417,6 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
 
         <div class="manage-section-header">
           <span class="manage-section-label">Your actions</span>
-          <button type="button" class="manage-create-btn" onClick={openCreate}>
-            + Create
-          </button>
         </div>
         {showEmptyState ? (
           <p class="manage-empty-line">
@@ -420,7 +427,10 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
           <p class="manage-row-empty-search">No user actions match "{query}".</p>
         ) : (
           <div class="manage-row-list">
-            {filteredUser.map((a) => {
+            {sortByTitle(filteredUser).map((a) => {
+              // The displayed list is sorted, but edit/delete still need to
+              // target the original position in `userActions` so the JSON
+              // round-trips correctly. Look up the true index here.
               const trueIndex = userActions.indexOf(a);
               return (
                 <ActionRow
@@ -440,6 +450,9 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
           {status ??
             `${userActions.length} user action${userActions.length === 1 ? "" : "s"} · synced with userActionsJson`}
         </span>
+        <button type="button" class="manage-create-btn" onClick={openCreate}>
+          + Create
+        </button>
         <button type="button" class="diff-btn" onClick={tryClose}>
           {dirty ? "Discard" : "Close"}
         </button>
