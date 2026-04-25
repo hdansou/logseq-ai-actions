@@ -34,6 +34,13 @@ const OUTLINE_PROMPT = `Organize the text as a nested outline. Use a markdown bu
 // shape lets `parseTitles` extract candidates cleanly.
 const IMAGE_TITLE_PROMPT = `You are a precise image describer. Look at the image and produce exactly THREE candidate titles for it. Each title must be a short factual description in 3 to 6 words, sentence case (only the first word capitalized, plus proper nouns). Be concrete: name what is actually visible (subject, setting, notable objects), not what it might mean. Avoid metaphor, mood words, and poetic flourishes. Return ONLY the three titles, one per line, with no numbering, no bullets, no quotes, no commentary, no preamble.`;
 
+// OCR prompt — extract text verbatim, format as nested outline, with
+// well-formed markdown tables (header + |---|---| separator) emitted as
+// standalone blocks rather than nested under bullets. Hands the output
+// directly to `parseOutline`, which now slurps tables into single leaf
+// nodes alongside the prose tree.
+const EXTRACT_IMAGE_TEXT_PROMPT = `You are a precise OCR assistant. Extract ALL visible text from the image. Use a nested markdown bulleted outline for prose, headings, and lists — two-space indentation per nesting level (e.g., "- Heading", then "  - Sub-line"). For well-formed tables, use markdown table syntax with a header separator row (\`|---|---|\`); place the table as a standalone block, NOT nested under a bullet. Preserve reading order. Extract text exactly as written — do not summarize, paraphrase, translate, or interpret. Include numbers, dates, code, URLs, and email addresses verbatim. If a region is unreadable or ambiguous, skip it rather than guessing. If the image contains no text, return an empty response. Return ONLY the extracted content — no commentary, no preamble, no code fences.`;
+
 /**
  * Built-in seed actions for v1. Each is validated against `ActionSchema`
  * at module-load time so any drift between the TS literal and the schema
@@ -148,6 +155,16 @@ export const SEED_ACTIONS: readonly Action[] = Object.freeze([
     outputMode: "picker-replace",
     kind: "vision",
     systemPrompt: IMAGE_TITLE_PROMPT,
+  }),
+  parseAction({
+    id: "extract-image-text",
+    title: "Extract Image Text",
+    description:
+      "Extract all visible text from an image asset block via a vision model and append it as nested child blocks in outline format. Well-formed markdown tables in the source are preserved as standalone child blocks. Non-destructive — the image and any existing children are preserved. Requires a vision-capable model.",
+    scope: "block",
+    outputMode: "outline-append",
+    kind: "vision",
+    systemPrompt: EXTRACT_IMAGE_TEXT_PROMPT,
   }),
 ]);
 
