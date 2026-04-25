@@ -105,6 +105,7 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [x] Shadow handling (user id == built-in id → swaps in place; Manage UI shows "shadowed by user" badge)
 - [x] Hot-reload: editing existing action's title/prompt applies on next invocation (handler resolves by id at call time); add/remove requires plugin toggle (Logseq has no deregister API)
 - [x] `ManageActionsPanel` — CRUD UI with per-field validation, reorder, Import/Export JSON. Round-trips through the same `userActionsJson` setting.
+- [x] `ManageActionsPanel` v2 — gallery redesign (Mockup C): card grid, search, inline detail editor with shared form for Create / Update / View, in-modal delete confirm, validation summary banner, "Duplicate as user action" for built-ins, empty-state CTA, real-radio pill selectors. CSS reuses the manage-* namespace and the new theme variables that defer to Logseq's `--ls-*` variables.
 - [x] `parseUserActions` extracted from `buildRegistry` as a public helper so the Manage UI can list only user entries (including shadow cases)
 
 ## Phase 8 — Documentation
