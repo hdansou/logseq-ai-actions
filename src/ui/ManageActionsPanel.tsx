@@ -399,7 +399,10 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
             <div class="manage-section-header">
               <span class="manage-section-label">Built-in</span>
             </div>
-            <div class="manage-row-list">
+            <div
+              class="manage-row-list"
+              style={`--row-count:${Math.max(1, Math.ceil(filteredBuiltin.length / 2))}`}
+            >
               {sortByTitle(filteredBuiltin).map((a) => {
                 const shadowed = userActions.some((u) => u.id === a.id);
                 return (
@@ -426,7 +429,10 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
         ) : filteredUser.length === 0 && query.trim().length > 0 ? (
           <p class="manage-row-empty-search">No user actions match "{query}".</p>
         ) : (
-          <div class="manage-row-list">
+          <div
+            class="manage-row-list"
+            style={`--row-count:${Math.max(1, Math.ceil(filteredUser.length / 2))}`}
+          >
             {sortByTitle(filteredUser).map((a) => {
               // The displayed list is sorted, but edit/delete still need to
               // target the original position in `userActions` so the JSON
