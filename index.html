@@ -426,12 +426,19 @@
         background: var(--hover);
         border-color: var(--accent);
       }
-      /* Two-column row list (newspaper-flow). Each row is a single
-         action — title + tags inline, description below in muted text,
-         horizontal divider underneath. No card chrome. */
+      /* Two-column row list (newspaper-flow, column-major). Each row is
+         a single action — title + tags inline, description below in
+         muted text, horizontal divider underneath. No card chrome.
+         Column-major (`grid-auto-flow: column`) so a sorted list reads
+         top-to-bottom in the left column, then continues in the right
+         column — matches the natural alphabetical mental model. The
+         render site sets `--row-count` to ceil(items / 2) so the grid
+         knows how many rows to lay out before wrapping into column 2. */
       .manage-row-list {
         display: grid;
         grid-template-columns: 1fr 1fr;
+        grid-template-rows: repeat(var(--row-count, 1), auto);
+        grid-auto-flow: column;
         column-gap: 28px;
         padding: 0 24px 6px 24px;
       }
