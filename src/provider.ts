@@ -10,6 +10,31 @@ export interface CompleteRequest {
 }
 
 /**
+ * A single image to send to a vision-capable model. `mimeType` and `base64`
+ * are embedded into a `data:` URL inside the OpenAI multimodal `image_url`
+ * content block.
+ */
+export interface VisionImage {
+  readonly mimeType: string;
+  readonly base64: string;
+}
+
+/**
+ * Vision request — text prompt plus one image. Same transport / endpoint
+ * as `complete`, just a multimodal `messages` body.
+ */
+export interface CompleteVisionRequest {
+  readonly baseUrl: string;
+  readonly model: string;
+  readonly apiKey?: string;
+  readonly system: string;
+  readonly user: string;
+  readonly image: VisionImage;
+  readonly temperature: number;
+  readonly timeoutMs: number;
+}
+
+/**
  * Provider interface. One implementation today (`createOpenAIProvider`);
  * WebLLM / cloud providers can drop in later without touching callers.
  * See REQUIREMENTS §2.
@@ -23,6 +48,13 @@ export interface LLMProvider {
    * when the stream ends.
    */
   stream(req: CompleteRequest, onChunk: (delta: string) => void): Promise<string>;
+  /**
+   * Non-streaming multimodal completion — sends `image` alongside `user`
+   * text in an OpenAI-compatible multimodal `messages` body. The endpoint
+   * + model must support vision (Qwen3.5, Llava, Qwen2.5-VL, etc.); a
+   * text-only model will return an error which surfaces unchanged.
+   */
+  completeVision(req: CompleteVisionRequest): Promise<string>;
 }
 
 /**
@@ -56,6 +88,7 @@ export function createOpenAIProvider(options: ProviderOptions = {}): LLMProvider
   return {
     complete: (req) => openAIComplete(req, fetchFn),
     stream: (req, onChunk) => openAIStream(req, onChunk, fetchFn),
+    completeVision: (req) => openAIVisionComplete(req, fetchFn),
   };
 }
 
@@ -215,6 +248,80 @@ async function openAIStream(
       /* ignore */
     }
   }
+}
+
+/**
+ * Vision sibling of `openAIComplete`. Same endpoint, same auth/timeout/error
+ * handling — only the `messages` body is multimodal: the user message is an
+ * array of content blocks (`text` + `image_url`) instead of a plain string.
+ */
+async function openAIVisionComplete(
+  req: CompleteVisionRequest,
+  fetchFn: typeof globalThis.fetch,
+): Promise<string> {
+  if (!req.image.base64 || !req.image.mimeType) {
+    throw new LLMProviderError("Vision request requires both image.mimeType and image.base64");
+  }
+
+  const url = `${ensureTrailingSlash(req.baseUrl)}chat/completions`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), req.timeoutMs);
+
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (req.apiKey) headers.Authorization = `Bearer ${req.apiKey}`;
+
+  const dataUrl = `data:${req.image.mimeType};base64,${req.image.base64}`;
+  const body = JSON.stringify({
+    model: req.model,
+    temperature: req.temperature,
+    stream: false,
+    messages: [
+      { role: "system", content: req.system },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: req.user },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      },
+    ],
+  });
+
+  let res: Response;
+  try {
+    res = await fetchFn(url, {
+      method: "POST",
+      headers,
+      body,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if ((err as Error).name === "AbortError") {
+      throw new LLMProviderError(`Request timed out after ${req.timeoutMs}ms`);
+    }
+    throw new LLMProviderError(`Request failed: ${(err as Error).message}`);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    throw new LLMProviderError(`HTTP ${res.status} from ${url}`, {
+      status: res.status,
+      bodyExcerpt: bodyText.slice(0, 200),
+    } satisfies LLMProviderErrorDetails);
+  }
+
+  const json = (await res.json().catch(() => null)) as {
+    choices?: Array<{ message?: { content?: unknown } }>;
+  } | null;
+
+  const content = json?.choices?.[0]?.message?.content;
+  if (typeof content !== "string") {
+    throw new LLMProviderError("No content in vision response choices");
+  }
+  return content.trim();
 }
 
 function ensureTrailingSlash(s: string): string {

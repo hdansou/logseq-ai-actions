@@ -223,4 +223,84 @@ describe("createOpenAIProvider", () => {
       /timed out/i,
     );
   });
+
+  describe("completeVision", () => {
+    const visionReq = {
+      baseUrl: "http://localhost:1234/v1",
+      model: "qwen3.5:2b",
+      system: "Describe what you see.",
+      user: "Generate 3 short titles for this image.",
+      image: { mimeType: "image/png", base64: "iVBORw0KGgo=" },
+      temperature: 0.3,
+      timeoutMs: 5_000,
+    };
+
+    it("POSTs to {baseUrl}/chat/completions with a multimodal user message", async () => {
+      fetchMock.mockResolvedValueOnce(
+        jsonResponse({ choices: [{ message: { content: "Cat on a roof\nSunset\nA red door" } }] }),
+      );
+
+      const result = await createOpenAIProvider().completeVision(visionReq);
+
+      expect(result).toBe("Cat on a roof\nSunset\nA red door");
+      const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(String(url)).toBe("http://localhost:1234/v1/chat/completions");
+      const body = JSON.parse(opts.body as string);
+      expect(body.model).toBe("qwen3.5:2b");
+      expect(body.stream).toBe(false);
+      expect(body.messages[0]).toEqual({ role: "system", content: "Describe what you see." });
+      expect(body.messages[1].role).toBe("user");
+      expect(body.messages[1].content).toEqual([
+        { type: "text", text: "Generate 3 short titles for this image." },
+        { type: "image_url", image_url: { url: "data:image/png;base64,iVBORw0KGgo=" } },
+      ]);
+    });
+
+    it("sends Authorization header when apiKey is provided", async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ choices: [{ message: { content: "ok" } }] }));
+      await createOpenAIProvider().completeVision({ ...visionReq, apiKey: "sk-vision" });
+      const headers = (fetchMock.mock.calls[0] as [string, RequestInit])[1].headers as Record<
+        string,
+        string
+      >;
+      expect(headers.Authorization).toBe("Bearer sk-vision");
+    });
+
+    it("rejects when image.base64 is empty", async () => {
+      await expect(
+        createOpenAIProvider().completeVision({
+          ...visionReq,
+          image: { mimeType: "image/png", base64: "" },
+        }),
+      ).rejects.toThrow(/image\.mimeType and image\.base64/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects when image.mimeType is empty", async () => {
+      await expect(
+        createOpenAIProvider().completeVision({
+          ...visionReq,
+          image: { mimeType: "", base64: "abc" },
+        }),
+      ).rejects.toThrow(/image\.mimeType and image\.base64/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("surfaces HTTP errors with status + body excerpt (vision-incompatible model path)", async () => {
+      fetchMock.mockResolvedValueOnce(
+        new Response("model does not support vision", { status: 400 }),
+      );
+      await expect(createOpenAIProvider().completeVision(visionReq)).rejects.toMatchObject({
+        name: "LLMProviderError",
+        details: { status: 400, bodyExcerpt: expect.stringContaining("vision") },
+      });
+    });
+
+    it("throws 'No content in vision response' when choices.message.content missing", async () => {
+      fetchMock.mockResolvedValueOnce(jsonResponse({ choices: [{}] }));
+      await expect(createOpenAIProvider().completeVision(visionReq)).rejects.toThrow(
+        /no content in vision/i,
+      );
+    });
+  });
 });

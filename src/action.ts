@@ -1,8 +1,16 @@
 import { z } from "zod";
-import type { ActionScope, OutputMode } from "./types";
+import type { ActionKind, ActionScope, OutputMode } from "./types";
 
 const SCOPES: readonly ActionScope[] = ["selection", "block", "subtree"];
-const OUTPUT_MODES: readonly OutputMode[] = ["replace", "diff-panel", "append-children"];
+const OUTPUT_MODES: readonly OutputMode[] = [
+  "replace",
+  "diff-panel",
+  "append-children",
+  "outline-replace",
+  "outline-append",
+  "picker-replace",
+];
+const KINDS: readonly ActionKind[] = ["text", "vision"];
 
 /**
  * Canonical Action shape. Single source of truth for both built-in seed
@@ -18,6 +26,9 @@ export const ActionSchema = z.object({
   scope: z.enum(SCOPES as [ActionScope, ...ActionScope[]]),
   outputMode: z.enum(OUTPUT_MODES as [OutputMode, ...OutputMode[]]),
   systemPrompt: z.string().min(1, "systemPrompt is required"),
+  // `kind` is optional with a default of "text" — every existing action
+  // and every existing user-defined action JSON literal stays valid.
+  kind: z.enum(KINDS as [ActionKind, ...ActionKind[]]).default("text"),
 });
 
 export type Action = z.infer<typeof ActionSchema>;

@@ -84,6 +84,10 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [x] `spellcheck` (block → diff-panel)
 - [x] `grammar` (selection → block; diff-panel)
 - [x] `rewrite` (selection → block; diff-panel, streaming)
+- [x] `rewrite-formal` / `rewrite-casual` / `rewrite-friendly` tone variants (block → diff-panel)
+- [x] `rewrite-professional` — "Writing the Amazon Way" style (block → diff-panel)
+- [x] `outline-replace` / `outline-append` (subtree → nested outline tree via new `parseOutline` module; confirm-panel preview; recursive `insertBlock`; destructive variant wipes existing children first)
+- [x] `image-title` (vision; `picker-replace` output; new `kind="vision"` Action field; new `visionModel` setting falling back to `model`; `image-asset.ts` + `parse-titles.ts` pure modules; `ChoicePanel` UI; `completeVision` provider method)
 - [x] `summarize` (subtree; diff-panel, streaming)
 - [x] `key-points` (subtree → append-children)
 - [x] Slash commands registered for each + `/AI Diagnostics` + `/AI Manage Actions`

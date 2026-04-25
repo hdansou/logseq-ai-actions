@@ -3,13 +3,29 @@ import "@logseq/libs";
 import type { Action } from "./action";
 import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "./debug-log";
 import { classifyEndpoint } from "./endpoint";
+import {
+  type AssetBlock,
+  assetFilePath,
+  getAssetType,
+  imageMimeType,
+  isImageAsset,
+} from "./image-asset";
+import {
+  countOutlineNodes,
+  type OutlineNode,
+  parseOutline,
+  renderOutlinePreview,
+} from "./parse-outline";
 import { parsePoints } from "./parse-points";
+import { parseTitles } from "./parse-titles";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider, LLMProviderError } from "./provider";
 import { buildRegistry, parseUserActions } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
 import { type BlockNode, flattenSubtree } from "./subtree";
+import type { ChoicePanelChoice } from "./ui/ChoicePanel";
 import { showActionPicker } from "./ui/show-action-picker";
+import { showChoice } from "./ui/show-choice";
 import { showConfirm } from "./ui/show-confirm";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showDiffPanel } from "./ui/show-diff";
@@ -54,6 +70,14 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
       "Model identifier as your endpoint names it (e.g. `gemma3:4b` for Ollama, the loaded model id for LM Studio).",
   },
   {
+    key: "visionModel",
+    type: "string",
+    default: "",
+    title: "Vision model (optional)",
+    description:
+      "Model identifier used for vision actions (e.g. Generate Title on an image block). Leave empty to reuse the Model setting above — fine if you're running a unified multimodal model like `qwen3.5:2b`. Set this when your text model is text-only and you want a separate vision model alongside.",
+  },
+  {
     key: "apiKey",
     type: "string",
     default: "",
@@ -92,13 +116,14 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
     default: "",
     title: "User-defined actions (JSON)",
     description:
-      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children), systemPrompt, description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
+      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children/outline-replace/outline-append/picker-replace), systemPrompt, kind? (text|vision, default text), description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
   },
 ];
 
 interface ResolvedSettings {
   readonly baseUrl: string;
   readonly model: string;
+  readonly visionModel: string;
   readonly apiKey: string;
   readonly temperature: number;
   readonly timeoutMs: number;
@@ -117,6 +142,7 @@ function readSettings(): ResolvedSettings {
   return {
     baseUrl: String(s.baseUrl ?? fallback?.baseUrl ?? "http://localhost:1234/v1"),
     model: String(s.model ?? fallback?.defaultModel ?? "local-model"),
+    visionModel: String(s.visionModel ?? ""),
     apiKey: String(s.apiKey ?? ""),
     temperature: Number(s.temperature ?? 0.3),
     timeoutMs: Number(s.timeoutMs ?? 60_000),
@@ -450,6 +476,263 @@ async function resolveInput(action: Action, explicitBlockUuid?: string): Promise
 }
 
 /**
+ * Delete every direct child of the given block. Used by `outline-replace`
+ * to clear existing descendants before inserting the generated outline.
+ * `removeBlock` recursively removes the child's own descendants, so one
+ * call per direct child is enough.
+ */
+async function removeBlockChildren(blockUuid: string): Promise<void> {
+  const block = (await logseq.Editor.getBlock(blockUuid, {
+    includeChildren: true,
+  })) as unknown as { children?: ReadonlyArray<{ uuid?: string }> } | null;
+  const children = block?.children ?? [];
+  for (const child of children) {
+    if (child.uuid) await logseq.Editor.removeBlock(child.uuid);
+  }
+}
+
+/**
+ * Recursively insert an outline tree as children of `parentUuid`. Each
+ * node becomes a child block; its own children are inserted under the
+ * freshly-inserted block. Sequential (not parallel) to preserve order —
+ * the same rationale as the `append-children` path.
+ */
+async function insertOutlineTree(parentUuid: string, nodes: readonly OutlineNode[]): Promise<void> {
+  for (const node of nodes) {
+    const inserted = (await logseq.Editor.insertBlock(parentUuid, node.text, {
+      sibling: false,
+    })) as { uuid?: string } | null;
+    if (inserted?.uuid && node.children.length > 0) {
+      await insertOutlineTree(inserted.uuid, node.children);
+    }
+  }
+}
+
+/**
+ * Resolve which model to use for a vision action: prefer `visionModel`,
+ * fall back to `model` if empty. Returns the trimmed string (caller checks
+ * for empty to decide whether to abort with a settings-missing toast).
+ */
+function resolveVisionModel(settings: ResolvedSettings): string {
+  const v = settings.visionModel.trim();
+  return v.length > 0 ? v : settings.model.trim();
+}
+
+/**
+ * Read an image asset block's bytes and base64-encode them for the vision
+ * provider. Resolves to `null` when the block isn't a usable image (wrong
+ * type, missing path, fetch failed). Uses `FileReader.readAsDataURL` so we
+ * don't have to hand-roll a binary→base64 encoder.
+ */
+async function loadImageAssetBytes(
+  block: AssetBlock,
+): Promise<{ mimeType: string; base64: string } | null> {
+  const path = assetFilePath(block);
+  if (!path) return null;
+  const type = getAssetType(block);
+  if (!type) return null;
+  const mimeType = imageMimeType(type);
+  if (!mimeType) return null;
+
+  let url: string;
+  try {
+    url = await logseq.Assets.makeUrl(path);
+  } catch {
+    return null;
+  }
+  const res = await fetch(url).catch(() => null);
+  if (!res?.ok) return null;
+  const blob = await res.blob().catch(() => null);
+  if (!blob) return null;
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        resolve(null);
+        return;
+      }
+      const commaIdx = result.indexOf(",");
+      if (commaIdx === -1) {
+        resolve(null);
+        return;
+      }
+      resolve({ mimeType, base64: result.slice(commaIdx + 1) });
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Vision branch of `runAction`. Takes a block, validates it's an image
+ * asset, reads bytes, calls the multimodal provider, parses 3 candidate
+ * titles, presents a picker (with "keep current title" as a non-candidate
+ * option), and on accept writes the selected text to `:block/title` via
+ * `updateBlock`. Failures bubble with a hint that the model needs to
+ * support images.
+ */
+async function runVisionAction(
+  action: Action,
+  settings: ResolvedSettings,
+  explicitBlockUuid?: string,
+): Promise<void> {
+  const visionModel = resolveVisionModel(settings);
+  if (!visionModel) {
+    logseq.UI.showMsg(
+      "AI Actions: no vision model configured. Set 'Vision model' (or 'Model') in plugin settings.",
+      "warning",
+    );
+    return;
+  }
+
+  const current = explicitBlockUuid
+    ? await logseq.Editor.getBlock(explicitBlockUuid)
+    : await logseq.Editor.getCurrentBlock();
+  if (!current?.uuid) {
+    logseq.UI.showMsg(
+      `${action.title}: place your cursor in an image asset block first`,
+      "warning",
+    );
+    return;
+  }
+
+  const block = (await logseq.Editor.getBlock(current.uuid)) as unknown as
+    | (AssetBlock & { uuid: string; title?: string })
+    | null;
+  if (!block) {
+    logseq.UI.showMsg(`${action.title}: could not load the current block`, "warning");
+    return;
+  }
+  if (!isImageAsset(block)) {
+    // Surface the asset/type we actually found (or "<not found>") so the
+    // user can tell us if the SDK is serialising the property under a key
+    // shape we haven't covered yet. Console-log the full block keys for
+    // deeper debugging if ever needed.
+    const seenType = getAssetType(block) ?? "<not found>";
+    console.warn(
+      "logseq-ai-actions: image-title rejected block; keys:",
+      Object.keys(block),
+      "asset/type:",
+      seenType,
+    );
+    logseq.UI.showMsg(
+      `${action.title}: this block is not a raster image asset (asset/type=${seenType}). Open the devtools console for the block's key list.`,
+      "warning",
+    );
+    return;
+  }
+
+  const currentTitle = typeof block.title === "string" ? block.title : "";
+
+  let busyToastKey: string | number | null = null;
+  const startedAt = Date.now();
+  let output: string | undefined;
+  let error: string | undefined;
+  try {
+    const bytes = await loadImageAssetBytes(block);
+    if (!bytes) {
+      logseq.UI.showMsg(
+        `${action.title}: could not read the image bytes (path or asset type unrecognised)`,
+        "error",
+      );
+      return;
+    }
+
+    const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
+    busyToastKey = (msg as unknown as string | number | null) ?? null;
+
+    output = await provider.completeVision({
+      baseUrl: settings.baseUrl,
+      model: visionModel,
+      system: action.systemPrompt,
+      user: "Generate three short titles for this image.",
+      image: bytes,
+      temperature: settings.temperature,
+      timeoutMs: settings.timeoutMs,
+      ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
+    });
+
+    if (busyToastKey !== null) {
+      try {
+        logseq.UI.closeMsg(busyToastKey as string);
+      } catch {
+        /* ignore */
+      }
+      busyToastKey = null;
+    }
+
+    const titles = parseTitles(output, 3);
+    if (titles.length === 0) {
+      logseq.UI.showMsg(`${action.title}: model didn't return any usable titles`, "warning");
+      return;
+    }
+
+    const choices: ChoicePanelChoice[] = titles.map((t) => ({ value: t, label: t }));
+    if (currentTitle) {
+      choices.push({
+        value: `__keep__:${currentTitle}`,
+        label: "Keep current title",
+        subtitle: currentTitle,
+      });
+    }
+
+    const picked = await showChoice(action.title, {
+      message: "Pick a title for this image:",
+      choices,
+      baseUrl: settings.baseUrl,
+    });
+    if (picked === null) {
+      logseq.UI.showMsg(`${action.title} discarded`, "info");
+      return;
+    }
+    if (picked.startsWith("__keep__:")) {
+      logseq.UI.showMsg(`${action.title}: kept existing title`, "info");
+      return;
+    }
+    await logseq.Editor.updateBlock(block.uuid, picked);
+    logseq.UI.showMsg(`${action.title}: title set`, "success");
+  } catch (err) {
+    if (busyToastKey !== null) {
+      try {
+        logseq.UI.closeMsg(busyToastKey as string);
+      } catch {
+        /* ignore */
+      }
+    }
+    const detail =
+      err instanceof LLMProviderError
+        ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
+        : (err as Error).message;
+    error = detail;
+    console.error(`logseq-ai-actions: ${action.id} failed`, err);
+    logseq.UI.showMsg(
+      `${action.title} failed: ${detail}\nMake sure your vision model supports images (Qwen3.5, Qwen2.5-VL, Llava, etc.).`,
+      "error",
+    );
+  } finally {
+    if (settings.debugLog) {
+      debugLog.push({
+        timestamp: startedAt,
+        actionId: action.id,
+        actionTitle: action.title,
+        scope: action.scope,
+        outputMode: action.outputMode,
+        model: visionModel,
+        baseUrl: settings.baseUrl,
+        requestPreview: `[image asset: ${block?.uuid ?? "?"}]`,
+        durationMs: Date.now() - startedAt,
+        ...(output !== undefined
+          ? { responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT) }
+          : {}),
+        ...(error !== undefined ? { error } : {}),
+      });
+    }
+  }
+}
+
+/**
  * Run a single seed action against the block the cursor is currently in.
  * MVP behaviour: `replace` mode for all four seed actions (summarize now
  * uses subtree scope — writes the summary into the parent block, leaves
@@ -458,6 +741,13 @@ async function resolveInput(action: Action, explicitBlockUuid?: string): Promise
  */
 async function runAction(action: Action, explicitBlockUuid?: string): Promise<void> {
   const settings = readSettings();
+
+  // Vision actions take an entirely different path — different model
+  // resolution (visionModel || model), different input (image bytes), and
+  // a picker UI for the candidates. Dispatch early.
+  if (action.kind === "vision") {
+    return runVisionAction(action, settings, explicitBlockUuid);
+  }
 
   if (!settings.model.trim()) {
     logseq.UI.showMsg(
@@ -568,6 +858,42 @@ async function runAction(action: Action, explicitBlockUuid?: string): Promise<vo
       }
       logseq.UI.showMsg(
         `${action.title}: added ${points.length} child block${points.length === 1 ? "" : "s"}`,
+        "success",
+      );
+      return;
+    }
+
+    if (action.outputMode === "outline-replace" || action.outputMode === "outline-append") {
+      const tree = parseOutline(output);
+      if (tree.length === 0) {
+        logseq.UI.showMsg(
+          `${action.title}: no outline could be parsed from the response`,
+          "warning",
+        );
+        return;
+      }
+      const destructive = action.outputMode === "outline-replace";
+      const nodeCount = countOutlineNodes(tree);
+      const preview = renderOutlinePreview(tree);
+      const plural = nodeCount === 1 ? "" : "s";
+      const accepted = await showConfirm(action.title, {
+        message: destructive
+          ? `Replace the current block's children with a ${nodeCount}-block outline? Existing children will be removed.`
+          : `Append a ${nodeCount}-block outline under the current block? Existing children are preserved.`,
+        preview,
+        acceptLabel: destructive ? "Replace children" : "Append outline",
+        baseUrl: settings.baseUrl,
+      });
+      if (!accepted) {
+        logseq.UI.showMsg(`${action.title} discarded`, "info");
+        return;
+      }
+      if (destructive) {
+        await removeBlockChildren(input.uuid);
+      }
+      await insertOutlineTree(input.uuid, tree);
+      logseq.UI.showMsg(
+        `${action.title}: ${destructive ? "replaced with" : "added"} ${nodeCount} block${plural}`,
         "success",
       );
       return;

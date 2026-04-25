@@ -52,8 +52,24 @@ describe("ActionSchema", () => {
     "replace",
     "diff-panel",
     "append-children",
+    "outline-replace",
+    "outline-append",
+    "picker-replace",
   ] as const)("accepts outputMode=%s", (mode) => {
     expect(() => ActionSchema.parse({ ...minimalAction, outputMode: mode })).not.toThrow();
+  });
+
+  it("defaults kind to 'text' when omitted (back-compat for every pre-vision action)", () => {
+    const result = ActionSchema.parse(minimalAction);
+    expect(result.kind).toBe("text");
+  });
+
+  it.each(["text", "vision"] as const)("accepts kind=%s", (kind) => {
+    expect(() => ActionSchema.parse({ ...minimalAction, kind })).not.toThrow();
+  });
+
+  it("rejects an unknown kind", () => {
+    expect(() => ActionSchema.parse({ ...minimalAction, kind: "audio" })).toThrow();
   });
 });
 
