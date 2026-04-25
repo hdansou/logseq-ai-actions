@@ -643,11 +643,19 @@ async function runVisionAction(
     const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
     busyToastKey = (msg as unknown as string | number | null) ?? null;
 
+    // Short user-side nudge per outputMode. Most of the work is in the
+    // system prompt; this is just a hint that orients the model on what
+    // shape of response we want.
+    const userPrompt =
+      action.outputMode === "outline-append"
+        ? "Extract the text from this image and return it as instructed."
+        : "Generate three short titles for this image.";
+
     output = await provider.completeVision({
       baseUrl: settings.baseUrl,
       model: visionModel,
       system: action.systemPrompt,
-      user: "Generate three short titles for this image.",
+      user: userPrompt,
       image: bytes,
       temperature: settings.temperature,
       timeoutMs: settings.timeoutMs,
@@ -663,6 +671,35 @@ async function runVisionAction(
       busyToastKey = null;
     }
 
+    if (action.outputMode === "outline-append") {
+      // OCR-style flow: parse the model's outline+table response, confirm
+      // a preview, append as nested children of the image block. Reuses
+      // the existing parseOutline / insertOutlineTree helpers — vision
+      // input only changes the LLM call, not the write path.
+      const tree = parseOutline(output);
+      if (tree.length === 0) {
+        logseq.UI.showMsg(`${action.title}: no text detected in image`, "warning");
+        return;
+      }
+      const nodeCount = countOutlineNodes(tree);
+      const preview = renderOutlinePreview(tree);
+      const plural = nodeCount === 1 ? "" : "s";
+      const accepted = await showConfirm(action.title, {
+        message: `Append ${nodeCount} block${plural} of extracted text under the image? Existing children are preserved.`,
+        preview,
+        acceptLabel: "Append text",
+        baseUrl: settings.baseUrl,
+      });
+      if (!accepted) {
+        logseq.UI.showMsg(`${action.title} discarded`, "info");
+        return;
+      }
+      await insertOutlineTree(block.uuid, tree);
+      logseq.UI.showMsg(`${action.title}: added ${nodeCount} block${plural}`, "success");
+      return;
+    }
+
+    // Default: picker-replace (image-title flow).
     const titles = parseTitles(output, 3);
     if (titles.length === 0) {
       logseq.UI.showMsg(`${action.title}: model didn't return any usable titles`, "warning");

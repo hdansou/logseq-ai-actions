@@ -17,6 +17,7 @@ describe("SEED_ACTIONS", () => {
       "outline-replace",
       "outline-append",
       "image-title",
+      "extract-image-text",
     ]);
   });
 
@@ -53,6 +54,7 @@ describe("SEED_ACTIONS", () => {
       "outline-replace": "subtree",
       "outline-append": "subtree",
       "image-title": "block",
+      "extract-image-text": "block",
     });
   });
 
@@ -71,15 +73,30 @@ describe("SEED_ACTIONS", () => {
       "outline-replace": "outline-replace",
       "outline-append": "outline-append",
       "image-title": "picker-replace",
+      "extract-image-text": "outline-append",
     });
   });
 
-  it("image-title is the only seed action with kind='vision'; everything else defaults to 'text'", () => {
+  it("vision-kind seed actions are exactly image-title and extract-image-text; all text actions stay kind='text'", () => {
     const visionIds = SEED_ACTIONS.filter((a) => a.kind === "vision").map((a) => a.id);
-    expect(visionIds).toEqual(["image-title"]);
+    expect(visionIds).toEqual(["image-title", "extract-image-text"]);
     const textIds = SEED_ACTIONS.filter((a) => a.kind === "text").map((a) => a.id);
     expect(textIds).toContain("spellcheck");
     expect(textIds).toContain("rewrite");
+  });
+
+  it("extract-image-text prompt instructs verbatim OCR with outline + table syntax", () => {
+    const action = SEED_ACTIONS.find((a) => a.id === "extract-image-text");
+    expect(action).toBeDefined();
+    const p = action?.systemPrompt.toLowerCase() ?? "";
+    // Verbatim guard — must NOT paraphrase / summarize / translate.
+    expect(p).toMatch(/do not summarize/);
+    expect(p).toMatch(/paraphrase/);
+    expect(p).toMatch(/translate/);
+    // Format guards — outline AND table syntax must both be specified.
+    expect(p).toMatch(/outline|nested.*bullet/);
+    expect(p).toMatch(/table/);
+    expect(p).toMatch(/\|---\|/);
   });
 
   it("image-title prompt asks for exactly 3 titles in 3-6 words, sentence case", () => {
