@@ -1057,13 +1057,14 @@ function registerAllInvocations(): void {
     manageHandler,
   );
 
-  // Toolbar button — a single sparkle icon that opens the picker. Primary
-  // value is discoverability for mouse-first / new users. The `data-on-click`
-  // attribute binds to a method exposed via logseq.provideModel below.
+  // Toolbar button — discoverability for mouse-first users. The `data-on-click`
+  // attribute binds to a method exposed via logseq.provideModel below. Inline
+  // SVG (vs. a referenced asset) avoids cross-origin URL resolution from the
+  // main Logseq UI; `currentColor` lets the mark inherit toolbar text color.
   logseq.App.registerUIItem("toolbar", {
     key: "logseq-ai-actions-toolbar",
     template:
-      '<a class="button" data-on-click="openAIActionPicker" title="AI Actions — click to pick an action" aria-label="AI Actions">✨</a>',
+      '<a class="button" data-on-click="openAIActionPicker" title="AI Actions — click to pick an action" aria-label="AI Actions"><svg xmlns="http://www.w3.org/2000/svg" viewBox="20 36 96 56" width="26" height="15" fill="currentColor" aria-hidden="true"><circle cx="30" cy="64" r="9"/><path d="M 90 36 C 90 52.4 90 52.4 64 64 C 90 75.6 90 75.6 90 92 C 90 75.6 90 75.6 116 64 C 90 52.4 90 52.4 90 36 Z"/></svg></a>',
   });
   logseq.provideModel({
     openAIActionPicker: async () => {

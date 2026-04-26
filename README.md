@@ -24,7 +24,7 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
 - **Vision seed actions** (run on image asset blocks — blocks tagged `:logseq.class/Asset`):
   - `image-title` — analyze the image and propose three candidate titles in a picker; chosen value writes to `:block/title`.
   - `extract-image-text` — OCR the image and append the extracted text as nested children. Well-formed tables in the source render as standalone markdown-table blocks.
-- **Entry points**: slash commands (`/AI <action>`), block context menu, command palette, assignable keyboard shortcuts, toolbar `✨` button (action picker).
+- **Entry points**: slash commands (`/AI <action>`), block context menu, command palette, assignable keyboard shortcuts, toolbar button (action picker).
 - **Extensibility**: add your own actions through the **Manage Actions** UI (gallery of cards + inline editor with live validation) or the hand-editable `userActionsJson` setting. Hot-reloads into the registry on save.
 - **Trust signals**: every UI surface that shows the configured endpoint labels it `LOCAL` or `REMOTE`. Switching to a non-loopback host triggers a one-time warning.
 - **Debug log (opt-in)**: in-memory ring buffer of the last 50 requests (request shape, response preview, duration, error if any), viewable in `/AI Diagnostics`. Never written to disk.

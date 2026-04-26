@@ -111,7 +111,7 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 ## Phase 8 — Documentation
 
 - [x] `README.md` — install, preset table, CORS guide, privacy note, user-actions primer, development commands
-- [x] Plugin icon (`public/icon.svg` + rendered `public/icon.png`, 128×128)
+- [x] Plugin icon (`public/icon.svg` + rendered `public/icon.png`, 128×128) — minimal indigo mark with bullet + 4-point AI sparkle; toolbar button reuses the same SVG inline (`currentColor`) instead of the `✨` emoji.
 - [x] `REQUIREMENTS.md` §14 — selection-scope deferral memo with pain table, SDK gap, acceptance criteria for when we revisit
 - [x] `AGENTS.md` — non-discoverable landmines (author name, package-vs-dir mismatch, SDK import pattern, `pnpm dev --port` quirk, dist/ + public/ timing)
 - [ ] Inline doc comments on public types (`Action`, `LLMProvider`, `classifyEndpoint`, …) — partial; revisit before v1.0.0
@@ -143,4 +143,4 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - Redaction / content filtering
 - Action history panel (piggybacks on the debug ring buffer)
 - Prompt library / community action gallery
-- Block-context-menu / toolbar icon replacing ✨ with an SVG asset
+- Block-context-menu icon (toolbar button has been migrated to an inline SVG mark; context-menu items still render as text-only labels)
