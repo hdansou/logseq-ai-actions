@@ -9,6 +9,11 @@ Release notes are authored via [changesets](https://github.com/changesets/change
 
 ## [Unreleased]
 
+### Changed
+
+- **Plugin icon redesigned.** Replaces the busy indigo→purple gradient + three outline rows + corner sparkle with a minimal mark: a single Logseq bullet (filled white circle) and a clean 4-point AI sparkle on a deep indigo (`#1E1B4B`) rounded square. SVG cut from 33 lines to 8; PNG re-rendered at 128×128 via `rsvg-convert`. Both `public/icon.{svg,png}` (Vite source) and `dist/icon.{svg,png}` (what Logseq loads via the `logseq.icon` manifest entry) updated in lockstep.
+- **Toolbar button uses the plugin icon mark.** `registerUIItem("toolbar", …)` in `src/index.ts` now renders an inline SVG of the bullet+sparkle composition instead of the `✨` emoji. The mark uses `fill="currentColor"` so it inherits the toolbar's text color and adapts to light/dark themes. The indigo container is dropped on purpose — the toolbar button is itself the container, and a colored stamp would clash with Logseq's monochromatic toolbar buttons.
+
 ### Added
 
 - Signed-off v1 requirements (`REQUIREMENTS.md`) covering scope, seed actions, privacy model, testing tiers, and tooling choices.
