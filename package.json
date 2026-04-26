@@ -66,6 +66,8 @@
     "title": "AI Actions",
     "icon": "./icon.png",
     "main": "dist/index.html",
+    "minSDKVersion": "0.3.2",
+    "supportsDB": true,
     "supportsDBOnly": true
   }
 }
