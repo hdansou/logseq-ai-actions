@@ -111,7 +111,7 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 ## Phase 8 — Documentation
 
 - [x] `README.md` — install, preset table, CORS guide, privacy note, user-actions primer, development commands
-- [x] Plugin icon (`public/icon.svg` + rendered `public/icon.png`, 128×128) — chrome-minion mark: rounded steel chassis with cyclops eye + antenna-tipped sparkle, on a neutral charcoal field. Toolbar button reuses a flat `currentColor` silhouette of the same minion (eye via `fill-rule="evenodd"` knockout) instead of the `✨` emoji.
+- [x] Plugin icon (`./icon.svg` source + 128×128 `./icon.png` rendered via `rsvg-convert`, at the project root where `package.json`'s `"icon": "./icon.png"` resolves) — chrome-minion mark: rounded steel chassis with cyclops eye + antenna-tipped sparkle, on a neutral charcoal field. Toolbar button reuses a flat `currentColor` silhouette of the same minion (eye via `fill-rule="evenodd"` knockout) instead of the `✨` emoji.
 - [x] `REQUIREMENTS.md` §14 — selection-scope deferral memo with pain table, SDK gap, acceptance criteria for when we revisit
 - [x] `AGENTS.md` — non-discoverable landmines (author name, package-vs-dir mismatch, SDK import pattern, `pnpm dev --port` quirk, dist/ + public/ timing)
 - [ ] Inline doc comments on public types (`Action`, `LLMProvider`, `classifyEndpoint`, …) — partial; revisit before v1.0.0
