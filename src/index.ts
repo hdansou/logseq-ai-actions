@@ -1064,7 +1064,7 @@ function registerAllInvocations(): void {
   logseq.App.registerUIItem("toolbar", {
     key: "logseq-ai-actions-toolbar",
     template:
-      '<a class="button" data-on-click="openAIActionPicker" title="AI Actions — click to pick an action" aria-label="AI Actions"><svg xmlns="http://www.w3.org/2000/svg" viewBox="20 36 96 56" width="26" height="15" fill="currentColor" aria-hidden="true"><circle cx="30" cy="64" r="9"/><path d="M 90 36 C 90 52.4 90 52.4 64 64 C 90 75.6 90 75.6 90 92 C 90 75.6 90 75.6 116 64 C 90 52.4 90 52.4 90 36 Z"/></svg></a>',
+      '<a class="button" data-on-click="openAIActionPicker" title="AI Actions — click to pick an action" aria-label="AI Actions"><svg xmlns="http://www.w3.org/2000/svg" viewBox="20 0 88 120" width="18" height="24" fill="currentColor" aria-hidden="true"><line x1="64" y1="26" x2="64" y2="38" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M 64 6 C 64 14 64 14 56 18 C 64 22 64 22 64 30 C 64 22 64 22 72 18 C 64 14 64 14 64 6 Z"/><path fill-rule="evenodd" d="M 42 42 L 86 42 A 16 16 0 0 1 102 58 L 102 100 A 16 16 0 0 1 86 116 L 42 116 A 16 16 0 0 1 26 100 L 26 58 A 16 16 0 0 1 42 42 Z M 64 71 a 9 9 0 0 0 0 18 a 9 9 0 0 0 0 -18 Z"/></svg></a>',
   });
   logseq.provideModel({
     openAIActionPicker: async () => {
