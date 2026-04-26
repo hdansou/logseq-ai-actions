@@ -5,8 +5,6 @@
   "keywords": [
     "logseq",
     "logseq-plugin",
-    "logseq-db-graph",
-    "db-graph",
     "ai",
     "llm",
     "ollama",
@@ -67,6 +65,7 @@
     "id": "logseq-ai-actions",
     "title": "AI Actions",
     "icon": "./icon.png",
-    "main": "dist/index.html"
+    "main": "dist/index.html",
+    "supportsDBOnly": true
   }
 }
