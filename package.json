@@ -1,10 +1,12 @@
 {
   "name": "logseq-ai-actions",
   "version": "0.0.0",
-  "description": "AI-driven actions on Logseq blocks — spellcheck, grammar, rewrite, summarize via a local OpenAI-compatible endpoint (LM Studio / Ollama).",
+  "description": "AI-driven actions on Logseq blocks (DB graphs only) — spellcheck, grammar, rewrite, summarize, vision actions via a local OpenAI-compatible endpoint (LM Studio / Ollama).",
   "keywords": [
     "logseq",
     "logseq-plugin",
+    "logseq-db-graph",
+    "db-graph",
     "ai",
     "llm",
     "ollama",
