@@ -1,6 +1,6 @@
-/// <reference types="@logseq/libs" />
-import { h, render } from "preact";
+import { h } from "preact";
 import { ConfirmPanel } from "./ConfirmPanel";
+import { mountPanel } from "./mount-panel";
 
 export interface ShowConfirmOptions {
   readonly message: string;
@@ -13,43 +13,21 @@ export interface ShowConfirmOptions {
 }
 
 /**
- * Mount a small `ConfirmPanel` into the iframe's `#app`, show it via
- * `logseq.showMainUI`, resolve a Promise&lt;boolean&gt; on user action
- * (`true` on Accept, `false` on Reject / Escape).
+ * Mount a small `ConfirmPanel` into the iframe, resolve `true` on Accept
+ * and `false` on Reject / Escape. Auto-accepts (`true`) when there's no
+ * mount point, so we never silently reject.
  */
 export function showConfirm(actionTitle: string, options: ShowConfirmOptions): Promise<boolean> {
-  return new Promise((resolve) => {
-    const container = document.getElementById("app");
-    if (!container) {
-      resolve(true); // No mount point — auto-accept so we never silently reject.
-      return;
-    }
-    const teardown = (result: boolean) => {
-      try {
-        render(null, container);
-      } catch {
-        /* ignore */
-      }
-      try {
-        logseq.hideMainUI();
-      } catch {
-        /* ignore */
-      }
-      resolve(result);
-    };
-    render(
-      h(ConfirmPanel, {
-        actionTitle,
-        message: options.message,
-        acceptLabel: options.acceptLabel ?? "Accept",
-        hideReject: options.hideReject ?? false,
-        ...(options.preview !== undefined ? { preview: options.preview } : {}),
-        ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
-        onAccept: () => teardown(true),
-        onReject: () => teardown(false),
-      }),
-      container,
-    );
-    logseq.showMainUI();
-  });
+  return mountPanel<boolean>(true, (teardown) =>
+    h(ConfirmPanel, {
+      actionTitle,
+      message: options.message,
+      acceptLabel: options.acceptLabel ?? "Accept",
+      hideReject: options.hideReject ?? false,
+      ...(options.preview !== undefined ? { preview: options.preview } : {}),
+      ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
+      onAccept: () => teardown(true),
+      onReject: () => teardown(false),
+    }),
+  );
 }

@@ -1,6 +1,7 @@
 import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { computeDiff, type DiffSegment } from "../diff";
+import { ConfirmOverlay } from "./ConfirmOverlay";
 import { LocalRemoteBadge } from "./LocalRemoteBadge";
 
 /** One action surfaced in the panel's top bar. */
@@ -50,6 +51,7 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isStreaming, setIsStreaming] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingSwitchActionId, setPendingSwitchActionId] = useState<string | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   // Generation counter so stale chunks from a prior stream (post action-bar
   // switch) don't bleed into the new proposal.
@@ -121,8 +123,10 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
   const handleBarClick = async (actionId: string) => {
     if (actionId === currentActionId || isStreaming) return;
     if (isEditing && editedText !== proposed) {
-      const ok = window.confirm("Discard your edits and re-run with a different action?");
-      if (!ok) return;
+      // Defer the switch behind a styled overlay — we can't synchronously
+      // block here without `window.confirm`, which jars inside the iframe.
+      setPendingSwitchActionId(actionId);
+      return;
     }
     await startStream(actionId);
   };
@@ -227,6 +231,21 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
             Accept
           </button>
         </footer>
+
+        {pendingSwitchActionId !== null ? (
+          <ConfirmOverlay
+            title="Discard your edits?"
+            message="Switching to a different action will replace your edited text with a fresh proposal."
+            confirmLabel="Discard and switch"
+            danger
+            onCancel={() => setPendingSwitchActionId(null)}
+            onConfirm={() => {
+              const id = pendingSwitchActionId;
+              setPendingSwitchActionId(null);
+              if (id !== null) void startStream(id);
+            }}
+          />
+        ) : null}
       </div>
     </div>
   );

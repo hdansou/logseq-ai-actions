@@ -1,7 +1,7 @@
-/// <reference types="@logseq/libs" />
-import { h, render } from "preact";
+import { h } from "preact";
 import type { Action } from "../action";
 import { ActionPickerPanel } from "./ActionPickerPanel";
+import { mountPanel } from "./mount-panel";
 
 export interface ShowActionPickerOptions {
   readonly actions: readonly Action[];
@@ -15,42 +15,18 @@ export type PickerResult =
   | { kind: "close" };
 
 /**
- * Mount the `ActionPickerPanel`, show the iframe, resolve with the
- * user's choice (or `close`). Caller is responsible for dispatching on
- * the result — e.g., invoking `runAction` for `action`, opening
- * `showManageActions` for `manage`, etc.
+ * Mount the `ActionPickerPanel` and resolve with the user's choice (or
+ * `close`). Caller dispatches on the result.
  */
 export function showActionPicker(opts: ShowActionPickerOptions): Promise<PickerResult> {
-  return new Promise((resolve) => {
-    const container = document.getElementById("app");
-    if (!container) {
-      resolve({ kind: "close" });
-      return;
-    }
-    const teardown = (result: PickerResult) => {
-      try {
-        render(null, container);
-      } catch {
-        /* ignore */
-      }
-      try {
-        logseq.hideMainUI();
-      } catch {
-        /* ignore */
-      }
-      resolve(result);
-    };
-    render(
-      h(ActionPickerPanel, {
-        actions: opts.actions,
-        builtinCount: opts.builtinCount,
-        onPick: (action) => teardown({ kind: "action", action }),
-        onManage: () => teardown({ kind: "manage" }),
-        onDiagnostics: () => teardown({ kind: "diagnostics" }),
-        onClose: () => teardown({ kind: "close" }),
-      }),
-      container,
-    );
-    logseq.showMainUI();
-  });
+  return mountPanel<PickerResult>({ kind: "close" }, (teardown) =>
+    h(ActionPickerPanel, {
+      actions: opts.actions,
+      builtinCount: opts.builtinCount,
+      onPick: (action) => teardown({ kind: "action", action }),
+      onManage: () => teardown({ kind: "manage" }),
+      onDiagnostics: () => teardown({ kind: "diagnostics" }),
+      onClose: () => teardown({ kind: "close" }),
+    }),
+  );
 }
