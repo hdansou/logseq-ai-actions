@@ -131,6 +131,22 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [ ] Submit to Logseq Marketplace (separate PR to marketplace repo)
 - [ ] Freeze REQUIREMENTS.md; future changes go through a versioned PR
 
+### Production-hardening pass (2026-04-26)
+
+- [x] DRY: extract `closeBusyToast` + `formatProviderError` helpers in `src/index.ts`
+- [x] DRY: extract `mountPanel<T>` helper in `src/ui/mount-panel.ts`; collapsed all six `show-*.ts` launchers
+- [x] DRY: `src/provider.ts` consolidated around `postChat()` + `buildTextBody` / `buildVisionBody` / `parseChatContent` — text/stream/vision share URL, headers, timeout, error normalisation
+- [x] DRY: merged `performLLMCall` + `performLLMStream` into one `performLLM(..., onChunk?)`
+- [x] DRY: shared `ConfirmOverlay` component replaces bespoke `DeleteOverlay` and the new discard prompts
+- [x] YAGNI: remove dummy `test:e2e` / `test:integration` scripts (no configs existed)
+- [x] YAGNI: remove unverified `goose` endpoint preset (and its README rows)
+- [x] UX: replace `window.confirm` in Manage Actions panel (`tryClose`) and Diff panel (`handleBarClick` switch-with-edits) with styled `ConfirmOverlay` (Esc cancels, Enter confirms)
+- [x] Security: API key setting → single-line input; README + setting description state UNENCRYPTED disk storage
+- [x] Security: comment on `LLMProviderErrorDetails.bodyExcerpt` re: reflected-header sensitivity
+- [x] Security: `pnpm.overrides` for `lodash-es ^4.18.1` and `dompurify ^3.4.1`; `pnpm audit` now clean (was 1 high + 5 moderate)
+- [x] Hygiene: vite dev server `host: 0.0.0.0` → `127.0.0.1` (LAN exposure was unintentional)
+- [x] Hygiene: `.gitignore` adds `*.local.json`, `tmp/`, `scratch/`, `.cache/`; tightens `.env*`
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
