@@ -26,8 +26,15 @@ pnpm-debug.log*
 
 # Environment
 .env
-.env.local
-.env.*.local
+.env.*
+
+# Local-only overrides (e.g. settings.local.json, biome.local.json)
+*.local.json
+
+# Scratch / temp / cache
+tmp/
+scratch/
+.cache/
 
 # Editor / OS
 .DS_Store
