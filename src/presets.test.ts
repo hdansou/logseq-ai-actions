@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { findPreset, PRESETS } from "./presets";
 
 describe("PRESETS", () => {
-  it("includes LM Studio, Ollama, Goose, and Custom in that order", () => {
-    expect(PRESETS.map((p) => p.id)).toEqual(["lm-studio", "ollama", "goose", "custom"]);
+  it("includes LM Studio, Ollama, and Custom in that order", () => {
+    expect(PRESETS.map((p) => p.id)).toEqual(["lm-studio", "ollama", "custom"]);
   });
 
   it("LM Studio is the primary default (first entry)", () => {
@@ -14,11 +14,6 @@ describe("PRESETS", () => {
   it("Ollama uses the standard 11434 port", () => {
     const ollama = PRESETS.find((p) => p.id === "ollama");
     expect(ollama?.baseUrl).toBe("http://localhost:11434/v1");
-  });
-
-  it("Goose is flagged as experimental/unverified in its notes", () => {
-    const goose = PRESETS.find((p) => p.id === "goose");
-    expect(goose?.notes.toLowerCase()).toMatch(/unverified|experimental/);
   });
 
   it("Custom preset has an empty baseUrl so the user must supply one", () => {

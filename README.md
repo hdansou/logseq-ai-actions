@@ -39,7 +39,6 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
 |---|---|---|
 | **LM Studio** *(primary default)* | `http://localhost:1234/v1` | LM Studio → **Developer** → **Start Server** |
 | **Ollama** | `http://localhost:11434/v1` | `ollama serve` (and `ollama pull <model>` for a first model) |
-| **Goose** *(unverified)* | `http://localhost:3000/v1` | Experimental — OpenAI-compatibility not yet verified |
 | **Custom** | — | Any server speaking the OpenAI Chat Completions API |
 
 #### CORS — required on Logseq Web; not required on Logseq Desktop
@@ -54,7 +53,6 @@ The plugin iframe runs at a different origin from your LLM server, so the browse
 |---|---|
 | **LM Studio** | Server tab → toggle **Cross-Origin-Resource-Sharing (CORS)** on. Or CLI: `lms server start --cors`. |
 | **Ollama** | Start with `OLLAMA_ORIGINS="*" ollama serve` (simplest). Or be specific: `OLLAMA_ORIGINS="http://localhost:3001,http://localhost:8282" ollama serve`. |
-| **Goose** | CORS support is unverified (same status as its OpenAI-compat surface — see preset note above). |
 | **Custom** | Add `Access-Control-Allow-Origin: *` (or your Logseq + plugin origin) to your server's response headers. Don't forget the `OPTIONS` preflight. |
 
 Allowing `*` is a reasonable default for a server that's already bound to `localhost` — no extra risk beyond what loopback binding already implies.
@@ -145,7 +143,8 @@ Each entry needs:
 - The plugin sends **exactly the scope of content the action is configured for** (selection / block / block + children) to the configured endpoint, nothing more.
 - No telemetry. No background requests. Nothing leaves this plugin unless you invoke an action.
 - **Do not invoke actions on content you don't want sent to the configured endpoint.** Especially if the endpoint is labeled `REMOTE`.
-- The debug log, when enabled, lives only in memory and is cleared when Logseq restarts.
+- The debug log, when enabled, lives only in memory and is cleared when Logseq restarts. Upstream HTTP error excerpts (up to 200 chars) are captured to help diagnose 401/CORS failures — if you share screenshots from `/AI Diagnostics`, treat them as sensitive.
+- **API keys (when set) are stored UNENCRYPTED** in Logseq's plugin-settings file on disk. LM Studio and Ollama don't need a key — leave the field blank. Only paste a credential you'd be comfortable storing in a plain-text config file.
 
 See [`REQUIREMENTS.md` §8](./REQUIREMENTS.md) for the full privacy model.
 

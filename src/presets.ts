@@ -32,14 +32,6 @@ export const PRESETS: ReadonlyArray<EndpointPreset> = [
     notes: "Ollama's OpenAI-compatible endpoint. Run `ollama serve` to enable.",
   },
   {
-    id: "goose",
-    title: "Goose",
-    baseUrl: "http://localhost:3000/v1",
-    defaultModel: "",
-    notes:
-      "Experimental — OpenAI-compatibility is unverified and may require a proxy. Prefer LM Studio or Ollama for now.",
-  },
-  {
     id: "custom",
     title: "Custom",
     baseUrl: "",
