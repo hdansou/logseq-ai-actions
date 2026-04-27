@@ -9,7 +9,10 @@ export default defineConfig({
     sourcemap: true,
   },
   server: {
-    host: "0.0.0.0",
+    // Bind to loopback only — Logseq loads the dev bundle from
+    // localhost, and `0.0.0.0` would expose every dev iteration to the
+    // LAN. Override with `--host` if you need cross-device testing.
+    host: "127.0.0.1",
     port: 8080,
     cors: true,
   },
