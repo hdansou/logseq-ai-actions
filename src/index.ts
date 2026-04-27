@@ -83,8 +83,7 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
     default: "",
     title: "API key (optional)",
     description:
-      "Required only for endpoints with auth. LM Studio and Ollama ignore this. Stored in plugin settings — treat accordingly.",
-    inputAs: "textarea",
+      "Required only for endpoints with auth. LM Studio and Ollama ignore this. Stored UNENCRYPTED in Logseq's plugin settings file on disk — do not paste a credential you wouldn't store in plain text.",
   },
   {
     key: "temperature",
@@ -321,7 +320,7 @@ const provider = createOpenAIProvider({ fetchImpl: logseqFetch });
 
 /**
  * Build the provider request body shared by both complete + stream.
- * Pulled out so the debug-log truncation in performLLM* stays in sync
+ * Pulled out so the debug-log truncation in performLLM stays in sync
  * with the actual request.
  */
 function buildProviderRequest(action: Action, input: ResolvedInput, settings: ResolvedSettings) {
@@ -369,49 +368,47 @@ function recordDebugEntry(
  * identical log entries and there's one place to change the request
  * shape.
  */
-async function performLLMCall(
-  action: Action,
-  input: ResolvedInput,
-  settings: ResolvedSettings,
-): Promise<string> {
-  const startedAt = Date.now();
-  let output: string | undefined;
-  let error: string | undefined;
+function formatProviderError(err: unknown): string {
+  if (err instanceof LLMProviderError) {
+    return `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`;
+  }
+  return (err as Error).message;
+}
+
+/**
+ * `logseq.UI.closeMsg` throws when the key is unknown (e.g., the toast
+ * timed out on its own). Wrap once and swallow — every call site treated
+ * the throw as ignorable.
+ */
+function closeBusyToast(key: string | number | null): void {
+  if (key === null) return;
   try {
-    output = await provider.complete(buildProviderRequest(action, input, settings));
-    return output;
-  } catch (err) {
-    error =
-      err instanceof LLMProviderError
-        ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
-        : (err as Error).message;
-    throw err;
-  } finally {
-    recordDebugEntry(action, input, settings, startedAt, output, error);
+    logseq.UI.closeMsg(key as string);
+  } catch {
+    /* ignore — closeMsg throws on unknown key */
   }
 }
 
 /**
- * Streaming sibling of `performLLMCall`. `onChunk` fires per delta.
- * Records the same debug-log shape as the non-streaming path.
+ * Run a single LLM call (streaming when `onChunk` is provided, one-shot
+ * otherwise) and record a debug-log entry. Shared by every text-action
+ * path so the debug-log shape stays identical regardless of mode.
  */
-async function performLLMStream(
+async function performLLM(
   action: Action,
   input: ResolvedInput,
   settings: ResolvedSettings,
-  onChunk: (chunk: string) => void,
+  onChunk?: (chunk: string) => void,
 ): Promise<string> {
   const startedAt = Date.now();
   let output: string | undefined;
   let error: string | undefined;
   try {
-    output = await provider.stream(buildProviderRequest(action, input, settings), onChunk);
+    const req = buildProviderRequest(action, input, settings);
+    output = onChunk ? await provider.stream(req, onChunk) : await provider.complete(req);
     return output;
   } catch (err) {
-    error =
-      err instanceof LLMProviderError
-        ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
-        : (err as Error).message;
+    error = formatProviderError(err);
     throw err;
   } finally {
     recordDebugEntry(action, input, settings, startedAt, output, error);
@@ -662,14 +659,8 @@ async function runVisionAction(
       ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
     });
 
-    if (busyToastKey !== null) {
-      try {
-        logseq.UI.closeMsg(busyToastKey as string);
-      } catch {
-        /* ignore */
-      }
-      busyToastKey = null;
-    }
+    closeBusyToast(busyToastKey);
+    busyToastKey = null;
 
     if (action.outputMode === "outline-append") {
       // OCR-style flow: parse the model's outline+table response, confirm
@@ -731,17 +722,8 @@ async function runVisionAction(
     await logseq.Editor.updateBlock(block.uuid, picked);
     logseq.UI.showMsg(`${action.title}: title set`, "success");
   } catch (err) {
-    if (busyToastKey !== null) {
-      try {
-        logseq.UI.closeMsg(busyToastKey as string);
-      } catch {
-        /* ignore */
-      }
-    }
-    const detail =
-      err instanceof LLMProviderError
-        ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
-        : (err as Error).message;
+    closeBusyToast(busyToastKey);
+    const detail = formatProviderError(err);
     error = detail;
     console.error(`logseq-ai-actions: ${action.id} failed`, err);
     logseq.UI.showMsg(
@@ -826,7 +808,7 @@ async function runAction(action: Action, explicitBlockUuid?: string): Promise<vo
       if (!s.model.trim()) {
         throw new Error("No model configured. Open plugin settings and set a model name.");
       }
-      const text = await performLLMStream(a, inp, s, onChunk);
+      const text = await performLLM(a, inp, s, onChunk);
       return { finalText: text, actionTitle: a.title };
     };
 
@@ -854,16 +836,10 @@ async function runAction(action: Action, explicitBlockUuid?: string): Promise<vo
     const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
     busyToastKey = (msg as unknown as string | number | null) ?? null;
 
-    const output = await performLLMCall(action, input, settings);
+    const output = await performLLM(action, input, settings);
 
-    if (busyToastKey !== null) {
-      try {
-        logseq.UI.closeMsg(busyToastKey as string);
-      } catch {
-        /* swallow — closeMsg throws on unknown key */
-      }
-      busyToastKey = null;
-    }
+    closeBusyToast(busyToastKey);
+    busyToastKey = null;
 
     if (!output) {
       logseq.UI.showMsg(`${action.title}: empty response from model`, "warning");
@@ -940,19 +916,10 @@ async function runAction(action: Action, explicitBlockUuid?: string): Promise<vo
     await logseq.Editor.updateBlock(input.uuid, output);
     logseq.UI.showMsg(`${action.title} applied`, "success");
   } catch (err) {
-    if (busyToastKey !== null) {
-      try {
-        logseq.UI.closeMsg(busyToastKey as string);
-      } catch {
-        /* ignore */
-      }
-    }
-    const detail =
-      err instanceof LLMProviderError
-        ? `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`
-        : (err as Error).message;
+    closeBusyToast(busyToastKey);
+    const detail = formatProviderError(err);
     console.error(`logseq-ai-actions: ${action.id} failed`, err);
-    // performLLMCall records its own debug-log entry in a finally block;
+    // performLLM records its own debug-log entry in a finally block;
     // we don't duplicate here. Errors thrown before the LLM call (e.g.
     // from resolveInput) go unlogged — they're UI/setup issues, not
     // model failures, and the toast is enough signal.

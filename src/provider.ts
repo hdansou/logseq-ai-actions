@@ -67,7 +67,16 @@ export interface ProviderOptions {
   readonly fetchImpl?: typeof globalThis.fetch;
 }
 
-/** Shape of the diagnostic payload attached to an `LLMProviderError`. */
+/**
+ * Shape of the diagnostic payload attached to an `LLMProviderError`.
+ *
+ * `bodyExcerpt` carries up to 200 chars of the upstream error response so
+ * the user can diagnose CORS / 401 / model-not-found failures from the
+ * Diagnostics panel. If the upstream server reflects request headers in
+ * its error body, an `Authorization: Bearer …` value could appear here —
+ * the buffer is in-memory only and never written to disk, but treat it
+ * as sensitive when sharing screenshots from `/AI Diagnostics`.
+ */
 export interface LLMProviderErrorDetails {
   readonly status?: number;
   readonly bodyExcerpt?: string;
@@ -92,46 +101,58 @@ export function createOpenAIProvider(options: ProviderOptions = {}): LLMProvider
   };
 }
 
-async function openAIComplete(
-  req: CompleteRequest,
-  fetchFn: typeof globalThis.fetch,
-): Promise<string> {
-  const url = `${ensureTrailingSlash(req.baseUrl)}chat/completions`;
+interface PostChatOptions {
+  readonly baseUrl: string;
+  readonly apiKey: string | undefined;
+  readonly body: object;
+  readonly timeoutMs: number;
+  readonly fetchFn: typeof globalThis.fetch;
+}
+
+interface PostChatResult {
+  readonly res: Response;
+  /**
+   * Cancel the pending abort timer. Non-streaming callers invoke this in
+   * a `finally` after `res.json()`; streaming callers defer until the
+   * read loop exits so a hanging stream still aborts.
+   */
+  readonly clearTimer: () => void;
+}
+
+/**
+ * Shared transport for every chat-completions call. Handles URL building,
+ * Authorization header, AbortController + timeout, and error normalisation
+ * to `LLMProviderError`. Returns the raw `Response` and a `clearTimer`
+ * the caller is responsible for invoking once the response body is fully
+ * consumed.
+ */
+async function postChat(opts: PostChatOptions): Promise<PostChatResult> {
+  const url = `${ensureTrailingSlash(opts.baseUrl)}chat/completions`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), req.timeoutMs);
+  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs);
+  const clearTimer = () => clearTimeout(timeoutId);
 
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (req.apiKey) headers.Authorization = `Bearer ${req.apiKey}`;
-
-  const body = JSON.stringify({
-    model: req.model,
-    temperature: req.temperature,
-    stream: false,
-    messages: [
-      { role: "system", content: req.system },
-      { role: "user", content: req.user },
-    ],
-  });
+  if (opts.apiKey) headers.Authorization = `Bearer ${opts.apiKey}`;
 
   let res: Response;
   try {
-    res = await fetchFn(url, {
+    res = await opts.fetchFn(url, {
       method: "POST",
       headers,
-      body,
+      body: JSON.stringify(opts.body),
       signal: controller.signal,
     });
   } catch (err) {
-    clearTimeout(timeoutId);
+    clearTimer();
     if ((err as Error).name === "AbortError") {
-      throw new LLMProviderError(`Request timed out after ${req.timeoutMs}ms`);
+      throw new LLMProviderError(`Request timed out after ${opts.timeoutMs}ms`);
     }
     throw new LLMProviderError(`Request failed: ${(err as Error).message}`);
-  } finally {
-    clearTimeout(timeoutId);
   }
 
   if (!res.ok) {
+    clearTimer();
     const bodyText = await res.text().catch(() => "");
     throw new LLMProviderError(`HTTP ${res.status} from ${url}`, {
       status: res.status,
@@ -139,15 +160,70 @@ async function openAIComplete(
     } satisfies LLMProviderErrorDetails);
   }
 
+  return { res, clearTimer };
+}
+
+/** Build the standard chat-completions body for text-only requests. */
+function buildTextBody(req: CompleteRequest, stream: boolean) {
+  return {
+    model: req.model,
+    temperature: req.temperature,
+    stream,
+    messages: [
+      { role: "system", content: req.system },
+      { role: "user", content: req.user },
+    ],
+  };
+}
+
+/** Build the multimodal body — `user` content is an array of text + image_url blocks. */
+function buildVisionBody(req: CompleteVisionRequest) {
+  const dataUrl = `data:${req.image.mimeType};base64,${req.image.base64}`;
+  return {
+    model: req.model,
+    temperature: req.temperature,
+    stream: false,
+    messages: [
+      { role: "system", content: req.system },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: req.user },
+          { type: "image_url", image_url: { url: dataUrl } },
+        ],
+      },
+    ],
+  };
+}
+
+/** Pull the assistant `content` out of a chat-completions JSON response. */
+async function parseChatContent(res: Response, contextLabel: string): Promise<string> {
   const json = (await res.json().catch(() => null)) as {
     choices?: Array<{ message?: { content?: unknown } }>;
   } | null;
-
   const content = json?.choices?.[0]?.message?.content;
   if (typeof content !== "string") {
-    throw new LLMProviderError("No content in response choices");
+    throw new LLMProviderError(`No content in ${contextLabel}`);
   }
   return content.trim();
+}
+
+async function openAIComplete(
+  req: CompleteRequest,
+  fetchFn: typeof globalThis.fetch,
+): Promise<string> {
+  const { res, clearTimer } = await postChat({
+    baseUrl: req.baseUrl,
+    apiKey: req.apiKey,
+    body: buildTextBody(req, false),
+    timeoutMs: req.timeoutMs,
+    fetchFn,
+  });
+  try {
+    return await parseChatContent(res, "response choices");
+  } finally {
+    clearTimer();
+  }
 }
 
 async function openAIStream(
@@ -156,50 +232,16 @@ async function openAIStream(
   fetchFn: typeof globalThis.fetch,
 ): Promise<string> {
   const { createSSEParser } = await import("./sse");
-  const url = `${ensureTrailingSlash(req.baseUrl)}chat/completions`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), req.timeoutMs);
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (req.apiKey) headers.Authorization = `Bearer ${req.apiKey}`;
-
-  const body = JSON.stringify({
-    model: req.model,
-    temperature: req.temperature,
-    stream: true,
-    messages: [
-      { role: "system", content: req.system },
-      { role: "user", content: req.user },
-    ],
+  const { res, clearTimer } = await postChat({
+    baseUrl: req.baseUrl,
+    apiKey: req.apiKey,
+    body: buildTextBody(req, true),
+    timeoutMs: req.timeoutMs,
+    fetchFn,
   });
 
-  let res: Response;
-  try {
-    res = await fetchFn(url, {
-      method: "POST",
-      headers,
-      body,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if ((err as Error).name === "AbortError") {
-      throw new LLMProviderError(`Request timed out after ${req.timeoutMs}ms`);
-    }
-    throw new LLMProviderError(`Request failed: ${(err as Error).message}`);
-  }
-
-  if (!res.ok) {
-    clearTimeout(timeoutId);
-    const bodyText = await res.text().catch(() => "");
-    throw new LLMProviderError(`HTTP ${res.status} from ${url}`, {
-      status: res.status,
-      bodyExcerpt: bodyText.slice(0, 200),
-    } satisfies LLMProviderErrorDetails);
-  }
-
   if (!res.body) {
-    clearTimeout(timeoutId);
+    clearTimer();
     throw new LLMProviderError("Streaming response has no body");
   }
 
@@ -241,7 +283,7 @@ async function openAIStream(
     }
     throw new LLMProviderError(`Stream failed: ${(err as Error).message}`);
   } finally {
-    clearTimeout(timeoutId);
+    clearTimer();
     try {
       reader.releaseLock();
     } catch {
@@ -250,11 +292,6 @@ async function openAIStream(
   }
 }
 
-/**
- * Vision sibling of `openAIComplete`. Same endpoint, same auth/timeout/error
- * handling — only the `messages` body is multimodal: the user message is an
- * array of content blocks (`text` + `image_url`) instead of a plain string.
- */
 async function openAIVisionComplete(
   req: CompleteVisionRequest,
   fetchFn: typeof globalThis.fetch,
@@ -262,66 +299,18 @@ async function openAIVisionComplete(
   if (!req.image.base64 || !req.image.mimeType) {
     throw new LLMProviderError("Vision request requires both image.mimeType and image.base64");
   }
-
-  const url = `${ensureTrailingSlash(req.baseUrl)}chat/completions`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), req.timeoutMs);
-
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (req.apiKey) headers.Authorization = `Bearer ${req.apiKey}`;
-
-  const dataUrl = `data:${req.image.mimeType};base64,${req.image.base64}`;
-  const body = JSON.stringify({
-    model: req.model,
-    temperature: req.temperature,
-    stream: false,
-    messages: [
-      { role: "system", content: req.system },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: req.user },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
-    ],
+  const { res, clearTimer } = await postChat({
+    baseUrl: req.baseUrl,
+    apiKey: req.apiKey,
+    body: buildVisionBody(req),
+    timeoutMs: req.timeoutMs,
+    fetchFn,
   });
-
-  let res: Response;
   try {
-    res = await fetchFn(url, {
-      method: "POST",
-      headers,
-      body,
-      signal: controller.signal,
-    });
-  } catch (err) {
-    clearTimeout(timeoutId);
-    if ((err as Error).name === "AbortError") {
-      throw new LLMProviderError(`Request timed out after ${req.timeoutMs}ms`);
-    }
-    throw new LLMProviderError(`Request failed: ${(err as Error).message}`);
+    return await parseChatContent(res, "vision response choices");
   } finally {
-    clearTimeout(timeoutId);
+    clearTimer();
   }
-
-  if (!res.ok) {
-    const bodyText = await res.text().catch(() => "");
-    throw new LLMProviderError(`HTTP ${res.status} from ${url}`, {
-      status: res.status,
-      bodyExcerpt: bodyText.slice(0, 200),
-    } satisfies LLMProviderErrorDetails);
-  }
-
-  const json = (await res.json().catch(() => null)) as {
-    choices?: Array<{ message?: { content?: unknown } }>;
-  } | null;
-
-  const content = json?.choices?.[0]?.message?.content;
-  if (typeof content !== "string") {
-    throw new LLMProviderError("No content in vision response choices");
-  }
-  return content.trim();
 }
 
 function ensureTrailingSlash(s: string): string {

@@ -2,6 +2,7 @@ import type { ComponentChildren, FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { type Action, ActionSchema } from "../action";
 import { parseUserActions } from "../registry";
+import { ConfirmOverlay } from "./ConfirmOverlay";
 
 export interface ManageActionsPanelProps {
   readonly builtin: readonly Action[];
@@ -130,6 +131,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
   const [status, setStatus] = useState<string | null>(null);
   const [query, setQuery] = useState<string>("");
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
+  const [discardOpen, setDiscardOpen] = useState<boolean>(false);
 
   const builtinIds = useMemo(() => new Set(builtin.map((b) => b.id)), [builtin]);
   const userIds = useMemo(() => new Set(userActions.map((u) => u.id)), [userActions]);
@@ -140,7 +142,10 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
   );
 
   const tryClose = () => {
-    if (dirty && !window.confirm("Discard unsaved changes?")) return;
+    if (dirty) {
+      setDiscardOpen(true);
+      return;
+    }
     onClose();
   };
 
@@ -318,8 +323,11 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
           {...(view.kind === "edit" ? { onDelete: () => requestDelete(view.index) } : {})}
         />
         {deleteIndex !== null ? (
-          <DeleteOverlay
-            actionTitle={userActions[deleteIndex]?.title || userActions[deleteIndex]?.id || ""}
+          <ConfirmOverlay
+            title={`Delete "${userActions[deleteIndex]?.title || userActions[deleteIndex]?.id || ""}"?`}
+            message="This removes the action from your list. The slash command, palette entry, and context-menu item stay registered until you reload the plugin (Logseq has no deregister API). Invoking a removed action shows a 'no longer available' toast."
+            confirmLabel="Delete"
+            danger
             onCancel={cancelDelete}
             onConfirm={() => {
               confirmDelete();
@@ -473,10 +481,27 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
       </footer>
 
       {deleteIndex !== null ? (
-        <DeleteOverlay
-          actionTitle={userActions[deleteIndex]?.title || userActions[deleteIndex]?.id || ""}
+        <ConfirmOverlay
+          title={`Delete "${userActions[deleteIndex]?.title || userActions[deleteIndex]?.id || ""}"?`}
+          message="This removes the action from your list. The slash command, palette entry, and context-menu item stay registered until you reload the plugin (Logseq has no deregister API). Invoking a removed action shows a 'no longer available' toast."
+          confirmLabel="Delete"
+          danger
           onCancel={cancelDelete}
           onConfirm={confirmDelete}
+        />
+      ) : null}
+
+      {discardOpen ? (
+        <ConfirmOverlay
+          title="Discard unsaved changes?"
+          message="You have unsaved changes to your custom actions. Closing now will lose them."
+          confirmLabel="Discard"
+          danger
+          onCancel={() => setDiscardOpen(false)}
+          onConfirm={() => {
+            setDiscardOpen(false);
+            onClose();
+          }}
         />
       ) : null}
     </ManageRoot>
@@ -955,52 +980,6 @@ const DetailReadonly: FunctionComponent<DetailReadonlyProps> = ({
         </span>
       </div>
     </section>
-  );
-};
-
-interface DeleteOverlayProps {
-  readonly actionTitle: string;
-  readonly onConfirm: () => void;
-  readonly onCancel: () => void;
-}
-const DeleteOverlay: FunctionComponent<DeleteOverlayProps> = ({
-  actionTitle,
-  onConfirm,
-  onCancel,
-}) => {
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCancel();
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        onConfirm();
-      }
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onConfirm, onCancel]);
-
-  return (
-    <div class="manage-confirm-overlay" role="alertdialog" aria-label="Confirm delete">
-      <div class="manage-confirm-card">
-        <h3>Delete "{actionTitle}"?</h3>
-        <p>
-          This removes the action from your list. The slash command, palette entry, and context-menu
-          item stay registered until you reload the plugin (Logseq has no deregister API). Invoking
-          a removed action shows a "no longer available" toast.
-        </p>
-        <div class="manage-confirm-actions">
-          <button type="button" class="diff-btn" onClick={onCancel}>
-            Cancel
-          </button>
-          <button type="button" class="diff-btn diff-btn-danger" onClick={onConfirm}>
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
   );
 };
 

@@ -1,6 +1,6 @@
-/// <reference types="@logseq/libs" />
-import { h, render } from "preact";
+import { h } from "preact";
 import { DiffPanel, type DiffPanelActionDesc, type RunAndStream } from "./DiffPanel";
+import { mountPanel } from "./mount-panel";
 
 export interface ShowDiffPanelOptions {
   readonly currentActionId: string;
@@ -17,55 +17,21 @@ export interface ShowDiffPanelOptions {
 }
 
 /**
- * Mount the `DiffPanel` into the plugin iframe's `#app` container,
- * call `logseq.showMainUI`, and resolve the returned Promise when the
- * user accepts (with the accepted text) or rejects (with `null`). The
- * iframe is hidden again via `logseq.hideMainUI` before resolving.
- *
- * Side-effectful by design — the panel lives in the iframe DOM and
- * depends on Logseq's main-UI visibility, so this module carries the
- * `/// <reference types="@logseq/libs" />` and is NOT imported by any
- * Vitest test (runtime-gotchas §11).
+ * Mount the `DiffPanel`, resolve with the accepted text on Accept or
+ * `null` on Reject. Streaming without a DOM container is pointless, so
+ * the no-mount fallback rejects.
  */
 export function showDiffPanel(options: ShowDiffPanelOptions): Promise<string | null> {
-  return new Promise((resolve) => {
-    const container = document.getElementById("app");
-    if (!container) {
-      // No mount point — reject so caller falls through to the
-      // non-streaming write path. Streaming without a DOM container is
-      // pointless.
-      resolve(null);
-      return;
-    }
-
-    const teardown = (result: string | null) => {
-      try {
-        render(null, container);
-      } catch {
-        /* ignore — unmount best-effort */
-      }
-      try {
-        logseq.hideMainUI();
-      } catch {
-        /* ignore */
-      }
-      resolve(result);
-    };
-
-    render(
-      h(DiffPanel, {
-        currentActionId: options.currentActionId,
-        actionTitle: options.actionTitle,
-        baseUrl: options.baseUrl,
-        original: options.original,
-        actions: options.actions,
-        runAndStream: options.runAndStream,
-        onAccept: (text: string) => teardown(text),
-        onReject: () => teardown(null),
-      }),
-      container,
-    );
-
-    logseq.showMainUI();
-  });
+  return mountPanel<string | null>(null, (teardown) =>
+    h(DiffPanel, {
+      currentActionId: options.currentActionId,
+      actionTitle: options.actionTitle,
+      baseUrl: options.baseUrl,
+      original: options.original,
+      actions: options.actions,
+      runAndStream: options.runAndStream,
+      onAccept: (text: string) => teardown(text),
+      onReject: () => teardown(null),
+    }),
+  );
 }
