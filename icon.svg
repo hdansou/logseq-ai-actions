@@ -1,26 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="AI Actions">
   <title>AI Actions</title>
-  <defs>
-    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#F3F4F6"/>
-      <stop offset="35%" stop-color="#D1D5DB"/>
-      <stop offset="65%" stop-color="#6B7280"/>
-      <stop offset="100%" stop-color="#374151"/>
-    </linearGradient>
-    <linearGradient id="chromeAntenna" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#E5E7EB"/>
-      <stop offset="100%" stop-color="#6B7280"/>
-    </linearGradient>
-  </defs>
+  <!-- Charcoal background, retained from previous design for brand continuity. -->
   <rect width="128" height="128" rx="28" fill="#171717"/>
-  <line x1="64" y1="26" x2="64" y2="38" stroke="url(#chromeAntenna)" stroke-width="3.5" stroke-linecap="round"/>
-  <path d="M 64 6
-           C 64 14 64 14 56 18
-           C 64 22 64 22 64 30
-           C 64 22 64 22 72 18
-           C 64 14 64 14 64 6 Z"
-        fill="#F9FAFB"/>
-  <rect x="26" y="42" width="76" height="74" rx="16" fill="url(#chrome)"/>
-  <circle cx="64" cy="80" r="9" fill="#171717"/>
+  <!-- Antenna: tipped circle + stem in Tailwind teal-500 (#14B8A6), matching the toolbar bot face. -->
+  <circle cx="64" cy="18" r="4" fill="#14B8A6"/>
+  <line x1="64" y1="22" x2="64" y2="32" stroke="#14B8A6" stroke-width="4" stroke-linecap="round"/>
+  <!-- Head: rounded square in teal. -->
+  <rect x="24" y="32" width="80" height="80" rx="20" fill="#14B8A6"/>
+  <!-- Eyes: white discs inside the silhouette so they stay legible regardless of host theme. -->
+  <circle cx="48" cy="64" r="7" fill="#ffffff"/>
+  <circle cx="80" cy="64" r="7" fill="#ffffff"/>
+  <!-- Smile: small arc in the lower half of the head. -->
+  <path d="M 48 86 Q 64 100 80 86" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
 </svg>

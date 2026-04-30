@@ -111,7 +111,7 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 ## Phase 8 — Documentation
 
 - [x] `README.md` — install, preset table, CORS guide, privacy note, user-actions primer, development commands
-- [x] Plugin icon (`./icon.svg` source + 128×128 `./icon.png` rendered via `rsvg-convert`, at the project root where `package.json`'s `"icon": "./icon.png"` resolves) — chrome-minion mark: rounded steel chassis with cyclops eye + antenna-tipped sparkle, on a neutral charcoal field. Toolbar button is now a separate teal 2D bot face (24×24 viewBox, 20×20 render, hex `#14B8A6` head + white eyes/smile) — the chrome-minion silhouette floated above the toolbar baseline and clashed with the surrounding stroked glyphs (home, calendar, alarm, …); the new sized-and-coloured face sits on the same baseline. The marketplace `icon.png` still uses the chrome-minion mark.
+- [x] Plugin icon (`./icon.svg` source + 128×128 `./icon.png` rendered via `rsvg-convert`, at the project root where `package.json`'s `"icon": "./icon.png"` resolves) — teal 2D bot face on the existing charcoal `#171717` rounded-square background. Same identity as the toolbar button: rounded teal head (`#14B8A6`, Tailwind teal-500) + antenna, white eyes and smile inside the silhouette. The previous chrome-minion mark was retired alongside the toolbar redesign so both surfaces share one identity.
 - [x] `REQUIREMENTS.md` §14 — selection-scope deferral memo with pain table, SDK gap, acceptance criteria for when we revisit
 - [x] `AGENTS.md` — non-discoverable landmines (author name, package-vs-dir mismatch, SDK import pattern, `pnpm dev --port` quirk, dist/ + public/ timing)
 - [ ] Inline doc comments on public types (`Action`, `LLMProvider`, `classifyEndpoint`, …) — partial; revisit before v1.0.0
@@ -146,7 +146,7 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [x] Security: `pnpm.overrides` for `lodash-es ^4.18.1` and `dompurify ^3.4.1`; `pnpm audit` now clean (was 1 high + 5 moderate)
 - [x] Hygiene: vite dev server `host: 0.0.0.0` → `127.0.0.1` (LAN exposure was unintentional)
 - [x] Hygiene: `.gitignore` adds `*.local.json`, `tmp/`, `scratch/`, `.cache/`; tightens `.env*`
-- [x] UI: toolbar icon redesigned as a teal 2D bot face — square 24×24 viewBox (was 88×120 portrait) so the glyph aligns with the surrounding toolbar icons (`refactor(ui): teal bot-face toolbar icon, aligned with siblings` 2026-04-29). Marketplace card icon (`icon.png`) unchanged — open follow-up: decide whether to reskin it to match.
+- [x] UI: visual identity refreshed to a teal 2D bot face on both surfaces — toolbar icon (square 24×24 viewBox, was 88×120 portrait, now aligns with surrounding toolbar icons) and marketplace card icon (`./icon.svg` + `./icon.png` at project root, same bot face on the existing charcoal background). 2026-04-29.
 
 ## Deferred / v2 candidates
 
