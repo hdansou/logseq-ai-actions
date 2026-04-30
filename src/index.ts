@@ -1027,11 +1027,15 @@ function registerAllInvocations(): void {
   // Toolbar button — discoverability for mouse-first users. The `data-on-click`
   // attribute binds to a method exposed via logseq.provideModel below. Inline
   // SVG (vs. a referenced asset) avoids cross-origin URL resolution from the
-  // main Logseq UI; `currentColor` lets the mark inherit toolbar text color.
+  // main Logseq UI. Square 24×24 viewBox + 20×20 render size keeps the glyph
+  // on the same baseline as the surrounding toolbar icons (home, calendar,
+  // alarm…). Teal #14B8A6 (Tailwind teal-500) reads well on both light and
+  // dark Logseq themes; eyes + smile are white inside the teal silhouette so
+  // they stay visible regardless of host background.
   logseq.App.registerUIItem("toolbar", {
     key: "logseq-ai-actions-toolbar",
     template:
-      '<a class="button" data-on-click="openAIActionPicker" title="AI Actions — click to pick an action" aria-label="AI Actions"><svg xmlns="http://www.w3.org/2000/svg" viewBox="20 0 88 120" width="18" height="24" fill="currentColor" aria-hidden="true"><line x1="64" y1="26" x2="64" y2="38" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/><path d="M 64 6 C 64 14 64 14 56 18 C 64 22 64 22 64 30 C 64 22 64 22 72 18 C 64 14 64 14 64 6 Z"/><path fill-rule="evenodd" d="M 42 42 L 86 42 A 16 16 0 0 1 102 58 L 102 100 A 16 16 0 0 1 86 116 L 42 116 A 16 16 0 0 1 26 100 L 26 58 A 16 16 0 0 1 42 42 Z M 64 71 a 9 9 0 0 0 0 18 a 9 9 0 0 0 0 -18 Z"/></svg></a>',
+      '<a class="button" data-on-click="openAIActionPicker" title="AI Actions — click to pick an action" aria-label="AI Actions"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><circle cx="12" cy="2.5" r="1" fill="#14B8A6"/><line x1="12" y1="3.5" x2="12" y2="5.5" stroke="#14B8A6" stroke-width="1.5" stroke-linecap="round"/><rect x="4" y="5.5" width="16" height="16.5" rx="4" ry="4" fill="#14B8A6"/><circle cx="9" cy="12" r="1.6" fill="#ffffff"/><circle cx="15" cy="12" r="1.6" fill="#ffffff"/><path d="M 9.5 16.5 Q 12 18.5 14.5 16.5" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-linecap="round"/></svg></a>',
   });
   logseq.provideModel({
     openAIActionPicker: async () => {
