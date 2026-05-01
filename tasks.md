@@ -151,7 +151,8 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 ### Production-hardening pass (2026-05-01)
 
 - [x] Hygiene: `mockups/` → `docs/mockups/` with a `README.md` mapping each variant to where it landed in `src/ui/`. They are reference material, not bundled into `dist/`. The 2026-05-01 production-readiness pass found this was the only outstanding repo-hygiene item; everything else was clean (`pnpm audit` 0 vulns, typecheck/lint/tests all green, no `window.confirm`, no stray credentials, no tracked artifacts).
-- [ ] Outstanding (deferred to future passes): split `src/ui/ManageActionsPanel.tsx` (1127 lines, 9 inline components) into one-component-per-file under `src/ui/manage-actions/`; extract `src/adapter/` from `src/index.ts` (host-scope probe + `logseqFetch` shim, run-action pipelines, consent flow) — both behaviour-preserving but sizeable diffs, worth doing before v1.0.0 freeze.
+- [x] Refactor: split `src/ui/ManageActionsPanel.tsx` (1127-line monolith with 9 inline components) into `src/ui/manage-actions/` — one file per component (`ManageRoot`, `ActionRow`, `OverflowMenu`, `DetailEditor`, `DetailReadonly`, `ImportView`, `PillRadio`, `Field`) plus a shared `types.ts` (DraftAction, View, hint maps, helpers). Orchestrator `ManageActionsPanel.tsx` is now 417 lines; every other file is ≤220. Behaviour-preserving — 218 tests still pass, bundle size unchanged.
+- [ ] Outstanding (deferred to future passes): extract `src/adapter/` from `src/index.ts` (host-scope probe + `logseqFetch` shim, run-action pipelines, consent flow) — behaviour-preserving but sizeable diff, worth doing before v1.0.0 freeze.
 
 ## Deferred / v2 candidates
 
