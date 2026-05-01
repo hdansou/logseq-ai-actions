@@ -148,6 +148,11 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [x] Hygiene: `.gitignore` adds `*.local.json`, `tmp/`, `scratch/`, `.cache/`; tightens `.env*`
 - [x] UI: visual identity refreshed to a teal 2D bot face on both surfaces — toolbar icon (square 24×24 viewBox, was 88×120 portrait, now aligns with surrounding toolbar icons) and marketplace card icon (`./icon.svg` + `./icon.png` at project root, same bot face on the existing charcoal background). 2026-04-29.
 
+### Production-hardening pass (2026-05-01)
+
+- [x] Hygiene: `mockups/` → `docs/mockups/` with a `README.md` mapping each variant to where it landed in `src/ui/`. They are reference material, not bundled into `dist/`. The 2026-05-01 production-readiness pass found this was the only outstanding repo-hygiene item; everything else was clean (`pnpm audit` 0 vulns, typecheck/lint/tests all green, no `window.confirm`, no stray credentials, no tracked artifacts).
+- [ ] Outstanding (deferred to future passes): split `src/ui/ManageActionsPanel.tsx` (1127 lines, 9 inline components) into one-component-per-file under `src/ui/manage-actions/`; extract `src/adapter/` from `src/index.ts` (host-scope probe + `logseqFetch` shim, run-action pipelines, consent flow) — both behaviour-preserving but sizeable diffs, worth doing before v1.0.0 freeze.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
