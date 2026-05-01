@@ -1,6 +1,6 @@
 import { h } from "preact";
 import type { Action } from "../action";
-import { ManageActionsPanel } from "./ManageActionsPanel";
+import { ManageActionsPanel } from "./manage-actions/ManageActionsPanel";
 import { mountPanel } from "./mount-panel";
 
 export interface ShowManageActionsOptions {
