@@ -86,6 +86,10 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        /* Cap to the viewport (minus .diff-root's 48px top/bottom margin)
+           so the header, action bar, and footer stay in view while the
+           middle .diff-body scrolls. Same pattern as .manage-modal. */
+        max-height: calc(100vh - 96px);
       }
       .diff-header {
         display: flex;
@@ -138,7 +142,13 @@
         grid-template-columns: 1fr 1fr;
         gap: 1px;
         background: var(--border);
-        min-height: 240px;
+        /* Take the remaining vertical space inside .diff-modal and scroll
+           the diff content while header / action bar / footer stay pinned.
+           min-height: 0 lets the flex child actually shrink instead of
+           pushing the footer offscreen on long content. */
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
       }
       .diff-column {
         background: var(--bg);
@@ -228,6 +238,53 @@
       }
       .diff-action-error {
         color: var(--danger);
+      }
+      /* Grouped chip (Rewrite ▾) — same shell as .diff-action-btn but
+         with a tiny caret and a popover menu anchored under it. */
+      .diff-action-group {
+        position: relative;
+        display: inline-block;
+      }
+      .diff-action-caret {
+        margin-left: 6px;
+        font-size: 0.7em;
+        opacity: 0.7;
+      }
+      .diff-action-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 20;
+        min-width: 180px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+        padding: 4px;
+        display: flex;
+        flex-direction: column;
+      }
+      .diff-action-menu-item {
+        text-align: left;
+        padding: 6px 10px;
+        border: none;
+        background: transparent;
+        color: var(--fg);
+        font: inherit;
+        font-size: 0.92em;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .diff-action-menu-item:hover:not(:disabled) {
+        background: var(--hover);
+      }
+      .diff-action-menu-item:disabled {
+        cursor: default;
+        opacity: 0.55;
+      }
+      .diff-action-menu-item-current {
+        color: var(--accent);
+        font-weight: 600;
       }
       .diff-body-loading {
         opacity: 0.55;
