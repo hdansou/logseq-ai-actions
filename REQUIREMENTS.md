@@ -241,3 +241,15 @@ Either of these unlocks Web:
 - [ ] Slash-command invocations still fall back to block (no regression).
 - [ ] Logseq Web behaviour: either (a) SDK gained a selection API and Web works too, or (b) one-time notice on first selection-scoped invocation explaining "selection scope is Desktop-only for now," mirroring the LOCAL→REMOTE warning pattern.
 - [ ] `spliceText` pure helper TDD'd to 100 % line coverage, including empty ranges and edge offsets (start === 0, end === content.length).
+
+## 15. Theme integration
+
+The plugin runs inside a cross-origin iframe; Logseq does not propagate its `--ls-*` CSS variables into plugin documents. The plugin defines its own token set (`--bg`, `--fg`, `--accent`, …) with light- and dark-mode defaults that reference `var(--ls-*, fallback)` — the references stay in case Logseq adds propagation later, but the **fallbacks are what render today**.
+
+Light/dark follows the host:
+
+- On boot, probe `logseq.App.getStateFromStore('ui/theme')`. If it returns nothing or throws, fall back to `window.matchMedia('(prefers-color-scheme: dark)').matches`. Final fallback: light.
+- The resolved mode toggles `html.dark` on the iframe's `document.documentElement`; the existing `html.dark` CSS overrides do the rest.
+- `logseq.App.onThemeModeChanged` keeps the toggle in sync as the user changes mode inside Logseq.
+
+Custom community-theme palettes (themes/plugins that override `--ls-*` on the main app) are **not** mirrored in v1 — the cross-origin iframe blocks propagation and the SDK doesn't expose a per-token API. Users on custom themes see the plugin's stock light/dark palette. Revisit if Logseq adds a propagation channel.
