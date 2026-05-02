@@ -2,6 +2,8 @@
 
 AI-driven actions on Logseq blocks — spellcheck, grammar, rewrite (with tone variants), summarize, key-point extraction, nested outlines, image titling, image OCR — powered by a **small, locally-hosted LLM** you control (LM Studio, Ollama, or any OpenAI-compatible endpoint). Vision actions work with multimodal models like `qwen3.5:2b`, `qwen2.5-vl`, or `llava`.
 
+![Summarize action — side-by-side diff with the Rewrite tones dropdown open, streaming output from LM Studio at localhost:1234](docs/screenshots/diff-panel-summarize.png)
+
 > **DB graphs only** in v1. File-graph support is on the v2 backlog.
 > **Privacy-first**: by default, block content is sent to an endpoint on your own machine (`localhost`). The plugin labels endpoints LOCAL or REMOTE in the settings so you know exactly where your notes are going.
 
@@ -25,6 +27,9 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
   - `image-title` — analyze the image and propose three candidate titles in a picker; chosen value writes to `:block/title`.
   - `extract-image-text` — OCR the image and append the extracted text as nested children. Well-formed tables in the source render as standalone markdown-table blocks.
 - **Entry points**: slash commands (`/AI <action>`), block context menu, command palette, assignable keyboard shortcuts, toolbar button (action picker).
+
+  ![Toolbar action picker — actions grouped into Fix / Rewrite / Transform / Vision sections in dark mode](docs/screenshots/picker-dark.png)
+
 - **Extensibility**: add your own actions through the **Manage Actions** UI (gallery of cards + inline editor with live validation) or the hand-editable `userActionsJson` setting. Hot-reloads into the registry on save.
 - **Trust signals**: every UI surface that shows the configured endpoint labels it `LOCAL` or `REMOTE`. Switching to a non-loopback host triggers a one-time warning.
 - **Debug log (opt-in)**: in-memory ring buffer of the last 50 requests (request shape, response preview, duration, error if any), viewable in `/AI Diagnostics`. Never written to disk.

@@ -9,6 +9,12 @@ Release notes are authored via [changesets](https://github.com/changesets/change
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-05-02
+
+First marketplace release. **AI Actions** ships ten built-in seed actions (Spellcheck, Grammar, Rewrite + four tones, Summarize, Key Points, Outline replace/append) plus two vision actions (Generate Title, Extract Image Text), each accessible through five entry points: slash commands (`/AI <action>`), block context menu, command palette, assignable keyboard shortcuts, and a toolbar button that opens a grouped action picker. All processing runs against a local OpenAI-compatible endpoint you start yourself (LM Studio, Ollama, or any other OpenAI-compatible server) — no accounts, no tokens, no third-party egress. The plugin labels every endpoint LOCAL or REMOTE in every UI surface and warns once when the user flips to a non-loopback host. User-defined actions extend the registry via the Manage Actions UI (gallery + inline editor) or the hand-editable `userActionsJson` setting; user `rewrite-*` actions auto-join the diff-panel's Rewrite dropdown and the picker's Rewrite section. Plugin UI follows Logseq's light/dark mode toggle. **DB graphs only** (Logseq Web + Desktop with database backend); file-graph support is a v2 candidate.
+
+The Phase 9 (Tier 3 Playwright e2e) gate documented in REQUIREMENTS §9 is relaxed for this release. Coverage is currently 268 unit tests on the pure layer with the 80 % coverage threshold enforced, plus extensive manual verification of every entry point against LM Studio. Tier 3 coverage will be revisited once marketplace usage surfaces real-world edge cases.
+
 ### Changed
 
 - **`package.json` `logseq` block fully marketplace-ready.** Adds `"supportsDBOnly": true`, `"supportsDB": true` (redundant when `supportsDBOnly` is set, but some marketplace tooling reads it), and `"minSDKVersion": "0.3.2"` (matches the `@logseq/libs` floor enforced at compile time by `src/__sdk_guard__.ts`). All three fields are documented in the Logseq plugin starter guide but are absent from the SDK's `LSPluginPkgConfig` TypeScript type, which is incomplete vs. the runtime. Description now reads "AI-driven actions on Logseq blocks (DB graphs only) …" so the constraint is visible in the marketplace listing. Runtime enforcement (refuse-to-load on file graphs) is a separate concern.
