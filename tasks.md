@@ -174,6 +174,20 @@ Bug: clicking the toolbar button blurs the editor before our handler runs (Logse
 - [x] Docs: REQUIREMENTS §3 entry-point capture invariant + resolution strategy (probe + cache) + no-block empty state.
 - [x] Changelog: `.changeset/toolbar-block-capture.md` + `[Unreleased]` entry under Changed.
 
+### Toolbar picker grouped layout (2026-05-02)
+
+Goal: replace the single-column verbose-card list with a grouped 2-column grid (Fix / Rewrite / Transform / Vision / Custom) so all ~13 actions fit one viewport without scrolling. Picked Variant A from a 3-up HTML mockup. User-defined actions auto-route into matching built-in categories (id-prefix match) and carry a `custom` pill so authorship stays legible.
+
+- [x] Test: pure helper `categorizeAction(action) → "fix" | "rewrite" | "transform" | "vision" | "custom"` in `src/ui/picker-categories.ts`. 23 cases (id-equals + id-prefix per category, vision short-circuit, partial-word non-matches).
+- [x] Implement: `categorizeAction`.
+- [x] Test: pure helper `groupActionsForPicker(actions) → ReadonlyArray<{ category, label, actions }>`. 7 cases — fixed category order; empty categories omitted; declared order preserved; labels stable; user `rewrite-*` auto-routes into Rewrite; `isBuiltin` flag carried through.
+- [x] Implement: `groupActionsForPicker`.
+- [x] Implement: `ActionPickerPanel` swaps the single-column `picker-list` for grouped sections; tags incoming actions with `isBuiltin = index < builtinCount`; new `PickerCard` renders title + scope/mode pills + conditional `custom` pill + `title=…` description tooltip. Empty-state disabling still applies card-by-card.
+- [x] Implement: CSS for `.picker-group`, `.picker-group-head`, `.picker-grid` (2-col), refreshed `.picker-card` (compact, single-row), `.picker-pill` family with `.picker-pill-vision` (warning-colour) and `.picker-pill-custom` (accent-colour) variants. Picker modal widened to 640 px to give 2-col grids breathing room.
+- [x] Manual verify: all 13 seed actions visible without scrolling; hover tooltips render; no-focus state still disables every card; user `rewrite-*` lands in Rewrite with the `custom` pill.
+- [x] Docs: REQUIREMENTS §3 — Toolbar picker layout block.
+- [x] Changelog: `.changeset/picker-grouped-grid.md` + `[Unreleased]` Changed entry.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
