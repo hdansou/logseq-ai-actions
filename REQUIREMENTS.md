@@ -58,7 +58,7 @@ One `Action` declaration auto-wires every surface. Adding an action is a **singl
 Six output modes; each action declares its default:
 
 - **`replace`** — overwrite the block's text with the LLM output.
-- **`diff-panel`** — show a side panel with original vs proposed; user accepts / rejects / edits before applying.
+- **`diff-panel`** — show a side panel with original vs proposed; user accepts / rejects / edits before applying. Modal is height-capped to the viewport with header, action bar, and Reject / Edit / Accept footer all pinned; only the diff body scrolls. Action bar collapses related text-transform tones (currently the four `rewrite-*` variants alongside the bare `rewrite`) into a single dropdown chip so the row stays scannable as more actions are added.
 - **`append-children`** — append the LLM output as *new child blocks* under the current block (one line per child). Non-destructive.
 - **`outline-replace`** — parse the LLM output as a nested markdown outline (with table-block support); delete the block's existing direct children; insert the parsed tree as the block's new subtree. Block's own text is preserved. Destructive — confirm panel warns.
 - **`outline-append`** — same parser as `outline-replace`, but appends without deleting. Non-destructive. Used for OCR output and for the non-destructive outline action.

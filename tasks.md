@@ -154,6 +154,11 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [x] Refactor: split `src/ui/ManageActionsPanel.tsx` (1127-line monolith with 9 inline components) into `src/ui/manage-actions/` — one file per component (`ManageRoot`, `ActionRow`, `OverflowMenu`, `DetailEditor`, `DetailReadonly`, `ImportView`, `PillRadio`, `Field`) plus a shared `types.ts` (DraftAction, View, hint maps, helpers). Orchestrator `ManageActionsPanel.tsx` is now 417 lines; every other file is ≤220. Behaviour-preserving — 218 tests still pass, bundle size unchanged.
 - [x] Refactor: extract `src/adapter/` from `src/index.ts` per the AGENTS.md "thin Logseq-touching surface" rule. Seven adapter modules: `host-scope.ts` (iframe probe + `logseqFetch` shim), `settings.ts` (`readSettings`, `readPrivateSetting`, `handlePresetChange`), `outline-writer.ts` (`removeBlockChildren`, `insertOutlineTree`), `resolve-input.ts` (block→LLM input), `image-loader.ts` (asset bytes for vision), `consent.ts` (first-run + remote-transition flows), `run-action.ts` (text + vision pipelines, performLLM, debug-log helpers; takes `RunActionContext` so the entry point owns the provider + active-registry state). `src/index.ts` shrunk from 1100 lines to 303; only it does `import "@logseq/libs"`. Behaviour-preserving — 218 tests pass, bundle size unchanged.
 
+### DiffPanel UX pass (2026-05-02)
+
+- [x] Sticky footer + scrollable body: cap `.diff-modal` to `calc(100vh - 96px)`, make `.diff-body` `flex: 1; min-height: 0; overflow-y: auto`. Reject / Edit / Accept stay reachable on long content; same pattern Manage Actions already uses. Picked Variant A from a 3-up HTML mockup (sticky footer / top action bar / inline header buttons).
+- [x] Group `rewrite-*` actions into a single "Rewrite ▾" dropdown chip on the action bar. Chip row drops from up to 8 chips to 4. New helpers `partitionBarItems` + `rewriteMenuLabel` exported from `DiffPanel.tsx` with 12 unit tests; user-defined `rewrite-*` actions auto-join the group; menu uses the same outside-click + Esc-to-close pattern as `OverflowMenu`.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
