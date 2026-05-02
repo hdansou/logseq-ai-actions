@@ -1,6 +1,7 @@
 import type { FunctionComponent } from "preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useMemo } from "preact/hooks";
 import type { Action } from "../action";
+import { groupActionsForPicker, type TaggedAction } from "./picker-categories";
 
 export interface ActionPickerPanelProps {
   readonly actions: readonly Action[];
@@ -59,8 +60,14 @@ export const ActionPickerPanel: FunctionComponent<ActionPickerPanelProps> = ({
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const builtins = actions.slice(0, builtinCount);
-  const userActions = actions.slice(builtinCount);
+  const groups = useMemo(() => {
+    // Tag each action with its provenance before grouping. The first
+    // `builtinCount` entries are seed actions; everything after comes
+    // from `userActionsJson`. The grouping helper carries the flag
+    // through so the panel can render the `custom` pill on user cards.
+    const tagged: TaggedAction[] = actions.map((a, i) => ({ ...a, isBuiltin: i < builtinCount }));
+    return groupActionsForPicker(tagged);
+  }, [actions, builtinCount]);
   const { subtitle, cardsDisabled } = derivePickerState(targetBlockUuid);
 
   return (
@@ -70,23 +77,25 @@ export const ActionPickerPanel: FunctionComponent<ActionPickerPanelProps> = ({
           <strong>AI Actions</strong>
           <span class={`diff-hint${cardsDisabled ? " diff-hint-warn" : ""}`}>{subtitle}</span>
         </header>
-        <section class="picker-list">
-          {builtins.map((a) => (
-            <PickerRow key={a.id} action={a} disabled={cardsDisabled} onClick={() => onPick(a)} />
+        <section class="picker-body">
+          {groups.map((group) => (
+            <div key={group.category} class="picker-group">
+              <div class="picker-group-head">
+                {group.label}
+                <span class="picker-group-count">· {group.actions.length}</span>
+              </div>
+              <div class="picker-grid">
+                {group.actions.map((a) => (
+                  <PickerCard
+                    key={a.id}
+                    action={a}
+                    disabled={cardsDisabled}
+                    onClick={() => onPick(a)}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
-          {userActions.length > 0 ? (
-            <>
-              <div class="picker-section-label">User-defined</div>
-              {userActions.map((a) => (
-                <PickerRow
-                  key={a.id}
-                  action={a}
-                  disabled={cardsDisabled}
-                  onClick={() => onPick(a)}
-                />
-              ))}
-            </>
-          ) : null}
         </section>
         <footer class="diff-footer">
           <button type="button" class="diff-btn" onClick={onClose}>
@@ -104,18 +113,25 @@ export const ActionPickerPanel: FunctionComponent<ActionPickerPanelProps> = ({
   );
 };
 
-const PickerRow: FunctionComponent<{
-  action: Action;
+const PickerCard: FunctionComponent<{
+  action: TaggedAction;
   disabled: boolean;
   onClick: () => void;
 }> = ({ action, disabled, onClick }) => (
-  <button type="button" class="picker-row" disabled={disabled} onClick={onClick}>
-    <div class="picker-row-header">
-      <strong class="picker-row-title">{action.title}</strong>
-      <span class="picker-row-meta">
-        {action.scope} · {action.outputMode}
+  <button
+    type="button"
+    class="picker-card"
+    disabled={disabled}
+    onClick={onClick}
+    title={action.description}
+  >
+    <span class="picker-card-title">{action.title}</span>
+    <span class="picker-card-pills">
+      <span class="picker-pill">{action.scope}</span>
+      <span class={`picker-pill${action.kind === "vision" ? " picker-pill-vision" : ""}`}>
+        {action.outputMode}
       </span>
-    </div>
-    {action.description ? <span class="picker-row-desc">{action.description}</span> : null}
+      {action.isBuiltin ? null : <span class="picker-pill picker-pill-custom">custom</span>}
+    </span>
   </button>
 );

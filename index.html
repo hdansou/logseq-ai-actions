@@ -951,33 +951,41 @@
 
       /* Action picker panel — toolbar-triggered discovery surface. */
       .picker-modal {
-        max-width: 520px;
-        width: min(520px, 95vw);
+        max-width: 640px;
+        width: min(640px, 95vw);
       }
-      .picker-list {
-        padding: 14px 20px;
+      .picker-body {
+        padding: 14px 16px;
         display: flex;
         flex-direction: column;
-        gap: 5px;
-        max-height: 60vh;
+        gap: 14px;
+        max-height: calc(100vh - 200px);
         overflow-y: auto;
         background: var(--bg);
       }
-      .picker-section-label {
-        font-size: 0.75em;
+      .picker-group { display: flex; flex-direction: column; gap: 6px; }
+      .picker-group-head {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        font-size: 0.72em;
+        font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--muted);
-        padding: 10px 0 4px 0;
-        margin-top: 6px;
-        border-top: 1px dashed var(--border);
+        padding: 0 4px;
       }
-      .picker-row {
+      .picker-group-count { font-weight: 500; opacity: 0.75; }
+      .picker-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .picker-card {
         display: flex;
         flex-direction: column;
-        align-items: stretch;
-        gap: 2px;
-        padding: 9px 12px;
+        gap: 4px;
+        padding: 8px 12px;
         background: var(--bg);
         border: 1px solid var(--border);
         border-radius: 8px;
@@ -985,32 +993,47 @@
         font: inherit;
         cursor: pointer;
         text-align: left;
+        min-width: 0;
       }
-      .picker-row:hover:not(:disabled) {
+      .picker-card:hover:not(:disabled) {
         background: var(--hover);
         border-color: var(--accent);
       }
-      .picker-row:disabled {
+      .picker-card:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
-      .picker-row-header {
+      .picker-card-title {
+        font-weight: 600;
+        font-size: 0.95em;
+        line-height: 1.25;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .picker-card-pills {
         display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 10px;
+        flex-wrap: wrap;
+        gap: 4px;
       }
-      .picker-row-title {
-        font-size: 1em;
-      }
-      .picker-row-meta {
-        font-size: 0.78em;
+      .picker-pill {
+        display: inline-flex;
+        align-items: center;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: color-mix(in oklab, var(--muted) 14%, transparent);
         color: var(--muted);
-        font-family: ui-monospace, monospace;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.7em;
+        line-height: 1.5;
       }
-      .picker-row-desc {
-        font-size: 0.85em;
-        color: var(--muted);
+      .picker-pill-vision {
+        background: color-mix(in oklab, var(--warning) 18%, transparent);
+        color: var(--warning);
+      }
+      .picker-pill-custom {
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
+        color: var(--accent);
       }
     </style>
   </head>

@@ -44,6 +44,28 @@ Picker behaviour when both the live probe and the cache come back empty:
 
 Slash commands, context-menu items, and assignable shortcuts already carry their own block context (cursor-in-block invariant for slash; explicit UUID for context menu) and are unaffected. Same constraint applies to any future entry that funnels through a picker.
 
+### Toolbar picker layout
+
+Actions in the toolbar picker are grouped into five fixed categories so all built-in seed actions plus typical user actions fit one viewport without scrolling:
+
+- **Fix** — `spellcheck`, `grammar`, or any id starting with `spellcheck-` / `grammar-`.
+- **Rewrite** — `rewrite` or any id starting with `rewrite-` (matches the diff-panel action bar's Rewrite dropdown grouping).
+- **Transform** — `summarize`, `key-points`, or any id starting with `summarize-` / `key-points-` / `outline-`.
+- **Vision** — any action with `kind: "vision"` (id-pattern checks above are skipped — vision dispatch is a runtime concern, not a label).
+- **Custom** — anything else (typically user-defined actions that don't follow a built-in naming convention).
+
+User-defined actions auto-route into a built-in category when their id matches a prefix above, so a user-authored `rewrite-snarky` lives next to the seed Rewrite tones rather than in a separate Custom bucket. To keep authorship legible inside built-in categories, **user-defined cards carry an additional `custom` pill** alongside the scope/mode pills; built-in cards are unmarked. Cards in the Custom category also carry the pill (consistent rule: any user action shows it regardless of section).
+
+Visual contract:
+
+- Each non-empty category renders as a section: small uppercase header with a count, followed by a 2-column grid of compact cards.
+- Card content: title + 1–2 monospace pills (scope + output mode; vision pill highlighted) + optional `custom` pill.
+- Full description is rendered as a hover tooltip (HTML `title` attribute), not inline — keeps cards single-row.
+- Empty categories are not rendered.
+- Empty-state behaviour from the previous subsection still applies: cards disabled, subtitle changes to "Place your cursor in a block first."
+
+Manage Actions remains the surface where users browse full descriptions and edit user actions.
+
 ## 4. Action scopes (v1)
 
 - `selection` (highlighted text in a block)
