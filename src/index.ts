@@ -2,6 +2,11 @@ import "@logseq/libs";
 
 import type { Action } from "./action";
 import { runFirstRunFlow, showRemoteTransitionNotice } from "./adapter/consent";
+import {
+  getCachedEditingBlockUuid,
+  probeFocusedBlockNow,
+  startEditingBlockTracker,
+} from "./adapter/editing-block-cache";
 import { logseqFetch } from "./adapter/host-scope";
 import { type RunActionContext, runAction } from "./adapter/run-action";
 import { handlePresetChange, readPrivateSetting, readSettings } from "./adapter/settings";
@@ -200,12 +205,23 @@ async function openManagePanel(): Promise<void> {
 }
 
 async function openActionPicker(): Promise<void> {
+  // Capture the focused block BEFORE mounting the picker. The toolbar
+  // click itself blurs the editor (Logseq dismisses edit state on any
+  // click outside the editor area), so a sync probe at this point will
+  // usually return null. Fall back to the polling cache populated by
+  // `startEditingBlockTracker`, which captured the UUID up to ~500 ms
+  // before the click. Threaded into the panel (drives the empty state)
+  // and into `runAction`'s `explicitBlockUuid` so the chosen action
+  // operates on the right block.
+  const live = await probeFocusedBlockNow();
+  const targetBlockUuid = live ?? getCachedEditingBlockUuid();
   const result = await showActionPicker({
     actions: activeActions,
     builtinCount: SEED_ACTIONS.length,
+    targetBlockUuid,
   });
   if (result.kind === "action") {
-    await runAction(result.action, runActionCtx);
+    await runAction(result.action, runActionCtx, targetBlockUuid ?? undefined);
   } else if (result.kind === "manage") {
     await openManagePanel();
   } else if (result.kind === "diagnostics") {
@@ -295,6 +311,10 @@ async function main(): Promise<void> {
   setTimeout(() => {
     registerAllInvocations();
     void runFirstRunFlow();
+    // Polls `checkEditing` every 500 ms so the toolbar handler has a
+    // recent block UUID to fall back on after the click blurs the
+    // editor. See `editing-block-cache.ts`.
+    startEditingBlockTracker();
   }, 0);
 }
 
