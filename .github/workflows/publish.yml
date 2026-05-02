@@ -1,0 +1,77 @@
+name: Build and Release Logseq Plugin
+
+# Tag-driven release. Pushing a `v*` tag (e.g. v1.0.0) builds the plugin,
+# packages it, and creates a GitHub Release with the zip attached. The
+# zip is what users grab via "Load plugin from zip" and what the
+# marketplace listing points at.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PLUGIN_NAME: ${{ github.event.repository.name }}
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm exec biome ci .
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests + coverage gate
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package plugin zip
+        # Files inside the zip become the contents of the user's
+        # installed plugin directory. icon.png is required because
+        # `package.json` `logseq.icon` resolves to it; icon.svg is the
+        # source that the marketplace card may reference.
+        run: |
+          mkdir "$PLUGIN_NAME"
+          cp README.md LICENSE package.json icon.png icon.svg "$PLUGIN_NAME"
+          cp -R dist "$PLUGIN_NAME"
+          zip -r "$PLUGIN_NAME.zip" "$PLUGIN_NAME"
+
+      - name: Upload zip artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PLUGIN_NAME }}-zip
+          path: ${{ env.PLUGIN_NAME }}.zip
+
+      - name: Create GitHub release and upload zip
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: ${{ env.PLUGIN_NAME }}.zip
