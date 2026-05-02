@@ -27,6 +27,23 @@ All five Logseq surfaces, driven by one action registry:
 
 One `Action` declaration auto-wires every surface. Adding an action is a **single-file change**.
 
+### Entry-point block capture
+
+Entry points that open a picker before running the action (currently only the toolbar button) must **resolve the focused block UUID at click time** and thread it into `runAction(action, ctx, explicitBlockUuid)`. The toolbar click itself blurs the editor (Logseq dismisses edit state on any click outside the editor area), so a synchronous probe inside the click handler usually returns null even when the user clearly had a block focused a moment ago — the bug behind the picker's "Click to run on the current block" promise.
+
+Resolution strategy (defined in `src/adapter/editing-block-cache.ts`):
+
+1. Synchronous three-tier probe at click time: `checkEditing()` → `getCurrentBlock()` → `getSelectedBlocks()[0]`. The first non-null wins.
+2. Fallback to a polling cache populated every 500 ms via the same probe. UUID expires after 10 s of inactivity and is cleared on `onRouteChanged` so cross-page leaks are impossible.
+
+Picker behaviour when both the live probe and the cache come back empty:
+
+- All action cards render disabled (greyed, click swallowed) — kept visible for discoverability rather than hidden.
+- The header subtitle changes from "Click to run on the current block" to **"Place your cursor in a block first."**
+- Footer entries (Close, Diagnostics, Manage actions) stay enabled — they don't need a block.
+
+Slash commands, context-menu items, and assignable shortcuts already carry their own block context (cursor-in-block invariant for slash; explicit UUID for context menu) and are unaffected. Same constraint applies to any future entry that funnels through a picker.
+
 ## 4. Action scopes (v1)
 
 - `selection` (highlighted text in a block)

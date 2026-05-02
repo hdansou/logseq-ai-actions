@@ -9,10 +9,28 @@ export interface ActionPickerPanelProps {
    * actions are the rest. Used to render a visual divider.
    */
   readonly builtinCount: number;
+  /**
+   * UUID of the block focused at the moment the picker was triggered, or
+   * `null` if the user clicked the toolbar without a focused block.
+   * Captured by the toolbar handler before the iframe steals focus.
+   * `null` switches the panel into a disabled empty state.
+   */
+  readonly targetBlockUuid: string | null;
   readonly onPick: (action: Action) => void;
   readonly onManage: () => void;
   readonly onDiagnostics: () => void;
   readonly onClose: () => void;
+}
+
+/** Header subtitle + card-disabled state derived from the captured block UUID. */
+export function derivePickerState(uuid: string | null): {
+  readonly subtitle: string;
+  readonly cardsDisabled: boolean;
+} {
+  if (uuid === null) {
+    return { subtitle: "Place your cursor in a block first.", cardsDisabled: true };
+  }
+  return { subtitle: "Click to run on the current block", cardsDisabled: false };
 }
 
 /**
@@ -24,6 +42,7 @@ export interface ActionPickerPanelProps {
 export const ActionPickerPanel: FunctionComponent<ActionPickerPanelProps> = ({
   actions,
   builtinCount,
+  targetBlockUuid,
   onPick,
   onManage,
   onDiagnostics,
@@ -42,23 +61,29 @@ export const ActionPickerPanel: FunctionComponent<ActionPickerPanelProps> = ({
 
   const builtins = actions.slice(0, builtinCount);
   const userActions = actions.slice(builtinCount);
+  const { subtitle, cardsDisabled } = derivePickerState(targetBlockUuid);
 
   return (
     <div class="diff-root" role="dialog" aria-label="Pick an AI action">
       <div class="diff-modal picker-modal">
         <header class="diff-header">
           <strong>AI Actions</strong>
-          <span class="diff-hint">Click to run on the current block</span>
+          <span class={`diff-hint${cardsDisabled ? " diff-hint-warn" : ""}`}>{subtitle}</span>
         </header>
         <section class="picker-list">
           {builtins.map((a) => (
-            <PickerRow key={a.id} action={a} onClick={() => onPick(a)} />
+            <PickerRow key={a.id} action={a} disabled={cardsDisabled} onClick={() => onPick(a)} />
           ))}
           {userActions.length > 0 ? (
             <>
               <div class="picker-section-label">User-defined</div>
               {userActions.map((a) => (
-                <PickerRow key={a.id} action={a} onClick={() => onPick(a)} />
+                <PickerRow
+                  key={a.id}
+                  action={a}
+                  disabled={cardsDisabled}
+                  onClick={() => onPick(a)}
+                />
               ))}
             </>
           ) : null}
@@ -79,11 +104,12 @@ export const ActionPickerPanel: FunctionComponent<ActionPickerPanelProps> = ({
   );
 };
 
-const PickerRow: FunctionComponent<{ action: Action; onClick: () => void }> = ({
-  action,
-  onClick,
-}) => (
-  <button type="button" class="picker-row" onClick={onClick}>
+const PickerRow: FunctionComponent<{
+  action: Action;
+  disabled: boolean;
+  onClick: () => void;
+}> = ({ action, disabled, onClick }) => (
+  <button type="button" class="picker-row" disabled={disabled} onClick={onClick}>
     <div class="picker-row-header">
       <strong class="picker-row-title">{action.title}</strong>
       <span class="picker-row-meta">

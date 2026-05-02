@@ -159,6 +159,21 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [x] Sticky footer + scrollable body: cap `.diff-modal` to `calc(100vh - 96px)`, make `.diff-body` `flex: 1; min-height: 0; overflow-y: auto`. Reject / Edit / Accept stay reachable on long content; same pattern Manage Actions already uses. Picked Variant A from a 3-up HTML mockup (sticky footer / top action bar / inline header buttons).
 - [x] Group `rewrite-*` actions into a single "Rewrite ▾" dropdown chip on the action bar. Chip row drops from up to 8 chips to 4. New helpers `partitionBarItems` + `rewriteMenuLabel` exported from `DiffPanel.tsx` with 12 unit tests; user-defined `rewrite-*` actions auto-join the group; menu uses the same outside-click + Esc-to-close pattern as `OverflowMenu`.
 
+### Toolbar entry-point block capture (2026-05-02)
+
+Bug: clicking the toolbar button blurs the editor before our handler runs (Logseq dismisses edit state on any click outside the editor area), so `getCurrentBlock()` / `checkEditing()` return null and the action errors out — directly contradicts the picker's "Click to run on the current block" subtitle. First fix attempt (sync probe in the click handler only) didn't work for that reason; final fix layers a polling cache on top.
+
+- [x] Test: pure helper `derivePickerState(uuid: string | null) → { subtitle, cardsDisabled }` — has-block / no-block branches.
+- [x] Implement: `derivePickerState` in `ActionPickerPanel.tsx` (extract the hardcoded subtitle literal).
+- [-] Test: `ActionPickerPanel` renders empty-state subtitle + disables every action card — folded into the helper test + manual verify; no DOM test env in this project (vitest `environment: "node"`, UI excluded from coverage gate).
+- [x] Implement: extend `ActionPickerPanelProps` with `targetBlockUuid: string | null`; thread through `showActionPicker` options. Picker disables `.picker-row` cards and shows the empty-state subtitle in red (`.diff-hint-warn`) when null.
+- [x] Test: pure helper `isCacheFresh(cachedAt, now, staleMs)` for the polling cache — never-seen / fresh / stale branches (3 tests).
+- [x] Implement: `src/adapter/editing-block-cache.ts` — three-tier probe (`checkEditing` → `getCurrentBlock` → `getSelectedBlocks`), polling at 500 ms, 10 s freshness, cleared on `onRouteChanged`. Started in `main()` after `registerAllInvocations`.
+- [x] Implement: `openActionPicker` in `src/index.ts` runs the live probe first; falls back to the cache; threads the resolved UUID into the panel and into `runAction(action, ctx, uuid)` (third arg, same one the context-menu path uses — vision actions inherit the threading via `runAction` → `runVisionAction`).
+- [x] Manual verify: confirmed working — block-text focus + toolbar click resolves the right block; bullet-selected fallback works via `getSelectedBlocks`; no-focus shows the disabled empty state.
+- [x] Docs: REQUIREMENTS §3 entry-point capture invariant + resolution strategy (probe + cache) + no-block empty state.
+- [x] Changelog: `.changeset/toolbar-block-capture.md` + `[Unreleased]` entry under Changed.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

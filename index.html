@@ -129,6 +129,9 @@
         color: var(--muted);
         font-size: 0.85em;
       }
+      .diff-hint-warn {
+        color: var(--danger);
+      }
       .diff-hint kbd {
         background: var(--hover);
         border: 1px solid var(--border);
@@ -983,9 +986,13 @@
         cursor: pointer;
         text-align: left;
       }
-      .picker-row:hover {
+      .picker-row:hover:not(:disabled) {
         background: var(--hover);
         border-color: var(--accent);
+      }
+      .picker-row:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
       .picker-row-header {
         display: flex;
