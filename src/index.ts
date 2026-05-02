@@ -10,6 +10,7 @@ import {
 import { logseqFetch } from "./adapter/host-scope";
 import { type RunActionContext, runAction } from "./adapter/run-action";
 import { handlePresetChange, readPrivateSetting, readSettings } from "./adapter/settings";
+import { startThemeSync } from "./adapter/theme-sync";
 import { classifyEndpoint } from "./endpoint";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
@@ -275,6 +276,10 @@ function registerAllInvocations(): void {
 }
 
 async function main(): Promise<void> {
+  // Resolve light/dark before anything renders so the very first panel
+  // mount uses the right palette. See `theme-sync.ts` and REQUIREMENTS §15.
+  void startThemeSync();
+
   logseq.useSettingsSchema(SETTINGS_SCHEMA);
 
   logseq.onSettingsChanged((newSettings, oldSettings) => {

@@ -188,6 +188,18 @@ Goal: replace the single-column verbose-card list with a grouped 2-column grid (
 - [x] Docs: REQUIREMENTS §3 — Toolbar picker layout block.
 - [x] Changelog: `.changeset/picker-grouped-grid.md` + `[Unreleased]` Changed entry.
 
+### Theme integration — light/dark sync (2026-05-02)
+
+Goal: plugin UI follows Logseq's light/dark toggle. CSS scaffolding (`html.dark` overrides) was already in place; nothing wired it up, so panels always rendered in light mode regardless of host. Custom community-theme palettes are out of scope — cross-origin iframe blocks `--ls-*` propagation.
+
+- [x] Test: pure helper `resolveInitialTheme(probed: 'dark' | 'light' | null, prefersDark: boolean) → 'dark' | 'light'`. 3 cases — probed wins; falls back to `prefersDark`; defaults to 'light' when both unset.
+- [x] Implement: `resolveInitialTheme` in `src/adapter/theme-sync.ts`.
+- [x] Implement: `startThemeSync()` — async; try/catch around `logseq.App.getStateFromStore('ui/theme')` (any throw or non-`'dark'|'light'` → null); reads `window.matchMedia('(prefers-color-scheme: dark)').matches`; resolves via the pure helper; toggles `html.dark` on `document.documentElement`; registers `logseq.App.onThemeModeChanged` for live updates.
+- [x] Implement: `void startThemeSync()` first thing in `main()` so the very first panel render uses the right palette (no light flash before the toggle catches up).
+- [x] Manual verify: light/dark toggle inside Logseq propagates live; reload-while-dark renders dark on first paint.
+- [x] Docs: REQUIREMENTS new §15 Theme integration.
+- [x] Changelog: `.changeset/theme-sync.md` + `[Unreleased]` Changed entry.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
