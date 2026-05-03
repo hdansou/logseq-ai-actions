@@ -128,7 +128,7 @@ Originally specced as separate adapter modules; v1 reality is all of this lives 
 - [x] Confirm author email exposure in `package.json` `author` — flipped to `"Danzu"` (no email) on 2026-05-02 ahead of marketplace listing.
 - [x] First release notes summarising v1.0.0 — folded all `[Unreleased]` entries into `## [1.0.0] - 2026-05-02` with a paragraph blurb; six pending `.changeset/*.md` files removed (their content is in CHANGELOG).
 - [x] Tag + GitHub release — `publish.yml` workflow added (mirrors `ci.yml` gates: lint + typecheck + test + build, then zips `README.md` + `LICENSE` + `package.json` + `icon.{png,svg}` + `dist/` and attaches to a generated GitHub Release on `v*` tag push).
-- [ ] Submit to Logseq Marketplace (separate PR to marketplace repo) — pending; opens after the v1.0.0 GitHub release lands.
+- [x] Submit to Logseq Marketplace — [logseq/marketplace#796](https://github.com/logseq/marketplace/pull/796) is open with `packages/logseq-ai-actions/manifest.json` + `icon.svg`. Body now references the [v1.0.0 release](https://github.com/hdansou/logseq-ai-actions/releases/tag/v1.0.0). WIP check passes; awaiting maintainer review/merge.
 - [ ] Freeze REQUIREMENTS.md; future changes go through a versioned PR — pending; do this once the marketplace PR merges so the spec is stable across the first round of user feedback.
 
 Phase 9 (Tier 3 Playwright e2e) is **deferred** for v1.0.0 — relaxation noted in CHANGELOG. Revisit post-marketplace.
