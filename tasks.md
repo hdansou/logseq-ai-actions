@@ -235,7 +235,19 @@ Lesson: the SDK's `IAssetsProxy` interface is a poor reflection of what's actual
 - [x] Implement: add `tryLogseqRequestAsBase64(url, mimeType)` in `src/adapter/image-loader.ts`. Calls `logseq.Request._request({ url, method: "GET", returnType: "base64" })` and validates the response is a non-empty string. Wire it as the **first** attempt when `isHostScopeReachable()` returns true; keep `tryFetchAsDataUrl` and `tryCanvasAsDataUrl` as ordered fallbacks for resilience and for web Logseq.
 - [x] Refactor: update the strategy comment at the top of `loadImageAssetBytes` to reflect the canonical path; drop the speculative "Logseq's plugin host effectively disables webSecurity" prose.
 - [x] Manual verify (`pnpm build` → load unpacked, Logseq Desktop, fresh enable cycle): `/AI Generate Title` returns 3 candidate titles via the `_request` path; no "Not allowed to load local resource" warnings (confirmed 2026-05-05).
-- [ ] Manual verify: `/AI Extract Image Text` succeeds.
+- [-] Manual verify (marketplace zip install): **regressed** — same v1.0.2 build installed via the released zip on 2026-05-05 still emits "Not allowed to load local resource" with no IPC log line, meaning the IPC branch was silently skipped (either `isHostScopeReachable()` returned false or `_request` rejected with no diagnostic). v1.0.3 follow-up addresses this.
+- [-] Manual verify: `/AI Extract Image Text` — superseded by v1.0.3 work.
+
+### Vision asset loader — drop host-scope gate + add diagnostics — v1.0.3 (2026-05-05)
+
+Bug: v1.0.2 still fails on the marketplace-zip install. The IPC branch was gated on `isHostScopeReachable()` (probes `window.parent.document` in a try/catch), but that probe can return `false` even on Desktop — likely because the marketplace install puts the plugin iframe at a different origin from the Logseq main window, so cross-origin access throws SecurityError. The catch path was silent, so the failure mode is invisible in the user's console.
+
+Fix: remove the gate. Try `_request` unconditionally; on web Logseq the SDK will emit one "Can not access host scope!" log but our catch falls through cleanly to the `fetch` branch. Add `console.warn` at every IPC failure branch so the next regression report includes diagnostics.
+
+- [x] Implement: drop `isHostScopeReachable()` import + gate from `loadImageAssetBytes`. `tryLogseqRequestAsBase64` now logs `[ai-actions] image-loader: …` for: `_request` unavailable, `_request` threw, payload unparseable, IPC succeeded.
+- [ ] Manual verify (marketplace zip install): `/AI Generate Title` succeeds; console shows `[ai-actions] image-loader: IPC path succeeded` (or, if it fails, names the actual reason).
+- [x] Changelog: `.changeset/vision-loader-drop-hostscope-gate.md`.
+- [ ] Version bump to `v1.0.3`; tag + push.
 - [-] Manual verify (Logseq Web): not accessible in this session; deferred.
 - [x] Docs: REQUIREMENTS §6 — rewritten loader description (this entry).
 - [x] Docs: AGENTS.md — replace v1.0.1 fetch-permissive landmine with the IPC path landmine (read source, don't trust the .d.ts).
