@@ -255,3 +255,69 @@ Light/dark follows the host:
 - `logseq.App.onThemeModeChanged` keeps the toggle in sync as the user changes mode inside Logseq.
 
 Custom community-theme palettes (themes/plugins that override `--ls-*` on the main app) are **not** mirrored in v1 — the cross-origin iframe blocks propagation and the SDK doesn't expose a per-token API. Users on custom themes see the plugin's stock light/dark palette. Revisit if Logseq adds a propagation channel.
+
+## 16. Per-action visibility — Hide actions
+
+Status: Spec drafted 2026-05-05. UX picked from `prototypes/hide-actions/` (Variant C — archive bin). Implementation tracked in `tasks.md` under "Per-action visibility — hide actions (2026-05-05)".
+
+Users can hide individual actions — built-in or user-defined — from every entry surface. Hidden actions remain visible (and restorable) inside `Manage Actions`. Visibility is purely a UI / discovery filter; the underlying action definitions are untouched.
+
+### Decisions locked at spec time
+
+The following defaults were chosen on 2026-05-05 without explicit user sign-off on each. Change these here before TDD if any are wrong:
+
+- **Hidden-section ordering.** Preserve original section order: built-ins first (in seed order), then user actions (in JSON order). Stable, predictable, mirrors the rest of the panel.
+- **Bulk affordances.** No "Hide all built-ins" / "Show all" buttons in v1 of this feature. The collapsible Hidden bin is itself the bulk-restore surface; bulk-hide is rare and destructive.
+- **Undo toast.** Keep — a small toast appears at the bottom of the Manage modal after every hide/restore, with an Undo link, auto-dismissing after ~2.5 s.
+- **Source pill on every row.** A small `built-in` / `user` pill renders on every action row (visible and hidden sections alike), so the mixed Hidden bin reads cleanly without the eye having to remember which section a row came from.
+
+### Storage
+
+- Plugin setting `hiddenActionIds: string[]` — a real array, not a JSON-serialised string.
+- Persisted via `logseq.updateSettings({ hiddenActionIds: [...] })`; per-graph, same as every other plugin setting.
+- Default `[]`.
+- Declared in the existing `useSettingsSchema(...)` array in `src/index.ts`.
+
+### Effective-action filter
+
+- Pure helper `filterHiddenActions(actions, hiddenIds): readonly Action[]` in a new `src/visibility.ts` module — drops any action whose id appears in `hiddenIds`. Order-preserving.
+- Applied **after** registry merge: `activeActions = filterHiddenActions(buildRegistry(SEED_ACTIONS, userActionsJson), hiddenActionIds)`. The filtered list is what every entry-point surface (slash, palette, context menu, toolbar picker) renders from.
+- The Manage Actions panel uses the **unfiltered** merged registry plus the raw `hiddenActionIds` so it can still display and restore hidden entries.
+
+### Shadow + hide interaction
+
+Shadowing happens first; hide applies to whatever's effective:
+
+1. `userActionsJson` shadowing: a user action with the same id as a built-in swaps the built-in in place. Result: one effective action per id.
+2. `hiddenActionIds` hides by id, after shadowing: the hidden id refers to *whichever effective action carries that id* — the built-in if no shadow, the user version if shadowed.
+
+### Manage Actions UX (Variant C — archive bin)
+
+- New collapsible **Hidden** section at the bottom of the modal, below `Your actions`.
+  - Header: chevron + "Hidden" + count badge + helper line: "Out of sight in the picker, slash menu, and toolbar."
+  - Collapsed by default; expands on click, persists open within the same panel session (no separate setting).
+- Per-row **Hide** button (visible on hover) on every action in Built-in and Your actions sections.
+- Per-row **Restore** button (always visible) on every action inside the Hidden section.
+- **Source pill** (`built-in` / `user`) on every row, rendered inline with the existing scope / output-mode tags. Same monospace style.
+- **Hide** action: append id to `hiddenActionIds`; the row moves to the Hidden section on next render.
+- **Restore** action: remove id from `hiddenActionIds`; the row returns to its original section.
+- **Search filter** matches against title / id / description / prompt across both visible and hidden rows. When the query matches a hidden row, the Hidden section auto-expands so the match is reachable.
+- **Undo toast** appears after every hide/restore: small overlay at the bottom of the modal with the action's title and an `Undo` link. Auto-dismisses after 2.5 s. Click Undo → reverse the last hide/restore.
+
+### Persistence behaviour
+
+- Hide / Restore are **autosave** — they write via `logseq.updateSettings(...)` immediately. No Save / Cancel ceremony.
+- The Manage panel's existing dirty-tracking (for user-action edits) is unaffected; hide/restore mutations don't mark the panel dirty.
+
+### Slash-command caveat
+
+- Logseq has no slash-command deregister API. Once a slash command is registered for an action, it stays alive for the rest of the session.
+- Hiding an action takes effect immediately for the toolbar picker, command palette (re-registration on plugin reload), block context menu, and Manage panel filter views. Slash-command entries for hidden actions remain responsive in the current session and only stop registering on the next plugin reload.
+- This is the same caveat that applies to add/remove of user actions today; document in README and AGENTS.md alongside it.
+
+### Out of scope for this iteration
+
+- Bulk "Hide all built-ins" / "Show all" buttons.
+- Drag-and-drop between sections (button-only).
+- Sort / filter options inside the Hidden section.
+- Per-graph vs. global hidden state — v1 follows the rest of the plugin (per-graph).
