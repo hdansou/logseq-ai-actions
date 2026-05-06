@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Variant A — Inline eye toggle</title>
+    <style>
+      :root {
+        --bg: #1e1e22;
+        --bg-elev: #26262b;
+        --fg: #e6e6e6;
+        --muted: #8a8a92;
+        --border: #34343a;
+        --accent: #6ea8fe;
+        --warning: #e0b766;
+        --hover: rgba(110, 168, 254, 0.08);
+        --danger: #e08097;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0;
+        background: rgba(0,0,0,0.45);
+        color: var(--fg);
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 48px 16px;
+      }
+      .preview-note {
+        position: fixed;
+        top: 8px; left: 8px;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        font-size: 12px;
+        color: var(--muted);
+        border-radius: 6px;
+        max-width: 340px;
+      }
+      .preview-note b { color: var(--fg); }
+      .modal {
+        width: min(1080px, 96vw);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        display: flex; flex-direction: column;
+        overflow: hidden;
+      }
+      .header {
+        display: flex; align-items: baseline; justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .header strong { font-size: 1.25em; font-weight: 700; }
+      .header .close {
+        background: transparent; color: var(--muted);
+        border: none; font-size: 18px; cursor: pointer;
+      }
+      .toolbar {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 24px 4px 24px;
+      }
+      .search {
+        flex: 1; display: flex; align-items: center; gap: 6px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        border-radius: 6px;
+        padding: 7px 12px;
+        color: var(--muted);
+      }
+      .search input {
+        flex: 1; border: none; outline: none;
+        background: transparent; color: var(--fg); font: inherit;
+      }
+      .toolbar-toggle {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit; font-size: 0.88em;
+        cursor: pointer;
+      }
+      .toolbar-toggle.on {
+        background: color-mix(in oklab, var(--accent) 14%, transparent);
+        border-color: var(--accent); color: var(--accent);
+      }
+      .toolbar-toggle .badge {
+        font-family: ui-monospace, monospace;
+        background: color-mix(in oklab, var(--muted) 18%, transparent);
+        color: var(--muted);
+        padding: 0 6px; border-radius: 999px; font-size: 0.85em;
+      }
+      .section-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 24px 6px 24px;
+      }
+      .section-label {
+        font-size: 0.72em;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .section-count {
+        font-size: 0.72em;
+        color: var(--muted);
+        font-family: ui-monospace, monospace;
+      }
+      .row-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 28px;
+        padding: 0 24px 6px 24px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        align-items: start;
+        gap: 8px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+      }
+      .row:hover { background: color-mix(in oklab, var(--accent) 5%, transparent); }
+      .row.hidden {
+        opacity: 0.45;
+      }
+      .row.hidden .title { text-decoration: line-through dotted color-mix(in oklab, var(--muted) 60%, transparent); }
+      .row-header {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 12px; margin-bottom: 2px;
+      }
+      .title { font-weight: 600; color: var(--fg); }
+      .tags {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.78em;
+      }
+      .tags .sep { color: var(--border); }
+      .tag-vision {
+        padding: 1px 7px; border-radius: 999px;
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
+        color: var(--accent);
+      }
+      .desc {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.88em;
+        line-height: 1.45;
+      }
+      .row-actions {
+        display: flex; gap: 4px; align-items: center;
+        opacity: 0;
+        transition: opacity 80ms ease;
+      }
+      .row:hover .row-actions, .row.hidden .row-actions { opacity: 1; }
+      .row.hidden .eye-on { display: none; }
+      .row:not(.hidden) .eye-off { display: none; }
+      .icon-btn {
+        background: transparent; border: 1px solid transparent;
+        color: var(--muted);
+        width: 28px; height: 28px;
+        border-radius: 6px;
+        display: inline-flex; align-items: center; justify-content: center;
+        cursor: pointer;
+      }
+      .icon-btn:hover { background: var(--hover); color: var(--fg); border-color: var(--border); }
+      .footer {
+        display: flex; justify-content: flex-end; gap: 8px;
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85em;
+      }
+      .hint { color: var(--muted); font-size: 0.85em; }
+    </style>
+  </head>
+  <body>
+    <div class="preview-note">
+      <b>Variant A — Inline eye toggle</b><br />
+      One click on the eye icon hides any row, instantly. Hidden rows stay in place but
+      dim and strike through. Toolbar toggle "Show hidden" lets you hide them entirely
+      from the list. No mode switching, no Save/Cancel — visibility autosaves.
+    </div>
+
+    <div class="modal" role="dialog">
+      <div class="header">
+        <strong>Manage Actions</strong>
+        <button class="close" type="button" aria-label="Close">×</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <span>🔍</span>
+          <input placeholder="Search actions…" />
+        </div>
+        <button class="toolbar-toggle on" type="button" onclick="this.classList.toggle('on'); document.body.classList.toggle('hide-hidden')">
+          👁 Show hidden <span class="badge" id="hiddenCount">3</span>
+        </button>
+      </div>
+
+      <div class="section-header">
+        <div class="section-label">Built-in actions</div>
+        <div class="section-count">10 visible · 2 hidden</div>
+      </div>
+      <div class="row-list">
+        <div class="row">
+          <div>
+            <div class="row-header"><span class="title">Spell-check</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Fix obvious typos and grammar. Preserves voice.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Hide" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="row-header"><span class="title">Rewrite — Formal</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Rewrite in a formal register.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Hide" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+
+        <div class="row hidden">
+          <div>
+            <div class="row-header"><span class="title">Rewrite — Casual</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Loosen the tone and drop jargon.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Show" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="row-header"><span class="title">Rewrite — Friendly</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Warmer phrasing without becoming saccharine.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Hide" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="row-header"><span class="title">Summarise</span><span class="tags">subtree · append-children</span></div>
+            <p class="desc">Tight 2-3 sentence summary appended as a child.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Hide" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+
+        <div class="row hidden">
+          <div>
+            <div class="row-header"><span class="title">Outline — Replace</span><span class="tags">subtree · outline-replace</span></div>
+            <p class="desc">Re-organise as a structured outline, replacing the subtree.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Show" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="row-header"><span class="title">Generate Title</span><span class="tags"><span class="tag-vision">vision</span> <span class="sep">·</span> block · replace</span></div>
+            <p class="desc">Create a short title for an image block.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Hide" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+
+        <div class="row">
+          <div>
+            <div class="row-header"><span class="title">Extract Image Text (OCR)</span><span class="tags"><span class="tag-vision">vision</span> <span class="sep">·</span> block · append-children</span></div>
+            <p class="desc">Pull literal text out of an image into child blocks.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Hide" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-label">Your actions</div>
+        <button class="toolbar-toggle" type="button">+ Create</button>
+      </div>
+      <div class="row-list">
+        <div class="row">
+          <div>
+            <div class="row-header"><span class="title">Translate to French</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">My favourite custom action.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Hide" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+        <div class="row hidden">
+          <div>
+            <div class="row-header"><span class="title">Old PR template</span><span class="tags">block · replace</span></div>
+            <p class="desc">Don't use it any more, but keeping the JSON around.</p>
+          </div>
+          <div class="row-actions"><button class="icon-btn" title="Show" onclick="event.stopPropagation(); this.closest('.row').classList.toggle('hidden')"><span class="eye-on">👁</span><span class="eye-off">🚫</span></button></div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <span class="hint">Visibility changes save automatically.</span>
+      </div>
+    </div>
+
+    <style>
+      body.hide-hidden .row.hidden { display: none; }
+    </style>
+  </body>
+</html>
