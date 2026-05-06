@@ -503,7 +503,11 @@
         padding: 0 24px 6px 24px;
       }
       .manage-row {
-        padding: 12px 0;
+        /* Right pad reserves space for the absolutely-positioned
+           Hide/Restore pills floating off `.manage-row-cell`. Falls
+           back gracefully when no pill is rendered — the row content
+           just doesn't fill the last 84 px. */
+        padding: 12px 84px 12px 0;
         border-bottom: 1px solid var(--border);
         background: transparent;
         border-left: none;
@@ -565,6 +569,66 @@
         font-family: ui-monospace, monospace;
         font-size: 0.78em;
       }
+      /* Source pill — `built-in` / `user` — rendered on every row inline
+         with the scope/mode tags. Same pill shape as `.manage-tag-shadow`
+         in muted-on-muted by default; user variant picks up the accent so
+         user actions are scannable in the mixed Hidden bin. */
+      .manage-tag-source {
+        display: inline-block;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: color-mix(in oklab, var(--muted) 18%, transparent);
+        color: var(--muted);
+        font-family: ui-monospace, monospace;
+        font-size: 0.78em;
+      }
+      .manage-tag-source-user {
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
+        color: var(--accent);
+      }
+      /* `.manage-row-cell` wraps the row + optional Hide/Restore so all
+         three are real <button> siblings (no nested interactive elements
+         and no fake-buttons). It IS the grid cell now; the visible
+         row content lives in `.manage-row` inside it. Hide / Restore
+         float at the right edge via absolute positioning. */
+      .manage-row-cell {
+        position: relative;
+      }
+      .manage-row-pill-action {
+        position: absolute;
+        top: 14px;
+        right: 0;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-family: ui-monospace, monospace;
+        font-size: 0.78em;
+        cursor: pointer;
+        user-select: none;
+      }
+      .manage-row-hide {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        opacity: 0;
+      }
+      .manage-row-cell:hover .manage-row-hide,
+      .manage-row-cell:focus-within .manage-row-hide,
+      .manage-row-hide:focus-visible {
+        opacity: 1;
+      }
+      .manage-row-hide:hover {
+        background: color-mix(in oklab, var(--warning) 16%, transparent);
+        border-color: var(--warning);
+        color: var(--warning);
+      }
+      .manage-row-restore {
+        background: color-mix(in oklab, var(--accent) 14%, transparent);
+        border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent);
+        color: var(--accent);
+      }
+      .manage-row-restore:hover {
+        background: color-mix(in oklab, var(--accent) 24%, transparent);
+      }
       .manage-row-desc {
         margin: 0;
         color: var(--muted);
@@ -584,6 +648,101 @@
         color: var(--muted);
         font-size: 0.88em;
         line-height: 1.5;
+      }
+
+      /* — Hidden bin — collapsible section pinned to the bottom of the
+         manage body. Toggle row is its own button with chevron + label
+         + count + helper subtitle. Body reuses `.manage-row-list` so the
+         same two-column grid renders inside. REQUIREMENTS §16. */
+      .manage-hidden-section {
+        margin-top: 12px;
+        border-top: 1px solid var(--border);
+      }
+      .manage-hidden-toggle {
+        width: 100%;
+        background: transparent;
+        color: var(--fg);
+        border: none;
+        padding: 14px 24px;
+        text-align: left;
+        font: inherit;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .manage-hidden-toggle:hover {
+        background: color-mix(in oklab, var(--accent) 5%, transparent);
+      }
+      .manage-hidden-chev {
+        display: inline-block;
+        transition: transform 120ms ease;
+        color: var(--muted);
+        width: 12px;
+      }
+      .manage-hidden-open .manage-hidden-chev {
+        transform: rotate(90deg);
+      }
+      .manage-hidden-label {
+        font-size: 0.72em;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .manage-hidden-count {
+        font-family: ui-monospace, monospace;
+        background: color-mix(in oklab, var(--warning) 16%, transparent);
+        color: var(--warning);
+        padding: 1px 8px;
+        border-radius: 999px;
+        font-size: 0.78em;
+      }
+      .manage-hidden-helper {
+        margin-left: auto;
+        font-size: 0.78em;
+        color: var(--muted);
+      }
+      .manage-hidden-list {
+        padding-top: 4px;
+      }
+      .manage-hidden-list .manage-row {
+        opacity: 0.78;
+      }
+      .manage-hidden-list .manage-row:hover {
+        opacity: 1;
+      }
+
+      /* — Undo toast — bottom-anchored overlay inside the manage modal.
+         Inherits the modal's stacking context so it sits above the
+         row list but below ConfirmOverlay. Auto-dismisses after ~2.5 s
+         (set in UndoToast.tsx). */
+      .manage-undo-toast {
+        position: fixed;
+        bottom: 28px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--fg);
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-size: 0.88em;
+        display: inline-flex;
+        gap: 14px;
+        align-items: center;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+        z-index: 50;
+      }
+      .manage-undo-link {
+        background: transparent;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+        font: inherit;
+        padding: 0;
+      }
+      .manage-undo-link:hover {
+        text-decoration: underline;
       }
 
       /* — Header overflow menu (the "..." in the top-right of the

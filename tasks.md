@@ -332,13 +332,13 @@ TDD ordering — pure helpers first (RED → GREEN → REFACTOR), settings + reg
 
 **UI — Manage Actions panel**
 
-- [ ] Implement: `ManageActionsPanel.tsx` accepts `initialHiddenActionIds: readonly string[]` + `onSaveVisibility: (ids: readonly string[]) => Promise<void>` props; mirrors the prop in local state; mutations call the callback synchronously (autosave). Existing dirty-tracking for user-action edits is unaffected.
-- [ ] Implement: `show-manage-actions.ts` reads the latest settings snapshot and threads `hiddenActionIds` + an `onSaveVisibility` callback (`logseq.updateSettings({ hiddenActionIds: [...] })`) into the panel.
-- [ ] Implement: `ActionRow.tsx` — add a per-row Hide button (icon + tooltip; visible on row hover) for rows in Built-in / Your actions sections; add a Restore button (always visible) for rows inside the Hidden section. Add a `built-in` / `user` source pill rendered inline with the existing scope / output-mode tags.
-- [ ] Implement: `HiddenSection.tsx` — collapsible section. Chevron + "Hidden" label + count badge + helper subtitle ("Out of sight in the picker, slash menu, and toolbar."). Renders the partitioned hidden rows. Auto-expands when the search query matches anything inside it.
-- [ ] Implement: `UndoToast.tsx` — small overlay; auto-dismisses after 2.5 s; clicking Undo restores the prior `hiddenActionIds` list (one-step). Mounts inside `ManageActionsPanel`'s root.
-- [ ] Implement: search filter — extend `filterByQuery` (or its caller) to apply the same query across the Hidden bin's rows; when a query produces a hidden match, force-expand the Hidden section.
-- [ ] Implement: CSS in `index.html` — `.manage-hidden-section`, `.manage-hidden-toggle`, `.manage-hidden-list`, `.manage-undo-toast`, `.manage-tag-source` (the new source pill). Reuse existing colour tokens (`--muted`, `--warning`, `--accent`, `--border`).
+- [x] Implement: `ManageActionsPanel.tsx` accepts `initialHiddenActionIds` + `onSaveVisibility` props; mirrors hiddenIds in local state; hide / restore call the callback synchronously (autosave). User-action dirty-tracking is unaffected. Visible sections drop rows whose id is in `hiddenSet` so the Hidden bin owns those rows exclusively. Hidden-bin row resolution: user shadow wins, otherwise built-in; orphan ids (no matching action) are silently dropped.
+- [x] Implement: `show-manage-actions.ts` threads `initialHiddenActionIds` + `onSaveVisibility` into the panel; `openManagePanel` in `src/index.ts` reads the settings snapshot once and writes via `logseq.updateSettings({ hiddenActionIds: [...] })`.
+- [x] Implement: `ActionRow.tsx` — required `source: "builtin" | "user"` prop drives a new pill rendered inline with the scope / output-mode tags. Optional `onHide` adds a hover-revealed Hide pill; optional `onRestore` adds an always-visible Restore pill. Both render as `role="button"` `<span>` (with stop-propagation + Enter/Space handlers) so the outer row `<button>` keeps its click-to-open semantics.
+- [x] Implement: `HiddenSection.tsx` — collapsible bin. Chevron + "Hidden" label + count badge + muted helper line. Renders nothing when count is zero.
+- [x] Implement: `UndoToast.tsx` — fixed-position overlay near the bottom of the modal; auto-dismisses after 2.5 s via `setTimeout`; clicking Undo restores the previous hiddenIds snapshot.
+- [x] Implement: search auto-expand — when the query matches anything inside the Hidden bin (`filteredHidden.length > 0`), force `hiddenOpen = true`. Built on the existing `filterByQuery` — no change to that helper.
+- [x] Implement: CSS in `index.html` — `.manage-tag-source` (+ `-user` variant), `.manage-row-pill-action` (with `.manage-row-hide` hover-only and `.manage-row-restore` always-visible), `.manage-hidden-section` / `-toggle` / `-chev` / `-label` / `-count` / `-helper` / `-list`, `.manage-undo-toast` + `.manage-undo-link`. Reuses existing tokens (`--muted`, `--warning`, `--accent`, `--border`).
 
 **Manual verify**
 
