@@ -190,6 +190,31 @@ Goal: replace the single-column verbose-card list with a grouped 2-column grid (
 - [x] Docs: REQUIREMENTS §3 — Toolbar picker layout block.
 - [x] Changelog: `.changeset/picker-grouped-grid.md` + `[Unreleased]` Changed entry.
 
+### Vision asset loader fix — v1.0.1 (2026-05-05)
+
+Bug: `/AI Generate Title` (and any vision action) errors out with "could not read the image bytes (path or asset type unrecognised)" on a valid PNG asset block. Root cause: `logseq.Assets.makeUrl` returns a `file:///abs/path`, and the plugin running under HMR (`pnpm dev`, `http://localhost:<port>` origin) cannot `fetch()` `file://` resources — Chromium blocks it ("Not allowed to load local resource"). The path is correct; only the URL scheme is unfetchable from the plugin's origin. Existing toast misattributes the failure because `loadImageAssetBytes` collapses every error path to `null`.
+
+We do not have an SDK route around the underlying restriction — `IAssetsProxy` only exposes `makeUrl`/`listFilesOfCurrentGraph`/`makeSandboxStorage`/`builtInOpen`; none returns bytes. Speculative `assets://local/...` rewriting is rejected (no evidence Logseq registers that scheme). The fix wraps `fetch` + canvas-fallback paths and returns typed reasons. **Empirically confirmed on 2026-05-05**: in side-by-side tests on the same Logseq Desktop session, the v1.0.0 plugin code reliably failed (`fetch(file://)` blocked, "Not allowed to load local resource"), while the patched code reliably succeeded. Origin scheme (`http://localhost` HMR vs `file://` unpacked) was not the differentiator — code version was. The exact mechanism is not fully understood (the fetch call is byte-identical between the two versions; only the surrounding helper-function wrapping changed), but the behaviour is stable enough to ship. Canvas fallback never engaged in the verifying tests but is kept for defence-in-depth in case Logseq tightens iframe policy.
+
+TDD ordering — pure helpers first (RED → GREEN → REFACTOR), orchestrator last and manual-verify only (no DOM in Vitest, per AGENTS.md "thin Logseq-touching surface").
+
+- [x] Test (RED): `LoadAssetFailure` discriminated union + `failureMessage(reason, hint?)` pure mapping — one test per variant (`no-path`, `no-type`, `unsupported-mime`, `makeurl-failed`, `fetch-failed`, `decode-failed`); messages are user-facing, no jargon; `hint` (when present) is appended on its own line.
+- [x] Implement: union + `failureMessage` in a new pure module `src/asset-url.ts`.
+- [x] Test (RED): `describeOriginMismatch(origin: string, url: string) → string | null` — returns the dev-mode hint string when origin starts with `http://` or `https://` and `url` starts with `file://`; returns null for `file://`→`file://`, `http://`→`http://`, empty inputs, mismatched-but-allowed combos. ~6 cases covering each branch.
+- [x] Implement: `describeOriginMismatch` in `src/asset-url.ts`. Hint copy: "Vision actions need a filesystem-load plugin install. In dev, use `pnpm build:watch` and side-load the `dist/` folder; in production, install from the marketplace."
+- [x] Refactor: `loadImageAssetBytes` returns `{ ok: true; mimeType; base64 } | { ok: false; reason: LoadAssetFailure; hint?: string }` instead of `… | null`. Sequence: (a) build path; if missing → `no-path`. (b) get type; if missing → `no-type`. (c) mime lookup; if unsupported → `unsupported-mime`. (d) call `makeUrl`; on throw → `makeurl-failed`. (e) `fetch` + blob + `FileReader.readAsDataURL`; on throw or non-OK → continue. (f) fallback: `<img>` → canvas → `toDataURL(mimeType)`; on success return ok. (g) on both fetch and canvas failure: return `fetch-failed` (or `decode-failed` if FileReader/canvas reached but produced nothing usable), with `hint = describeOriginMismatch(window.location.origin, url) ?? undefined`.
+- [x] Refactor: `runVisionAction` (`src/adapter/run-action.ts:278`) switches on the new union; toast text is `failureMessage(reason, hint)`. Drops the hardcoded "could not read the image bytes (path or asset type unrecognised)" string.
+- [x] Manual verify (`pnpm dev`, HMR, Logseq Desktop): `/AI Generate Title` returned 3 candidate titles via the fetch path (no canvas warns); confirmed on 2026-05-05 after a clean plugin disable+re-enable cycle.
+- [x] Manual verify (`pnpm build` + Load unpacked, filesystem mode): `/AI Generate Title` returned 3 candidate titles via the fetch path.
+- [x] Manual verify (v1.0.0 dist downloaded + Load unpacked, same Logseq session): `/AI Generate Title` reproducibly fails with the old "could not read the image bytes" toast — confirms the bug exists for users running v1.0.0 and that this patch is a real fix, not just polish.
+- [-] Manual verify (Logseq Web): not accessible in this session; deferred. The fetch path is expected to work on `blob:` URLs.
+- [-] Manual verify (failure modes): not driven explicitly; reasons map cleanly through `failureMessage` and the upstream `isImageAsset` rejection still toasts "not a raster image asset". Confidence sufficient without forcing failure cases.
+- [x] Docs: AGENTS.md — revised to "vision works in HMR; fetch is permissive enough on current Logseq Desktop, canvas fallback is defence-in-depth". Added a separate landmine on stale-handler capture (the disable+re-enable lesson from this debugging session).
+- [x] Docs: README — removed the "vision requires filesystem-load" claim.
+- [x] Docs: REQUIREMENTS §6 — already updated (this entry).
+- [x] Changelog: `.changeset/vision-asset-loader-fix.md` (changesets owns `[Unreleased]`; populated on `pnpm changeset version`).
+- [ ] Version bump to `v1.0.1` once verified end-to-end; tag + push for the marketplace `publish.yml` workflow.
+
 ### Theme integration — light/dark sync (2026-05-02)
 
 Goal: plugin UI follows Logseq's light/dark toggle. CSS scaffolding (`html.dark` overrides) was already in place; nothing wired it up, so panels always rendered in light mode regardless of host. Custom community-theme palettes are out of scope — cross-origin iframe blocks `--ls-*` propagation.
