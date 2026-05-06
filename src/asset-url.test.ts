@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeOriginMismatch, failureMessage } from "./asset-url";
+import { describeOriginMismatch, extractRequestBase64, failureMessage } from "./asset-url";
 
 describe("failureMessage", () => {
   it("names the missing path case in plain language", () => {
@@ -80,5 +80,39 @@ describe("describeOriginMismatch", () => {
     expect(
       describeOriginMismatch("http://localhost:8080", "http://localhost:8080/api/asset"),
     ).toBeNull();
+  });
+});
+
+describe("extractRequestBase64", () => {
+  // logseq.Request._request with returnType: "base64" resolves to a base64
+  // string per the Electron handler (handler.cljs :base64 branch). The SDK
+  // wrapper sometimes nests it under { data } the way it does for JSON, so
+  // we accept both shapes — staying consistent with host-scope.ts.
+
+  it("accepts a plain base64 string", () => {
+    expect(extractRequestBase64("aGVsbG8=")).toBe("aGVsbG8=");
+  });
+
+  it("unwraps { data: base64 } shape", () => {
+    expect(extractRequestBase64({ data: "aGVsbG8=" })).toBe("aGVsbG8=");
+  });
+
+  it("returns null for empty strings", () => {
+    expect(extractRequestBase64("")).toBeNull();
+    expect(extractRequestBase64({ data: "" })).toBeNull();
+  });
+
+  it("returns null for non-string payloads", () => {
+    expect(extractRequestBase64(null)).toBeNull();
+    expect(extractRequestBase64(undefined)).toBeNull();
+    expect(extractRequestBase64(123)).toBeNull();
+    expect(extractRequestBase64({ data: 123 })).toBeNull();
+    expect(extractRequestBase64(new ArrayBuffer(8))).toBeNull();
+  });
+
+  it("strips a leading data:URL prefix if the host accidentally returns one", () => {
+    // Defensive: handler.cljs returns raw base64, but if a future build
+    // changed to data-URL form we would still want the bytes.
+    expect(extractRequestBase64("data:image/png;base64,aGVsbG8=")).toBe("aGVsbG8=");
   });
 });

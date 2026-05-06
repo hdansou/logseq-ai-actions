@@ -190,7 +190,9 @@ Goal: replace the single-column verbose-card list with a grouped 2-column grid (
 - [x] Docs: REQUIREMENTS §3 — Toolbar picker layout block.
 - [x] Changelog: `.changeset/picker-grouped-grid.md` + `[Unreleased]` Changed entry.
 
-### Vision asset loader fix — v1.0.1 (2026-05-05)
+### Vision asset loader fix — v1.0.1 (2026-05-05) — **superseded by v1.0.2**
+
+> **Superseded note (2026-05-05, later):** the v1.0.1 strategy ships but does **not** actually fix the bug — both `fetch(file://)` and `<img src="file://">` are blocked from the plugin's `lsp://logseq.io/...` origin and the canvas fallback never had a chance. The "Empirically confirmed" claim below was wrong; the verifier appears to have been running on a stale build or against a different graph. The v1.0.0→v1.0.1 diff is preserved in source (typed failure reasons, `describeOriginMismatch` hint) because the diagnostic improvements still help — but the actual bytes-loading path is rewritten in v1.0.2.
 
 Bug: `/AI Generate Title` (and any vision action) errors out with "could not read the image bytes (path or asset type unrecognised)" on a valid PNG asset block. Root cause: `logseq.Assets.makeUrl` returns a `file:///abs/path`, and the plugin running under HMR (`pnpm dev`, `http://localhost:<port>` origin) cannot `fetch()` `file://` resources — Chromium blocks it ("Not allowed to load local resource"). The path is correct; only the URL scheme is unfetchable from the plugin's origin. Existing toast misattributes the failure because `loadImageAssetBytes` collapses every error path to `null`.
 
@@ -213,7 +215,32 @@ TDD ordering — pure helpers first (RED → GREEN → REFACTOR), orchestrator l
 - [x] Docs: README — removed the "vision requires filesystem-load" claim.
 - [x] Docs: REQUIREMENTS §6 — already updated (this entry).
 - [x] Changelog: `.changeset/vision-asset-loader-fix.md` (changesets owns `[Unreleased]`; populated on `pnpm changeset version`).
-- [ ] Version bump to `v1.0.1` once verified end-to-end; tag + push for the marketplace `publish.yml` workflow.
+- [x] Version bump to `v1.0.1` once verified end-to-end; tag + push for the marketplace `publish.yml` workflow.
+
+### Vision asset loader — canonical IPC path — v1.0.2 (2026-05-05)
+
+Bug (continued): user reports `/AI Generate Title` still fails on v1.0.1 with `Not allowed to load local resource: file:///…/assets/<uuid>.png` followed by `[ai-actions] image-loader: canvas fallback engaged (fetch failed)` and `canvas fallback also failed`. Both renderer paths are blocked.
+
+Root cause (verified by reading the Logseq source, not just the plugin SDK `.d.ts`):
+
+- `Assets.makeUrl` on Electron returns `file:///abs/path` — `logseq/src/main/frontend/handler/assets.cljs:154`.
+- The plugin iframe is served at the `lsp://logseq.io/...` origin — `logseq/src/electron/electron/core.cljs:97-105` (custom `lsp` protocol registered alongside `assets` and `logseq`).
+- Chromium blocks cross-origin loads of `file://` from the `lsp://` origin. Both `fetch(file://)` and `<img src="file://">` hit "Not allowed to load local resource". The canvas fallback in v1.0.1 cannot succeed — `<img>` never gets pixels to draw.
+- The supported route is `logseq.Request._request({ url, returnType: "base64" })`. It IPCs to the main process (`:httpRequest` handler — `logseq/src/electron/electron/handler.cljs:353-389`), which uses `node-fetch` (`utils.cljs:47-50` — supports `file://` schemes) and base64-encodes the response server-side. The plugin already uses this API for HTTP/CORS bypass in `src/adapter/host-scope.ts:logseqFetch`, so the pattern is in place.
+
+Lesson: the SDK's `IAssetsProxy` interface is a poor reflection of what's actually available. `Request._request` is underscore-prefixed but documented in source and used elsewhere in this codebase. Always cross-reference the Logseq cljs source when an SDK guarantee looks too thin.
+
+- [x] Test (RED): `image-loader.test.ts` — mock `logseq.Request._request` to return a base64 string when host scope is reachable; assert `loadImageAssetBytes` returns `{ ok: true, mimeType, base64 }` and that `fetch` / `<img>` are never called. ~3 happy-path cases.
+- [x] Test (RED): when `_request` rejects, falls through to existing `fetch` path (kept for resilience); when host scope is unreachable (web Logseq), skip `_request` entirely. ~2 cases.
+- [x] Implement: add `tryLogseqRequestAsBase64(url, mimeType)` in `src/adapter/image-loader.ts`. Calls `logseq.Request._request({ url, method: "GET", returnType: "base64" })` and validates the response is a non-empty string. Wire it as the **first** attempt when `isHostScopeReachable()` returns true; keep `tryFetchAsDataUrl` and `tryCanvasAsDataUrl` as ordered fallbacks for resilience and for web Logseq.
+- [x] Refactor: update the strategy comment at the top of `loadImageAssetBytes` to reflect the canonical path; drop the speculative "Logseq's plugin host effectively disables webSecurity" prose.
+- [x] Manual verify (`pnpm build` → load unpacked, Logseq Desktop, fresh enable cycle): `/AI Generate Title` returns 3 candidate titles via the `_request` path; no "Not allowed to load local resource" warnings (confirmed 2026-05-05).
+- [ ] Manual verify: `/AI Extract Image Text` succeeds.
+- [-] Manual verify (Logseq Web): not accessible in this session; deferred.
+- [x] Docs: REQUIREMENTS §6 — rewritten loader description (this entry).
+- [x] Docs: AGENTS.md — replace v1.0.1 fetch-permissive landmine with the IPC path landmine (read source, don't trust the .d.ts).
+- [x] Changelog: `.changeset/vision-asset-loader-ipc-fix.md`.
+- [ ] Version bump to `v1.0.2`; tag + push.
 
 ### Theme integration — light/dark sync (2026-05-02)
 
