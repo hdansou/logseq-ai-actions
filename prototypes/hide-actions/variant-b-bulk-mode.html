@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Variant B — Bulk visibility mode</title>
+    <style>
+      :root {
+        --bg: #1e1e22;
+        --bg-elev: #26262b;
+        --fg: #e6e6e6;
+        --muted: #8a8a92;
+        --border: #34343a;
+        --accent: #6ea8fe;
+        --warning: #e0b766;
+        --hover: rgba(110, 168, 254, 0.08);
+        --danger: #e08097;
+      }
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0;
+        background: rgba(0,0,0,0.45);
+        color: var(--fg);
+        font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+        min-height: 100vh;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 48px 16px;
+      }
+      .preview-note {
+        position: fixed;
+        top: 8px; left: 8px;
+        background: var(--bg-elev);
+        border: 1px solid var(--border);
+        padding: 8px 12px;
+        font-size: 12px;
+        color: var(--muted);
+        border-radius: 6px;
+        max-width: 360px;
+      }
+      .preview-note b { color: var(--fg); }
+      .modal {
+        width: min(1080px, 96vw);
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+        display: flex; flex-direction: column;
+        overflow: hidden;
+      }
+      .header {
+        display: flex; align-items: baseline; justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .header strong { font-size: 1.25em; font-weight: 700; }
+      .header .close {
+        background: transparent; color: var(--muted);
+        border: none; font-size: 18px; cursor: pointer;
+      }
+      .toolbar {
+        display: flex; align-items: center; gap: 10px;
+        padding: 14px 24px 4px 24px;
+      }
+      .search {
+        flex: 1; display: flex; align-items: center; gap: 6px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        border-radius: 6px;
+        padding: 7px 12px;
+        color: var(--muted);
+      }
+      .search input {
+        flex: 1; border: none; outline: none;
+        background: transparent; color: var(--fg); font: inherit;
+      }
+      .filter-chip {
+        display: inline-flex; align-items: center; gap: 0;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        overflow: hidden;
+        font-size: 0.85em;
+      }
+      .filter-chip button {
+        background: var(--bg);
+        color: var(--muted);
+        border: none;
+        padding: 6px 12px;
+        cursor: pointer;
+        font: inherit;
+        border-right: 1px solid var(--border);
+      }
+      .filter-chip button:last-child { border-right: none; }
+      .filter-chip button.active {
+        background: color-mix(in oklab, var(--accent) 14%, transparent);
+        color: var(--accent);
+      }
+      .toolbar-btn {
+        padding: 6px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit; font-size: 0.88em;
+        cursor: pointer;
+      }
+      .toolbar-btn.primary {
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
+        border-color: var(--accent);
+        color: var(--accent);
+      }
+      .section-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 24px 6px 24px;
+      }
+      .section-label {
+        font-size: 0.72em;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+      }
+      .section-actions {
+        display: flex; gap: 6px; align-items: center;
+        font-size: 0.78em;
+      }
+      .section-actions a {
+        color: var(--accent); cursor: pointer; text-decoration: none;
+      }
+      .section-actions a:hover { text-decoration: underline; }
+      .section-counts {
+        font-size: 0.72em;
+        color: var(--muted);
+        font-family: ui-monospace, monospace;
+      }
+      .row-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        column-gap: 28px;
+        padding: 0 24px 6px 24px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: start;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border);
+      }
+      .row.hidden { opacity: 0.55; }
+      .row .checkbox {
+        width: 18px; height: 18px;
+        border: 1.5px solid var(--border);
+        border-radius: 4px;
+        background: var(--bg);
+        margin-top: 2px;
+        cursor: pointer;
+        position: relative;
+        flex-shrink: 0;
+      }
+      .row.checked .checkbox {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .row.checked .checkbox::after {
+        content: "✓";
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 12px; font-weight: 800;
+      }
+      .row-body { cursor: pointer; }
+      .row-header {
+        display: flex; align-items: baseline; justify-content: space-between;
+        gap: 12px; margin-bottom: 2px;
+      }
+      .title { font-weight: 600; color: var(--fg); }
+      .row.hidden .title::after {
+        content: " hidden";
+        font-size: 0.7em;
+        font-family: ui-monospace, monospace;
+        font-weight: 500;
+        color: var(--warning);
+        background: color-mix(in oklab, var(--warning) 16%, transparent);
+        padding: 1px 7px;
+        border-radius: 999px;
+        margin-left: 8px;
+      }
+      .tags {
+        display: inline-flex; align-items: baseline; gap: 6px;
+        color: var(--muted);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.78em;
+      }
+      .tags .sep { color: var(--border); }
+      .tag-vision {
+        padding: 1px 7px; border-radius: 999px;
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
+        color: var(--accent);
+      }
+      .desc {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.88em;
+        line-height: 1.45;
+      }
+      .footer {
+        display: flex; justify-content: space-between; align-items: center; gap: 8px;
+        padding: 14px 20px;
+        border-top: 1px solid var(--border);
+      }
+      .footer .selection-status {
+        color: var(--muted);
+        font-size: 0.85em;
+        font-family: ui-monospace, monospace;
+      }
+      .footer .selection-status b { color: var(--fg); }
+      .footer-actions { display: flex; gap: 8px; }
+      .danger-btn {
+        padding: 7px 14px;
+        border-radius: 6px;
+        font: inherit;
+        cursor: pointer;
+        background: color-mix(in oklab, var(--danger) 16%, transparent);
+        border: 1px solid var(--danger);
+        color: var(--danger);
+      }
+      .accent-btn {
+        padding: 7px 14px;
+        border-radius: 6px;
+        font: inherit;
+        cursor: pointer;
+        background: color-mix(in oklab, var(--accent) 16%, transparent);
+        border: 1px solid var(--accent);
+        color: var(--accent);
+      }
+      /* Default state: not in select-mode -> hide checkboxes, hide selection footer */
+      body:not(.select-mode) .row .checkbox { display: none; }
+      body:not(.select-mode) .footer.select-footer { display: none; }
+      body.select-mode .footer.normal-footer { display: none; }
+      body.select-mode .toolbar-btn.toggle-mode {
+        background: color-mix(in oklab, var(--accent) 14%, transparent);
+        border-color: var(--accent); color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="preview-note">
+      <b>Variant B — Bulk visibility mode</b><br />
+      Click <i>Manage visibility</i> to enter a mode where every row gets a checkbox.
+      Multi-select then bulk-hide or bulk-show. Filter chip restricts the view to
+      visible / hidden / all. Section headers carry "Hide all" / "Show all" links.
+      Power-user oriented; visibility is a deliberate operation, not an ambient one.
+    </div>
+
+    <div class="modal" role="dialog">
+      <div class="header">
+        <strong>Manage Actions</strong>
+        <button class="close" type="button" aria-label="Close">×</button>
+      </div>
+
+      <div class="toolbar">
+        <div class="search">
+          <span>🔍</span>
+          <input placeholder="Search actions…" />
+        </div>
+        <div class="filter-chip" role="tablist" aria-label="Visibility filter">
+          <button class="active" type="button">All</button>
+          <button type="button">Visible</button>
+          <button type="button">Hidden</button>
+        </div>
+        <button class="toolbar-btn toggle-mode" type="button" onclick="document.body.classList.toggle('select-mode')">☑ Manage visibility</button>
+      </div>
+
+      <div class="section-header">
+        <div class="section-label">Built-in actions <span class="section-counts">10 visible · 2 hidden</span></div>
+        <div class="section-actions">
+          <a>Hide all</a> · <a>Show all</a>
+        </div>
+      </div>
+      <div class="row-list">
+        <div class="row">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Spell-check</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Fix obvious typos and grammar. Preserves voice.</p>
+          </div>
+        </div>
+        <div class="row checked">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Rewrite — Formal</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Rewrite in a formal register.</p>
+          </div>
+        </div>
+        <div class="row hidden">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Rewrite — Casual</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Loosen the tone and drop jargon.</p>
+          </div>
+        </div>
+        <div class="row checked">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Rewrite — Friendly</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">Warmer phrasing without becoming saccharine.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Summarise</span><span class="tags">subtree · append-children</span></div>
+            <p class="desc">Tight 2-3 sentence summary appended as a child.</p>
+          </div>
+        </div>
+        <div class="row hidden">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Outline — Replace</span><span class="tags">subtree · outline-replace</span></div>
+            <p class="desc">Re-organise as a structured outline, replacing the subtree.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Generate Title</span><span class="tags"><span class="tag-vision">vision</span> <span class="sep">·</span> block · replace</span></div>
+            <p class="desc">Create a short title for an image block.</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Extract Image Text (OCR)</span><span class="tags"><span class="tag-vision">vision</span> <span class="sep">·</span> block · append-children</span></div>
+            <p class="desc">Pull literal text out of an image into child blocks.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <div class="section-label">Your actions <span class="section-counts">1 visible · 1 hidden</span></div>
+        <button class="toolbar-btn" type="button" style="font-size:0.85em; padding:4px 12px;">+ Create</button>
+      </div>
+      <div class="row-list">
+        <div class="row">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Translate to French</span><span class="tags">block · diff-panel</span></div>
+            <p class="desc">My favourite custom action.</p>
+          </div>
+        </div>
+        <div class="row hidden">
+          <div class="checkbox" onclick="this.parentElement.classList.toggle('checked')"></div>
+          <div class="row-body">
+            <div class="row-header"><span class="title">Old PR template</span><span class="tags">block · replace</span></div>
+            <p class="desc">Don't use it any more, but keeping the JSON around.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer normal-footer">
+        <span class="selection-status">11 actions visible · 3 hidden</span>
+        <div class="footer-actions">
+          <button class="toolbar-btn" type="button">Close</button>
+        </div>
+      </div>
+      <div class="footer select-footer">
+        <span class="selection-status"><b>2</b> selected</span>
+        <div class="footer-actions">
+          <button class="toolbar-btn" type="button" onclick="document.body.classList.remove('select-mode')">Cancel</button>
+          <button class="accent-btn" type="button">Show selected</button>
+          <button class="danger-btn" type="button">Hide selected</button>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
