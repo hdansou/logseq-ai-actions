@@ -278,10 +278,7 @@ async function runVisionAction(
   try {
     const bytes = await loadImageAssetBytes(block);
     if (!bytes.ok) {
-      logseq.UI.showMsg(
-        `${action.title}: ${failureMessage(bytes.reason, bytes.hint)}`,
-        "error",
-      );
+      logseq.UI.showMsg(`${action.title}: ${failureMessage(bytes.reason, bytes.hint)}`, "error");
       return;
     }
 
