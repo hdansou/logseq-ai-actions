@@ -1,6 +1,7 @@
 /// <reference types="@logseq/libs" />
-import { type AssetBlock, assetFilePath, getAssetType, imageMimeType } from "../image-asset";
+
 import { describeOriginMismatch, type LoadAssetFailure } from "../asset-url";
+import { type AssetBlock, assetFilePath, getAssetType, imageMimeType } from "../image-asset";
 
 export type LoadImageAssetResult =
   | { ok: true; mimeType: string; base64: string }
@@ -40,15 +41,13 @@ export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageA
   const canvased = await tryCanvasAsDataUrl(url, mimeType);
   if (canvased.ok) return canvased;
 
-  const reason: LoadAssetFailure = canvased.reason === "decode-failed" ? "decode-failed" : "fetch-failed";
+  const reason: LoadAssetFailure =
+    canvased.reason === "decode-failed" ? "decode-failed" : "fetch-failed";
   const hint = describeOriginMismatch(window.location.origin, url) ?? undefined;
   return hint ? { ok: false, reason, hint } : { ok: false, reason };
 }
 
-async function tryFetchAsDataUrl(
-  url: string,
-  mimeType: string,
-): Promise<LoadImageAssetResult> {
+async function tryFetchAsDataUrl(url: string, mimeType: string): Promise<LoadImageAssetResult> {
   const res = await fetch(url).catch(() => null);
   if (!res?.ok) return { ok: false, reason: "fetch-failed" };
   const blob = await res.blob().catch(() => null);
@@ -59,10 +58,7 @@ async function tryFetchAsDataUrl(
   return base64 ? { ok: true, mimeType, base64 } : { ok: false, reason: "decode-failed" };
 }
 
-async function tryCanvasAsDataUrl(
-  url: string,
-  mimeType: string,
-): Promise<LoadImageAssetResult> {
+async function tryCanvasAsDataUrl(url: string, mimeType: string): Promise<LoadImageAssetResult> {
   // Defensive: some Electron builds let <img> load file:// where fetch is
   // denied. Canvas re-encodes the pixels, which is fine for a vision-model
   // input — we are not preserving original bytes for cryptographic purposes.

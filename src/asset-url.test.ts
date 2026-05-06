@@ -65,7 +65,9 @@ describe("describeOriginMismatch", () => {
   });
 
   it("returns null when both are http(s) (no scheme cross)", () => {
-    expect(describeOriginMismatch("http://localhost:8080", "http://localhost:8080/a.png")).toBeNull();
+    expect(
+      describeOriginMismatch("http://localhost:8080", "http://localhost:8080/a.png"),
+    ).toBeNull();
   });
 
   it("returns null on empty inputs", () => {
