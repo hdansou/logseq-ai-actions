@@ -245,9 +245,31 @@ Bug: v1.0.2 still fails on the marketplace-zip install. The IPC branch was gated
 Fix: remove the gate. Try `_request` unconditionally; on web Logseq the SDK will emit one "Can not access host scope!" log but our catch falls through cleanly to the `fetch` branch. Add `console.warn` at every IPC failure branch so the next regression report includes diagnostics.
 
 - [x] Implement: drop `isHostScopeReachable()` import + gate from `loadImageAssetBytes`. `tryLogseqRequestAsBase64` now logs `[ai-actions] image-loader: …` for: `_request` unavailable, `_request` threw, payload unparseable, IPC succeeded.
-- [ ] Manual verify (marketplace zip install): `/AI Generate Title` succeeds; console shows `[ai-actions] image-loader: IPC path succeeded` (or, if it fails, names the actual reason).
+- [x] Manual verify (marketplace zip install): diagnostics confirmed the real failure mode — `_request` throws `SecurityError: Blocked a frame with origin "lsp://logseq.io" from accessing a cross-origin frame`. Logseq main window is cross-origin with the plugin iframe; `Experiments.invokeExperMethod` synchronously accesses `parent.window.logseq` and dies. v1.0.4 follow-up uses the postMessage caller instead.
 - [x] Changelog: `.changeset/vision-loader-drop-hostscope-gate.md`.
-- [ ] Version bump to `v1.0.3`; tag + push.
+- [x] Version bump to `v1.0.3`; tag + push.
+
+### Vision asset loader — postMessage IPC bypass — v1.0.4 (2026-05-05)
+
+Bug: v1.0.3 surfaced the real error. `Request._request` calls `Experiments.invokeExperMethod("request", …)` which uses `ensureHostScope()` — a synchronous property access on `parent.window.logseq`. The plugin iframe at `lsp://logseq.io/...` is cross-origin with the Logseq main window, so any synchronous parent-property access throws `SecurityError`. The Postmate-based caller (Logseq's plugin-↔-host RPC) IS cross-origin-safe because it uses `window.postMessage`. We need to call `exper_request` via the postMessage path, not the host-scope-property-access path.
+
+Mechanism (verified by reading Logseq source):
+
+1. Plugin: `logseq._execCallableAPIAsync("exper_request", pluginId, opts)` → `_caller.callAsync("api:call", { method, args })` → Postmate `childRefParent.emit(…)` → host's `LSPlugin.core.ts:initApiProxyHandlers` `api:call` listener → `invokeHostExportedApi("exper_request", …)` → `logseq.api/exper_request` (`logseq/src/main/logseq/api.cljs:168`).
+2. Host's `exper_request` returns a `req-id` synchronously and fires `(ipc/ipc :httpRequest req-id options)` → `logseq/src/electron/electron/handler.cljs:353` `:httpRequest` → `node-fetch` (handles `file://`) → returns base64.
+3. Host's `request-callback` (`logseq/src/main/frontend/handler/plugin.cljs:890`) sends `:#lsp#request#callback {requestId, payload}` via postMessage.
+4. Plugin's `caller` emits `"#lsp#request#callback"`; we filter by our `reqId` and resolve.
+
+Race protection: response can arrive between `exec()` resolving and our `.then` saving `reqId`. We register the listener BEFORE calling `exec`, buffer events whose `requestId` doesn't match yet, then drain on resolve.
+
+- [x] Implement: replace `tryLogseqRequestAsBase64` with `tryPostmateExperRequestBase64` + `runExperRequest` helper in `src/adapter/image-loader.ts`. Diagnostic logs every branch.
+- [-] Test (no DOM in Vitest): the helper requires `logseq.caller` / `_execCallableAPIAsync` / Promise orchestration. Per AGENTS.md "thin Logseq-touching surface", this stays in the adapter and is manual-verified.
+- [ ] Manual verify (marketplace zip install): `/AI Generate Title` succeeds with `[ai-actions] image-loader: postMessage IPC succeeded`.
+- [ ] Manual verify: `/AI Extract Image Text` succeeds.
+- [x] Docs: REQUIREMENTS §6 — postMessage IPC path described.
+- [x] Docs: AGENTS.md landmine updated.
+- [x] Changelog: `.changeset/vision-postmate-ipc.md`.
+- [ ] Version bump to `v1.0.4`; tag + push.
 - [-] Manual verify (Logseq Web): not accessible in this session; deferred.
 - [x] Docs: REQUIREMENTS §6 — rewritten loader description (this entry).
 - [x] Docs: AGENTS.md — replace v1.0.1 fetch-permissive landmine with the IPC path landmine (read source, don't trust the .d.ts).

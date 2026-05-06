@@ -15,15 +15,19 @@ export type LoadImageAssetResult =
  *
  * Strategy (each step logs `[ai-actions] image-loader: ...` so failures
  * can be diagnosed from the user's console):
- *   (1) `logseq.Request._request({ returnType: "base64" })` — primary on
- *       Desktop. IPCs to Logseq's main process, which uses `node-fetch`
- *       (supports `file://`) and base64-encodes server-side. See
- *       logseq/src/electron/electron/handler.cljs `:httpRequest`. The
- *       plugin iframe runs at `lsp://logseq.io/...` and cannot directly
- *       load `file://` URLs (Chromium blocks cross-origin local
- *       resources), so this IPC route is the canonical path. We attempt
- *       it unconditionally; the SDK may emit a one-off "Can not access
- *       host scope!" log on Logseq Web, but we still fall through cleanly.
+ *   (1) postMessage IPC via `_execCallableAPIAsync("exper_request", ...)` —
+ *       primary on Desktop. The plugin iframe runs at `lsp://logseq.io/...`
+ *       and is cross-origin with the Logseq main window, so any
+ *       synchronous `parent.window.logseq.…` access (including
+ *       `logseq.Request._request`, which uses
+ *       `Experiments.invokeExperMethod` → `ensureHostScope`) blows up
+ *       with `SecurityError: Blocked a frame with origin "lsp://logseq.io"
+ *       from accessing a cross-origin frame`. The Postmate-based caller
+ *       (see logseq/libs/src/LSPlugin.caller.ts) uses postMessage which
+ *       IS cross-origin-safe, and the host's `:exper_request` ^:export
+ *       fires the same `:httpRequest` IPC handler that
+ *       `Request._request` would. Response arrives via the host's
+ *       `request-callback` → `#lsp#request#callback` postMessage event.
  *   (2) `fetch(url)` — fallback for Logseq Web where `makeUrl` returns
  *       a `blob:` URL the renderer can read directly.
  *   (3) `<img>` → canvas → `toDataURL` — last-resort fallback.
@@ -47,7 +51,7 @@ export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageA
     return { ok: false, reason: "makeurl-failed" };
   }
 
-  const ipc = await tryLogseqRequestAsBase64(url, mimeType);
+  const ipc = await tryPostmateExperRequestBase64(url, mimeType);
   if (ipc.ok) return ipc;
 
   const fetched = await tryFetchAsDataUrl(url, mimeType);
@@ -62,32 +66,98 @@ export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageA
   return hint ? { ok: false, reason, hint } : { ok: false, reason };
 }
 
-async function tryLogseqRequestAsBase64(
+type SDKInternals = {
+  baseInfo?: { id?: string };
+  _execCallableAPIAsync?: (method: string, ...args: unknown[]) => Promise<unknown>;
+  caller?: {
+    on: (type: string, fn: (payload: unknown) => void) => void;
+    off: (type: string, fn: (payload: unknown) => void) => void;
+  };
+};
+
+const REQUEST_CALLBACK_EVENT = "#lsp#request#callback";
+const IPC_TIMEOUT_MS = 30_000;
+
+async function tryPostmateExperRequestBase64(
   url: string,
   mimeType: string,
 ): Promise<LoadImageAssetResult> {
-  const req = (logseq as { Request?: { _request?: (opts: unknown) => Promise<unknown> } }).Request;
-  if (!req?._request) {
-    console.warn("[ai-actions] image-loader: logseq.Request._request unavailable");
+  const ctx = logseq as unknown as SDKInternals;
+  const exec = ctx._execCallableAPIAsync?.bind(ctx);
+  const caller = ctx.caller;
+  const pluginId = ctx.baseInfo?.id;
+
+  if (!exec || !caller || !pluginId) {
+    console.warn("[ai-actions] image-loader: postMessage IPC unavailable", {
+      hasExec: !!exec,
+      hasCaller: !!caller,
+      hasPluginId: !!pluginId,
+    });
     return { ok: false, reason: "fetch-failed" };
   }
+
   try {
-    const result = await req._request({ url, method: "GET", returnType: "base64" });
+    const result = await runExperRequest(exec, caller, pluginId, url);
     const base64 = extractRequestBase64(result);
     if (!base64) {
       console.warn(
-        "[ai-actions] image-loader: _request returned unparseable payload",
+        "[ai-actions] image-loader: exper_request returned unparseable payload",
         typeof result,
         result,
       );
       return { ok: false, reason: "decode-failed" };
     }
-    console.warn("[ai-actions] image-loader: IPC path succeeded");
+    console.warn("[ai-actions] image-loader: postMessage IPC succeeded");
     return { ok: true, mimeType, base64 };
   } catch (err) {
-    console.warn("[ai-actions] image-loader: _request threw — falling back", err);
+    console.warn("[ai-actions] image-loader: postMessage IPC failed — falling back", err);
     return { ok: false, reason: "fetch-failed" };
   }
+}
+
+function runExperRequest(
+  exec: (method: string, ...args: unknown[]) => Promise<unknown>,
+  caller: NonNullable<SDKInternals["caller"]>,
+  pluginId: string,
+  url: string,
+): Promise<unknown> {
+  return new Promise<unknown>((resolve, reject) => {
+    const buffered = new Map<unknown, unknown>();
+    let reqId: unknown = null;
+    let done = false;
+
+    const finish = (err: Error | null, payload?: unknown) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      caller.off(REQUEST_CALLBACK_EVENT, listener);
+      if (err) reject(err);
+      else resolve(payload);
+    };
+
+    const listener = (e: unknown) => {
+      const p = e as { requestId?: unknown; payload?: unknown };
+      if (p?.requestId == null) return;
+      if (reqId !== null && p.requestId === reqId) {
+        finish(null, p.payload);
+      } else {
+        // Response may arrive between exec resolving and our .then setting
+        // reqId; buffer until we know which id is ours.
+        buffered.set(p.requestId, p.payload);
+      }
+    };
+
+    const timer = setTimeout(() => finish(new Error("exper_request timed out")), IPC_TIMEOUT_MS);
+
+    caller.on(REQUEST_CALLBACK_EVENT, listener);
+
+    exec("exper_request", pluginId, { url, method: "GET", returnType: "base64" })
+      .then((id) => {
+        reqId = id;
+        if (buffered.has(id)) finish(null, buffered.get(id));
+      })
+      .catch((err) => finish(err instanceof Error ? err : new Error(String(err))));
+  });
 }
 
 async function tryFetchAsDataUrl(url: string, mimeType: string): Promise<LoadImageAssetResult> {
