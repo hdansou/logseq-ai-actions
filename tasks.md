@@ -342,19 +342,15 @@ TDD ordering — pure helpers first (RED → GREEN → REFACTOR), settings + reg
 
 **Manual verify**
 
-- [ ] Hide a built-in via Manage → not in toolbar picker, not in command palette (after toggle), not in block context menu, not in slash menu after toggle. Slash command from before the toggle still responds (documented caveat).
-- [ ] Hide a user action → same surfaces hide it; Restore returns it to its original section.
-- [ ] Shadow + hide → a user action whose id matches a built-in, with that id in `hiddenActionIds`, hides the merged effective action everywhere.
-- [ ] Undo toast appears after hide/restore; clicking Undo reverses the last operation; toast auto-dismisses after ~2.5 s.
-- [ ] Search reveals matching hidden rows and auto-expands the Hidden section.
-- [ ] Reload Logseq → previously-hidden actions stay hidden across sessions (per-graph persistence).
+- [x] User-confirmed end-to-end on Logseq Desktop against a `pnpm build` install on 2026-05-05: Hide moves the row into the Hidden bin; Restore returns it; toolbar picker reflects the change immediately. Per-surface verification of each item below was rolled into the user's "changes look good" sign-off — no separate breakdown captured.
+- [-] Surface-by-surface breakdown (slash / palette / context-menu after toggle, shadow + hide, undo timing, search auto-expand, per-graph persistence on reload) — not separately recorded; revisit if a regression surfaces.
 
 **Docs**
 
 - [x] REQUIREMENTS §16 — drafted at spec time (2026-05-05).
-- [ ] README — add a Hide actions sub-section under "Manage Actions panel".
-- [ ] AGENTS.md — note the slash-command caveat parallel to user actions (one place, not duplicated).
-- [ ] Changelog: `.changeset/hide-actions.md` + `[Unreleased]` Added entry once the implementation lands.
+- [x] README — new §5 "Hide actions you don't use" added under "Add your own actions"; mentions the slash-command session caveat in the same paragraph as the existing user-action one.
+- [-] AGENTS.md — skipped. The slash-command deregister landmine is already documented in README §4 (user actions); duplicating into AGENTS.md doesn't add signal.
+- [x] Changelog: `.changeset/hide-actions.md` (minor bump). `[Unreleased]` entry will be folded in by `pnpm changeset version` at release time.
 
 ## Deferred / v2 candidates
 

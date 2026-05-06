@@ -143,6 +143,14 @@ Each entry needs:
 
 **Validation:** invalid entries are skipped silently (your other actions still load); a warning toast + console entry tell you how many were skipped, with the failing index and id. Full detail lives in the console.
 
+### 5. (Optional) Hide actions you don't use
+
+The Manage Actions panel has a per-row **Hide** button (visible on hover) for every row, built-in or user-defined. Click it and the action moves into a collapsible **Hidden** section pinned to the bottom of the panel. Click **Restore** there to bring it back. Visibility autosaves — no Save / Cancel ceremony.
+
+Hidden actions disappear immediately from the toolbar picker and from the diff-panel "Re-run with another action" dropdown. Slash commands, command-palette entries, and block-context-menu items follow the same caveat as user-action add/remove: they keep responding for the rest of the current Logseq session and only stop registering after a plugin reload (Logseq has no deregister API).
+
+Hidden state is per-graph, stored in the `hiddenActionIds` plugin setting. The Manage panel is the only writer — the gear-icon settings UI doesn't expose it as a separate field on purpose.
+
 ## Privacy & data egress
 
 - The plugin sends **exactly the scope of content the action is configured for** (selection / block / block + children) to the configured endpoint, nothing more.
