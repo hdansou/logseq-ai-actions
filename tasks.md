@@ -308,6 +308,54 @@ Goal: plugin UI follows Logseq's light/dark toggle. CSS scaffolding (`html.dark`
 - [x] Docs: REQUIREMENTS new §15 Theme integration.
 - [x] Changelog: `.changeset/theme-sync.md` + `[Unreleased]` Changed entry.
 
+### Per-action visibility — hide actions (2026-05-05)
+
+Branch: `feat/hide-actions`. Spec: REQUIREMENTS §16. UX picked from `prototypes/hide-actions/` (Variant C — archive bin). Goal: let users hide individual actions from every entry surface; hidden actions remain in Manage Actions for restore.
+
+TDD ordering — pure helpers first (RED → GREEN → REFACTOR), settings + registry plumbing next, then UI, then manual verify. UI components have no automated tests (Vitest is `environment: "node"`; UI is excluded from the coverage gate, same convention as the rest of the codebase).
+
+**Pure core**
+
+- [ ] Test (RED): `src/visibility.test.ts` — `filterHiddenActions(actions, hiddenIds): readonly Action[]`. Cases: empty `hiddenIds` returns input content unchanged; one id drops only that action; multiple ids drop multiples; ids absent from `actions` are ignored; declared order preserved across surviving items; built-in / user mix.
+- [ ] Implement: `filterHiddenActions` in `src/visibility.ts`.
+- [ ] Test (RED): `parseHiddenActionIds(raw: unknown): string[]` — cases: `undefined` / `null` / `""` / `[]` → `[]`; valid string array → array; non-array → `[]`; non-string entries inside an array → filtered out (warns, does not throw).
+- [ ] Implement: `parseHiddenActionIds` in `src/visibility.ts`.
+- [ ] Test (RED): `partitionVisibleAndHidden(actions, hiddenIds): { visible, hidden }` — used by Manage panel rendering. Cases: all visible; all hidden; mixed; empty; ordering preserved within each partition.
+- [ ] Implement: `partitionVisibleAndHidden` in `src/visibility.ts` (or `src/ui/manage-actions/types.ts` if the only consumer is the panel — pick by use site).
+
+**Settings + registry plumbing**
+
+- [ ] Implement: settings schema — add `hiddenActionIds` entry to the `useSettingsSchema` array in `src/index.ts`. Type: array; default `[]`.
+- [ ] Implement: `readSettings()` in `src/adapter/settings.ts` returns parsed `hiddenActionIds: readonly string[]` alongside existing fields, via `parseHiddenActionIds`.
+- [ ] Implement: `rebuildRegistry()` in `src/index.ts` — wraps the existing `buildRegistry(SEED_ACTIONS, userActionsJson)` output through `filterHiddenActions(_, hiddenActionIds)` before assigning to `activeActions`. Expose the **unfiltered** merged list as `activeActionsAll` so the Manage panel can read it.
+- [ ] Implement: `onSettingsChanged` rebuilds the registry when `hiddenActionIds` changes (parallel to the existing `userActionsJson` branch). Editing visibility hot-reloads picker / context-menu / palette surfaces; slash commands respect changes only after a plugin toggle (carry-over of the existing add/remove caveat).
+
+**UI — Manage Actions panel**
+
+- [ ] Implement: `ManageActionsPanel.tsx` accepts `initialHiddenActionIds: readonly string[]` + `onSaveVisibility: (ids: readonly string[]) => Promise<void>` props; mirrors the prop in local state; mutations call the callback synchronously (autosave). Existing dirty-tracking for user-action edits is unaffected.
+- [ ] Implement: `show-manage-actions.ts` reads the latest settings snapshot and threads `hiddenActionIds` + an `onSaveVisibility` callback (`logseq.updateSettings({ hiddenActionIds: [...] })`) into the panel.
+- [ ] Implement: `ActionRow.tsx` — add a per-row Hide button (icon + tooltip; visible on row hover) for rows in Built-in / Your actions sections; add a Restore button (always visible) for rows inside the Hidden section. Add a `built-in` / `user` source pill rendered inline with the existing scope / output-mode tags.
+- [ ] Implement: `HiddenSection.tsx` — collapsible section. Chevron + "Hidden" label + count badge + helper subtitle ("Out of sight in the picker, slash menu, and toolbar."). Renders the partitioned hidden rows. Auto-expands when the search query matches anything inside it.
+- [ ] Implement: `UndoToast.tsx` — small overlay; auto-dismisses after 2.5 s; clicking Undo restores the prior `hiddenActionIds` list (one-step). Mounts inside `ManageActionsPanel`'s root.
+- [ ] Implement: search filter — extend `filterByQuery` (or its caller) to apply the same query across the Hidden bin's rows; when a query produces a hidden match, force-expand the Hidden section.
+- [ ] Implement: CSS in `index.html` — `.manage-hidden-section`, `.manage-hidden-toggle`, `.manage-hidden-list`, `.manage-undo-toast`, `.manage-tag-source` (the new source pill). Reuse existing colour tokens (`--muted`, `--warning`, `--accent`, `--border`).
+
+**Manual verify**
+
+- [ ] Hide a built-in via Manage → not in toolbar picker, not in command palette (after toggle), not in block context menu, not in slash menu after toggle. Slash command from before the toggle still responds (documented caveat).
+- [ ] Hide a user action → same surfaces hide it; Restore returns it to its original section.
+- [ ] Shadow + hide → a user action whose id matches a built-in, with that id in `hiddenActionIds`, hides the merged effective action everywhere.
+- [ ] Undo toast appears after hide/restore; clicking Undo reverses the last operation; toast auto-dismisses after ~2.5 s.
+- [ ] Search reveals matching hidden rows and auto-expands the Hidden section.
+- [ ] Reload Logseq → previously-hidden actions stay hidden across sessions (per-graph persistence).
+
+**Docs**
+
+- [x] REQUIREMENTS §16 — drafted at spec time (2026-05-05).
+- [ ] README — add a Hide actions sub-section under "Manage Actions panel".
+- [ ] AGENTS.md — note the slash-command caveat parallel to user actions (one place, not duplicated).
+- [ ] Changelog: `.changeset/hide-actions.md` + `[Unreleased]` Added entry once the implementation lands.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
