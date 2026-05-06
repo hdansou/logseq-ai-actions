@@ -1,5 +1,6 @@
 /// <reference types="@logseq/libs" />
 import type { Action } from "../action";
+import { failureMessage } from "../asset-url";
 import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "../debug-log";
 import { type AssetBlock, getAssetType, isImageAsset } from "../image-asset";
 import { countOutlineNodes, parseOutline, renderOutlinePreview } from "../parse-outline";
@@ -276,9 +277,9 @@ async function runVisionAction(
   let error: string | undefined;
   try {
     const bytes = await loadImageAssetBytes(block);
-    if (!bytes) {
+    if (!bytes.ok) {
       logseq.UI.showMsg(
-        `${action.title}: could not read the image bytes (path or asset type unrecognised)`,
+        `${action.title}: ${failureMessage(bytes.reason, bytes.hint)}`,
         "error",
       );
       return;
