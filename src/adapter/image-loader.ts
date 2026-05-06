@@ -1,6 +1,6 @@
 /// <reference types="@logseq/libs" />
 
-import { describeOriginMismatch, extractRequestBase64, type LoadAssetFailure } from "../asset-url";
+import { describeOriginMismatch, type LoadAssetFailure } from "../asset-url";
 import { type AssetBlock, assetFilePath, getAssetType, imageMimeType } from "../image-asset";
 
 export type LoadImageAssetResult =
@@ -15,19 +15,31 @@ export type LoadImageAssetResult =
  *
  * Strategy (each step logs `[ai-actions] image-loader: ...` so failures
  * can be diagnosed from the user's console):
- *   (1) postMessage IPC via `_execCallableAPIAsync("exper_request", ...)` —
- *       primary on Desktop. The plugin iframe runs at `lsp://logseq.io/...`
- *       and is cross-origin with the Logseq main window, so any
- *       synchronous `parent.window.logseq.…` access (including
- *       `logseq.Request._request`, which uses
- *       `Experiments.invokeExperMethod` → `ensureHostScope`) blows up
- *       with `SecurityError: Blocked a frame with origin "lsp://logseq.io"
- *       from accessing a cross-origin frame`. The Postmate-based caller
- *       (see logseq/libs/src/LSPlugin.caller.ts) uses postMessage which
- *       IS cross-origin-safe, and the host's `:exper_request` ^:export
- *       fires the same `:httpRequest` IPC handler that
- *       `Request._request` would. Response arrives via the host's
- *       `request-callback` → `#lsp#request#callback` postMessage event.
+ *
+ *   (1) postMessage → `apis.doAction([':readFileRaw', path])` — primary on
+ *       Desktop. Reads the file via Node's `fs.readFileSync` in the main
+ *       process and returns a Buffer. We get bytes back via the Postmate
+ *       caller (cross-origin-safe). Why not the SDK's `Request._request`?
+ *       It uses `Experiments.invokeExperMethod` which synchronously reads
+ *       `parent.window.logseq` — that throws `SecurityError` because the
+ *       plugin iframe (`lsp://logseq.io/...`) is cross-origin with the
+ *       Logseq main window. Why not `:httpRequest` (the same handler
+ *       Request._request would hit)? It uses node-fetch 3.x which does
+ *       NOT accept `file://` URLs (`URL scheme "file" is not supported`).
+ *       `:readFileRaw` is registered in
+ *       `logseq/src/electron/electron/handler.cljs:88` and uses
+ *       `fs.readFileSync` directly — bypasses node-fetch.
+ *
+ *       Path: `_execCallableAPIAsync('doAction', [':readFileRaw', path])`.
+ *       The `safeSnakeCase` lookup chain in
+ *       `logseq/libs/src/common.ts:invokeHostExportedApi` resolves
+ *       `'doAction'` to `window.apis.doAction` on the host (since
+ *       `logseq.api.doAction` doesn't exist). `apis.doAction(arg)` calls
+ *       `ipcRenderer.invoke('main', arg)`, which the main-process
+ *       dispatcher routes to `defmethod handle :readFileRaw`. The
+ *       returned Buffer flows back through Electron IPC and Postmate
+ *       structured-clone; we Blob/FileReader it to base64.
+ *
  *   (2) `fetch(url)` — fallback for Logseq Web where `makeUrl` returns
  *       a `blob:` URL the renderer can read directly.
  *   (3) `<img>` → canvas → `toDataURL` — last-resort fallback.
@@ -51,7 +63,7 @@ export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageA
     return { ok: false, reason: "makeurl-failed" };
   }
 
-  const ipc = await tryPostmateExperRequestBase64(url, mimeType);
+  const ipc = await tryReadFileRawIPC(url, mimeType);
   if (ipc.ok) return ipc;
 
   const fetched = await tryFetchAsDataUrl(url, mimeType);
@@ -67,97 +79,89 @@ export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageA
 }
 
 type SDKInternals = {
-  baseInfo?: { id?: string };
   _execCallableAPIAsync?: (method: string, ...args: unknown[]) => Promise<unknown>;
-  caller?: {
-    on: (type: string, fn: (payload: unknown) => void) => void;
-    off: (type: string, fn: (payload: unknown) => void) => void;
-  };
 };
 
-const REQUEST_CALLBACK_EVENT = "#lsp#request#callback";
-const IPC_TIMEOUT_MS = 30_000;
-
-async function tryPostmateExperRequestBase64(
-  url: string,
-  mimeType: string,
-): Promise<LoadImageAssetResult> {
+async function tryReadFileRawIPC(url: string, mimeType: string): Promise<LoadImageAssetResult> {
   const ctx = logseq as unknown as SDKInternals;
   const exec = ctx._execCallableAPIAsync?.bind(ctx);
-  const caller = ctx.caller;
-  const pluginId = ctx.baseInfo?.id;
-
-  if (!exec || !caller || !pluginId) {
-    console.warn("[ai-actions] image-loader: postMessage IPC unavailable", {
-      hasExec: !!exec,
-      hasCaller: !!caller,
-      hasPluginId: !!pluginId,
-    });
+  if (!exec) {
+    console.warn("[ai-actions] image-loader: _execCallableAPIAsync unavailable");
     return { ok: false, reason: "fetch-failed" };
   }
 
+  const fsPath = fileUrlToPath(url);
+  if (!fsPath) {
+    console.warn("[ai-actions] image-loader: not a file:// URL, skipping IPC", url);
+    return { ok: false, reason: "fetch-failed" };
+  }
+
+  let raw: unknown;
   try {
-    const result = await runExperRequest(exec, caller, pluginId, url);
-    const base64 = extractRequestBase64(result);
-    if (!base64) {
-      console.warn(
-        "[ai-actions] image-loader: exper_request returned unparseable payload",
-        typeof result,
-        result,
-      );
-      return { ok: false, reason: "decode-failed" };
-    }
-    console.warn("[ai-actions] image-loader: postMessage IPC succeeded");
-    return { ok: true, mimeType, base64 };
+    raw = await exec("doAction", [":readFileRaw", fsPath]);
   } catch (err) {
-    console.warn("[ai-actions] image-loader: postMessage IPC failed — falling back", err);
+    console.warn("[ai-actions] image-loader: readFileRaw IPC threw", err);
     return { ok: false, reason: "fetch-failed" };
   }
+
+  const bytes = toUint8Array(raw);
+  if (!bytes || bytes.length === 0) {
+    console.warn(
+      "[ai-actions] image-loader: readFileRaw returned non-bytes payload",
+      typeof raw,
+      raw,
+    );
+    return { ok: false, reason: "decode-failed" };
+  }
+
+  // Copy into a fresh ArrayBuffer — Blob's BlobPart type rejects
+  // Uint8Array<ArrayBufferLike> under TS lib.dom 2025+ even though the
+  // bytes are identical at runtime.
+  const buf = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buf).set(bytes);
+  const dataUrl = await blobToDataUrl(new Blob([buf]));
+  if (!dataUrl) return { ok: false, reason: "decode-failed" };
+  const base64 = stripDataUrlPrefix(dataUrl);
+  if (!base64) return { ok: false, reason: "decode-failed" };
+
+  console.warn(`[ai-actions] image-loader: readFileRaw IPC succeeded (${bytes.length} bytes)`);
+  return { ok: true, mimeType, base64 };
 }
 
-function runExperRequest(
-  exec: (method: string, ...args: unknown[]) => Promise<unknown>,
-  caller: NonNullable<SDKInternals["caller"]>,
-  pluginId: string,
-  url: string,
-): Promise<unknown> {
-  return new Promise<unknown>((resolve, reject) => {
-    const buffered = new Map<unknown, unknown>();
-    let reqId: unknown = null;
-    let done = false;
+/**
+ * Strip `file://` and decode percent-escapes to a filesystem path. Returns
+ * null when the URL isn't `file://` (e.g. `blob:` on Logseq Web). Handles
+ * Windows-style `file:///C:/...` by dropping the leading slash before the
+ * drive letter.
+ */
+function fileUrlToPath(url: string): string | null {
+  if (!url.startsWith("file://")) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  let p = decodeURIComponent(parsed.pathname);
+  if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1);
+  return p;
+}
 
-    const finish = (err: Error | null, payload?: unknown) => {
-      if (done) return;
-      done = true;
-      clearTimeout(timer);
-      caller.off(REQUEST_CALLBACK_EVENT, listener);
-      if (err) reject(err);
-      else resolve(payload);
-    };
-
-    const listener = (e: unknown) => {
-      const p = e as { requestId?: unknown; payload?: unknown };
-      if (p?.requestId == null) return;
-      if (reqId !== null && p.requestId === reqId) {
-        finish(null, p.payload);
-      } else {
-        // Response may arrive between exec resolving and our .then setting
-        // reqId; buffer until we know which id is ours.
-        buffered.set(p.requestId, p.payload);
-      }
-    };
-
-    const timer = setTimeout(() => finish(new Error("exper_request timed out")), IPC_TIMEOUT_MS);
-
-    caller.on(REQUEST_CALLBACK_EVENT, listener);
-
-    exec("exper_request", pluginId, { url, method: "GET", returnType: "base64" })
-      .then((id) => {
-        reqId = id;
-        if (buffered.has(id)) finish(null, buffered.get(id));
-      })
-      .catch((err) => finish(err instanceof Error ? err : new Error(String(err))));
-  });
+function toUint8Array(value: unknown): Uint8Array | null {
+  if (value instanceof Uint8Array) return value;
+  if (
+    typeof ArrayBuffer !== "undefined" &&
+    Object.prototype.toString.call(value) === "[object ArrayBuffer]"
+  ) {
+    return new Uint8Array(value as Uint8Array);
+  }
+  // Node Buffer over IPC may surface as { type: "Buffer", data: number[] }
+  // in some serialisation paths. Defensive check.
+  const obj = value as { type?: unknown; data?: unknown };
+  if (obj?.type === "Buffer" && Array.isArray(obj.data)) {
+    return new Uint8Array(obj.data as number[]);
+  }
+  return null;
 }
 
 async function tryFetchAsDataUrl(url: string, mimeType: string): Promise<LoadImageAssetResult> {

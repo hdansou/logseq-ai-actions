@@ -263,13 +263,33 @@ Mechanism (verified by reading Logseq source):
 Race protection: response can arrive between `exec()` resolving and our `.then` saving `reqId`. We register the listener BEFORE calling `exec`, buffer events whose `requestId` doesn't match yet, then drain on resolve.
 
 - [x] Implement: replace `tryLogseqRequestAsBase64` with `tryPostmateExperRequestBase64` + `runExperRequest` helper in `src/adapter/image-loader.ts`. Diagnostic logs every branch.
-- [-] Test (no DOM in Vitest): the helper requires `logseq.caller` / `_execCallableAPIAsync` / Promise orchestration. Per AGENTS.md "thin Logseq-touching surface", this stays in the adapter and is manual-verified.
-- [ ] Manual verify (marketplace zip install): `/AI Generate Title` succeeds with `[ai-actions] image-loader: postMessage IPC succeeded`.
-- [ ] Manual verify: `/AI Extract Image Text` succeeds.
-- [x] Docs: REQUIREMENTS §6 — postMessage IPC path described.
-- [x] Docs: AGENTS.md landmine updated.
-- [x] Changelog: `.changeset/vision-postmate-ipc.md`.
-- [ ] Version bump to `v1.0.4`; tag + push.
+- [x] Manual verify (marketplace zip install): postMessage IPC reached the host and dispatched `:httpRequest` correctly. Real failure surfaced: `node-fetch cannot load file://… URL scheme "file" is not supported`. Logseq pins `node-fetch@3.3.2` (`logseq/static/package.json:34`) which dropped `file://` support. Continuing in v1.0.5.
+- [-] Test (no DOM in Vitest).
+- [x] Docs: REQUIREMENTS §6, AGENTS.md, CHANGELOG.
+- [x] Version bump to `v1.0.4`; tag + push.
+
+### Vision asset loader — readFileRaw IPC — v1.0.5 (2026-05-05)
+
+Bug: v1.0.4 surfaced the `node-fetch` limitation. `:httpRequest` is the wrong handler for `file://` URLs. Switch to `:readFileRaw`, which uses `fs.readFileSync` directly (`logseq/src/electron/electron/utils.cljs:212`).
+
+Mechanism:
+
+1. Plugin: `logseq._execCallableAPIAsync("doAction", [":readFileRaw", absPath])`. The `safeSnakeCase` lookup chain in `logseq/libs/src/common.ts:invokeHostExportedApi` resolves `"doAction"` to `window.apis.doAction` on the host (since `logseq.api.do_action` and `logseq.api.doAction` don't exist).
+2. Host: `apis.doAction([":readFileRaw", absPath])` → `ipcRenderer.invoke("main", [":readFileRaw", absPath])`.
+3. Main process dispatcher (`logseq/src/electron/electron/handler.cljs`): `(handle window message)` keywordises the first arg → `:readFileRaw` → `(utils/read-file-raw path)` → `(fs/readFileSync path)` returns a `Buffer`.
+4. Buffer flows back through Electron IPC (structured-clone) → `bean/->js` (pass-through for JS values) → Postmate `LSPMSG_SYNC`. Plugin receives a `Uint8Array`-like value.
+5. Plugin: copy bytes into a fresh `ArrayBuffer` (TS strict-lib accommodation) → `new Blob([buf])` → `FileReader.readAsDataURL` → strip `data:…;base64,` prefix.
+
+Path translation: `Assets.makeUrl` returns `file:///abs/path`. Strip `file://` and `decodeURIComponent` to get the filesystem path. Windows: `file:///C:/Users/...` → drop the leading `/` before the drive letter.
+
+- [x] Implement: replace `tryPostmateExperRequestBase64` with `tryReadFileRawIPC` + `fileUrlToPath` + `toUint8Array` helpers in `src/adapter/image-loader.ts`. The `:readFileRaw` keyword is passed verbatim with its colon (the host dispatcher keywordises the first arg).
+- [-] Test (no DOM in Vitest).
+- [ ] Manual verify (marketplace zip install): `/AI Generate Title` returns 3 candidates; console shows `readFileRaw IPC succeeded (<N> bytes)`.
+- [ ] Manual verify: `/AI Extract Image Text` succeeds on a screenshot block.
+- [-] Manual verify (Windows): not accessible.
+- [x] Docs: REQUIREMENTS §6, AGENTS.md updated.
+- [x] Changelog: `.changeset/vision-readfileraw.md`.
+- [ ] Version bump to `v1.0.5`; tag + push.
 - [-] Manual verify (Logseq Web): not accessible in this session; deferred.
 - [x] Docs: REQUIREMENTS §6 — rewritten loader description (this entry).
 - [x] Docs: AGENTS.md — replace v1.0.1 fetch-permissive landmine with the IPC path landmine (read source, don't trust the .d.ts).
