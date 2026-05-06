@@ -1,5 +1,6 @@
 /// <reference types="@logseq/libs" />
 import { findPreset } from "../presets";
+import { parseHiddenActionIds } from "../visibility";
 
 /**
  * Snapshot of plugin settings at a point in time. Read fresh through
@@ -16,6 +17,14 @@ export interface ResolvedSettings {
   readonly timeoutMs: number;
   readonly debugLog: boolean;
   readonly userActionsJson: string;
+  /**
+   * Action ids the user has hidden via Manage Actions. Plugin-internal
+   * state — written via `logseq.updateSettings({ hiddenActionIds })`,
+   * not declared in `SETTINGS_SCHEMA` (the gear UI doesn't render it
+   * because users edit visibility through the Manage panel, not text).
+   * See REQUIREMENTS §16.
+   */
+  readonly hiddenActionIds: readonly string[];
 }
 
 const PRIMARY_DEFAULT = findPreset("lm-studio");
@@ -32,6 +41,7 @@ export function readSettings(): ResolvedSettings {
     timeoutMs: Number(s.timeoutMs ?? 60_000),
     debugLog: Boolean(s.debugLog ?? false),
     userActionsJson: String(s.userActionsJson ?? ""),
+    hiddenActionIds: parseHiddenActionIds(s.hiddenActionIds),
   };
 }
 

@@ -16,6 +16,7 @@ import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
 import { buildRegistry, parseUserActions } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
+import { filterHiddenActions } from "./visibility";
 import { showActionPicker } from "./ui/show-action-picker";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showManageActions } from "./ui/show-manage-actions";
@@ -119,19 +120,34 @@ const provider = createOpenAIProvider({ fetchImpl: logseqFetch });
  * title hot-reloads without a plugin restart. Adding or removing an
  * action still requires a plugin toggle because Logseq doesn't expose
  * a slash-command deregister API.
+ *
+ * Two parallel views (REQUIREMENTS §16):
+ * - `activeActions` is the merged registry MINUS the user's hidden ids.
+ *   It powers user-facing surfaces that re-read on each render
+ *   (toolbar picker, diff-panel re-run options).
+ * - `activeActionsAll` is the unfiltered merged registry. It powers
+ *   handler `find()` lookups so stale slash / palette / context-menu
+ *   entries for hidden actions still execute correctly until the next
+ *   plugin reload (Logseq has no deregister API). It also feeds the
+ *   Manage Actions panel so users can see and restore hidden entries.
  */
 let activeActions: readonly Action[] = SEED_ACTIONS;
+let activeActionsAll: readonly Action[] = SEED_ACTIONS;
 const registeredInvocationIds = new Set<string>();
 
 const runActionCtx: RunActionContext = {
   provider,
+  // Diff-panel "Re-run with another action" dropdowns surface choices
+  // to the user — they should respect hidden state, so use the
+  // filtered list here.
   getActiveActions: () => activeActions,
 };
 
 function rebuildRegistry(showToastOnError: boolean): void {
-  const { userActionsJson } = readSettings();
+  const { userActionsJson, hiddenActionIds } = readSettings();
   const result = buildRegistry(SEED_ACTIONS, userActionsJson);
-  activeActions = result.actions;
+  activeActionsAll = result.actions;
+  activeActions = filterHiddenActions(result.actions, hiddenActionIds);
   if (result.errors.length > 0) {
     console.warn("logseq-ai-actions: user actions validation errors", result.errors);
     if (showToastOnError) {
@@ -143,15 +159,20 @@ function rebuildRegistry(showToastOnError: boolean): void {
     }
   }
 
-  // Register both the slash command and the command-palette entry for
-  // each action id we haven't seen before. Logseq has no deregister API
-  // for either, so actions removed from the user JSON still have live
-  // menu entries; invoking one warns at runtime when the lookup fails.
-  for (const action of activeActions) {
+  // Register slash command + command-palette entry + block context-menu
+  // item for each action id we haven't seen before. Logseq has no
+  // deregister API for any of these, so we iterate the UNFILTERED
+  // registry — hidden actions still get their handlers attached at
+  // startup, and stale entries that survive a hide/un-hide cycle in
+  // a single session keep working. Actions that are hidden after
+  // registration still respond to slash / palette / context-menu
+  // invocations until plugin reload (REQUIREMENTS §16; same caveat as
+  // user-action add/remove).
+  for (const action of activeActionsAll) {
     if (registeredInvocationIds.has(action.id)) continue;
     registeredInvocationIds.add(action.id);
     const handler = async () => {
-      const fresh = activeActions.find((a) => a.id === action.id);
+      const fresh = activeActionsAll.find((a) => a.id === action.id);
       if (!fresh) {
         logseq.UI.showMsg(
           `Action '${action.id}' is no longer available — reload the plugin to refresh the menus`,
@@ -170,7 +191,7 @@ function rebuildRegistry(showToastOnError: boolean): void {
     // uuid, which we pass to runAction so the action runs on that
     // specific block rather than wherever the cursor happens to be.
     logseq.Editor.registerBlockContextMenuItem(`AI: ${action.title}`, async (e) => {
-      const fresh = activeActions.find((a) => a.id === action.id);
+      const fresh = activeActionsAll.find((a) => a.id === action.id);
       if (!fresh) {
         logseq.UI.showMsg(
           `Action '${action.id}' is no longer available — reload the plugin to refresh the menus`,
@@ -270,8 +291,10 @@ function registerAllInvocations(): void {
     },
   });
 
+  const userCount = Math.max(activeActionsAll.length - SEED_ACTIONS.length, 0);
+  const hiddenCount = activeActionsAll.length - activeActions.length;
   console.info(
-    `logseq-ai-actions: ready — ${activeActions.length} action${activeActions.length === 1 ? "" : "s"} registered (${activeActions.length - SEED_ACTIONS.length >= 0 ? activeActions.length - SEED_ACTIONS.length : 0} user-defined)`,
+    `logseq-ai-actions: ready — ${activeActionsAll.length} action${activeActionsAll.length === 1 ? "" : "s"} registered (${userCount} user-defined${hiddenCount > 0 ? `, ${hiddenCount} hidden` : ""})`,
   );
 }
 
@@ -290,7 +313,13 @@ async function main(): Promise<void> {
       );
       const prev = String((oldSettings as Record<string, unknown>).userActionsJson ?? "");
       const next = String((newSettings as Record<string, unknown>).userActionsJson ?? "");
-      if (prev !== next) rebuildRegistry(true);
+      const prevHidden = JSON.stringify(
+        (oldSettings as Record<string, unknown>).hiddenActionIds ?? [],
+      );
+      const nextHidden = JSON.stringify(
+        (newSettings as Record<string, unknown>).hiddenActionIds ?? [],
+      );
+      if (prev !== next || prevHidden !== nextHidden) rebuildRegistry(true);
 
       // Detect a LOCAL → REMOTE endpoint transition and warn once per flip.
       const nextBaseUrl = String((newSettings as Record<string, unknown>).baseUrl ?? "");

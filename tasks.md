@@ -325,10 +325,10 @@ TDD ordering — pure helpers first (RED → GREEN → REFACTOR), settings + reg
 
 **Settings + registry plumbing**
 
-- [ ] Implement: settings schema — add `hiddenActionIds` entry to the `useSettingsSchema` array in `src/index.ts`. Type: array; default `[]`.
-- [ ] Implement: `readSettings()` in `src/adapter/settings.ts` returns parsed `hiddenActionIds: readonly string[]` alongside existing fields, via `parseHiddenActionIds`.
-- [ ] Implement: `rebuildRegistry()` in `src/index.ts` — wraps the existing `buildRegistry(SEED_ACTIONS, userActionsJson)` output through `filterHiddenActions(_, hiddenActionIds)` before assigning to `activeActions`. Expose the **unfiltered** merged list as `activeActionsAll` so the Manage panel can read it.
-- [ ] Implement: `onSettingsChanged` rebuilds the registry when `hiddenActionIds` changes (parallel to the existing `userActionsJson` branch). Editing visibility hot-reloads picker / context-menu / palette surfaces; slash commands respect changes only after a plugin toggle (carry-over of the existing add/remove caveat).
+- [-] Settings schema entry — skipped intentionally. `hiddenActionIds` is plugin-internal state managed by the Manage Actions panel, not a setting users edit by hand. Logseq persists arbitrary JSON written via `logseq.updateSettings`; the schema only controls what renders in the gear UI. Keeping it out of the schema avoids exposing a raw array editor that nobody should be using.
+- [x] Implement: `readSettings()` in `src/adapter/settings.ts` returns parsed `hiddenActionIds: readonly string[]` via `parseHiddenActionIds`.
+- [x] Implement: `rebuildRegistry()` in `src/index.ts` — keeps the existing `buildRegistry(SEED_ACTIONS, userActionsJson)` and exposes both `activeActionsAll` (unfiltered merged list) and `activeActions` (filtered through `filterHiddenActions`). Toolbar picker and diff-panel re-run options use the filtered list; slash / palette / context-menu handler `find()` lookups use the unfiltered list so stale handlers for hidden actions still execute (carry-over of the existing add/remove caveat).
+- [x] Implement: `onSettingsChanged` rebuilds when `hiddenActionIds` changes (parallel to the `userActionsJson` branch). Toolbar picker reflects the change immediately; slash / palette / context-menu entries persist through the session and only re-register on the next plugin reload.
 
 **UI — Manage Actions panel**
 
