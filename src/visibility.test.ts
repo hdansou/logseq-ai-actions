@@ -56,7 +56,10 @@ describe("filterHiddenActions", () => {
   });
 
   it("returns an empty list when every action is hidden", () => {
-    const result = filterHiddenActions(ACTIONS, ACTIONS.map((a) => a.id));
+    const result = filterHiddenActions(
+      ACTIONS,
+      ACTIONS.map((a) => a.id),
+    );
     expect(result).toEqual([]);
   });
 });

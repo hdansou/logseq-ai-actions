@@ -16,10 +16,10 @@ import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
 import { buildRegistry, parseUserActions } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
-import { filterHiddenActions } from "./visibility";
 import { showActionPicker } from "./ui/show-action-picker";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showManageActions } from "./ui/show-manage-actions";
+import { filterHiddenActions } from "./visibility";
 
 // Plugin entry point. Keep this module SHALLOW — it is the only place
 // that loads `@logseq/libs` for its side-effects. Every Logseq-touching
@@ -211,7 +211,8 @@ function slashLabelFor(action: Action): string {
 }
 
 async function openManagePanel(): Promise<void> {
-  const { userActions } = parseUserActions(readSettings().userActionsJson);
+  const settings = readSettings();
+  const { userActions } = parseUserActions(settings.userActionsJson);
   await showManageActions({
     builtin: SEED_ACTIONS,
     initialUserActions: userActions,
@@ -222,6 +223,12 @@ async function openManagePanel(): Promise<void> {
       logseq.updateSettings({ userActionsJson: json });
       // onSettingsChanged fires rebuildRegistry — the new actions are
       // live after this returns.
+    },
+    initialHiddenActionIds: settings.hiddenActionIds,
+    onSaveVisibility: async (next) => {
+      // Cast to a mutable array — Logseq's settings store accepts any
+      // JSON value but the type signature wants a plain object.
+      logseq.updateSettings({ hiddenActionIds: [...next] });
     },
   });
 }

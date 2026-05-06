@@ -1,11 +1,12 @@
 import type { FunctionComponent } from "preact";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { type Action, ActionSchema } from "../../action";
 import { parseUserActions } from "../../registry";
 import { ConfirmOverlay } from "../ConfirmOverlay";
 import { ActionRow } from "./ActionRow";
 import { DetailEditor } from "./DetailEditor";
 import { DetailReadonly } from "./DetailReadonly";
+import { HiddenSection } from "./HiddenSection";
 import { ImportView } from "./ImportView";
 import { ManageRoot } from "./ManageRoot";
 import { OverflowMenu } from "./OverflowMenu";
@@ -17,22 +18,38 @@ import {
   sortByTitle,
   type View,
 } from "./types";
+import { UndoToast } from "./UndoToast";
 
 export interface ManageActionsPanelProps {
   readonly builtin: readonly Action[];
   readonly initialUserActions: readonly Action[];
   /** Persist the new user-actions list. Expected to update the plugin settings. */
   readonly onSave: (userActions: readonly Action[]) => Promise<void>;
+  /** Action ids the user has hidden (REQUIREMENTS §16). */
+  readonly initialHiddenActionIds: readonly string[];
+  /** Persist the new hidden-action-id list. Autosaves on every hide/restore. */
+  readonly onSaveVisibility: (hiddenActionIds: readonly string[]) => Promise<void>;
   readonly onClose: () => void;
+}
+
+interface UndoState {
+  readonly message: string;
+  readonly previous: readonly string[];
+  readonly key: number;
 }
 
 export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
   builtin,
   initialUserActions,
   onSave,
+  initialHiddenActionIds,
+  onSaveVisibility,
   onClose,
 }) => {
   const [userActions, setUserActions] = useState<Action[]>([...initialUserActions]);
+  const [hiddenIds, setHiddenIds] = useState<readonly string[]>([...initialHiddenActionIds]);
+  const [hiddenOpen, setHiddenOpen] = useState<boolean>(false);
+  const [undo, setUndo] = useState<UndoState | null>(null);
   const [view, setView] = useState<View>({ kind: "gallery" });
   const [draft, setDraft] = useState<DraftAction>(BLANK_DRAFT);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -43,6 +60,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
 
   const builtinIds = useMemo(() => new Set(builtin.map((b) => b.id)), [builtin]);
   const userIds = useMemo(() => new Set(userActions.map((u) => u.id)), [userActions]);
+  const hiddenSet = useMemo(() => new Set(hiddenIds), [hiddenIds]);
 
   const dirty = useMemo(
     () => JSON.stringify(userActions) !== JSON.stringify(initialUserActions),
@@ -70,8 +88,104 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, dirty, deleteIndex]);
 
-  const filteredBuiltin = useMemo(() => filterByQuery(builtin, query), [builtin, query]);
-  const filteredUser = useMemo(() => filterByQuery(userActions, query), [userActions, query]);
+  // Visible sections: drop any action whose id is in `hiddenSet` so the
+  // Hidden bin owns those rows exclusively.
+  const filteredBuiltin = useMemo(
+    () => filterByQuery(builtin, query).filter((b) => !hiddenSet.has(b.id)),
+    [builtin, query, hiddenSet],
+  );
+  const filteredUser = useMemo(
+    () => filterByQuery(userActions, query).filter((u) => !hiddenSet.has(u.id)),
+    [userActions, query, hiddenSet],
+  );
+
+  // Hidden bin: one row per hidden id; user shadow wins, otherwise the
+  // built-in. Built-ins first (seed order), then orphan user actions.
+  // Ids in `hiddenIds` that no longer match any action (e.g., user
+  // deleted a custom action that was hidden) are silently dropped — the
+  // entry stays in storage so a re-imported action restores its hidden
+  // state, but there's nothing to render.
+  const hiddenRows = useMemo<readonly { source: "builtin" | "user"; action: Action }[]>(() => {
+    if (hiddenIds.length === 0) return [];
+    const userById = new Map(userActions.map((u) => [u.id, u]));
+    const builtinById = new Map(builtin.map((b) => [b.id, b]));
+    const rows: { source: "builtin" | "user"; action: Action }[] = [];
+    for (const b of builtin) {
+      if (!hiddenSet.has(b.id)) continue;
+      const shadow = userById.get(b.id);
+      rows.push(shadow ? { source: "user", action: shadow } : { source: "builtin", action: b });
+    }
+    for (const u of userActions) {
+      if (!hiddenSet.has(u.id)) continue;
+      if (builtinById.has(u.id)) continue; // already rendered as a shadow above
+      rows.push({ source: "user", action: u });
+    }
+    return rows;
+  }, [hiddenIds, hiddenSet, builtin, userActions]);
+
+  const filteredHidden = useMemo(
+    () =>
+      filterByQuery(
+        hiddenRows.map((r) => r.action),
+        query,
+      ).map((a) => {
+        const row = hiddenRows.find((r) => r.action === a);
+        // row is always defined — filterByQuery returns members of the input.
+        return row ?? { source: "builtin" as const, action: a };
+      }),
+    [hiddenRows, query],
+  );
+
+  // Auto-expand the Hidden bin when a search query produces hidden
+  // matches so the user can spot why their search "missed" the row
+  // they remembered.
+  useEffect(() => {
+    if (query.trim().length > 0 && filteredHidden.length > 0) {
+      setHiddenOpen(true);
+    }
+  }, [query, filteredHidden.length]);
+
+  const persistVisibility = useCallback(
+    async (next: readonly string[]) => {
+      try {
+        await onSaveVisibility(next);
+      } catch (err) {
+        setStatus(`Visibility save failed: ${(err as Error).message}`);
+      }
+    },
+    [onSaveVisibility],
+  );
+
+  const hideAction = useCallback(
+    (a: Action) => {
+      if (hiddenSet.has(a.id)) return;
+      const previous = hiddenIds;
+      const next = [...hiddenIds, a.id];
+      setHiddenIds(next);
+      setUndo({ message: `Hidden "${a.title}"`, previous, key: Date.now() });
+      void persistVisibility(next);
+    },
+    [hiddenIds, hiddenSet, persistVisibility],
+  );
+
+  const restoreAction = useCallback(
+    (a: Action) => {
+      if (!hiddenSet.has(a.id)) return;
+      const previous = hiddenIds;
+      const next = hiddenIds.filter((id) => id !== a.id);
+      setHiddenIds(next);
+      setUndo({ message: `Restored "${a.title}"`, previous, key: Date.now() });
+      void persistVisibility(next);
+    },
+    [hiddenIds, hiddenSet, persistVisibility],
+  );
+
+  const undoLast = useCallback(() => {
+    if (!undo) return;
+    setHiddenIds(undo.previous);
+    void persistVisibility(undo.previous);
+    setUndo(null);
+  }, [undo, persistVisibility]);
 
   const openCreate = () => {
     setDraft(BLANK_DRAFT);
@@ -325,7 +439,9 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
                   <ActionRow
                     key={a.id}
                     action={a}
+                    source="builtin"
                     shadowed={shadowed}
+                    onHide={() => hideAction(a)}
                     onClick={() => openViewBuiltin(a.id)}
                   />
                 );
@@ -358,13 +474,42 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
                 <ActionRow
                   key={`u-${a.id}-${trueIndex}`}
                   action={a}
+                  source="user"
                   shadowsBuiltin={builtinIds.has(a.id)}
+                  onHide={() => hideAction(a)}
                   onClick={() => openEdit(trueIndex)}
                 />
               );
             })}
           </div>
         )}
+
+        <HiddenSection
+          count={filteredHidden.length}
+          open={hiddenOpen}
+          onToggle={() => setHiddenOpen((v) => !v)}
+        >
+          <div
+            class="manage-row-list"
+            style={`--row-count:${Math.max(1, Math.ceil(filteredHidden.length / 2))}`}
+          >
+            {filteredHidden.map(({ source, action: a }) => (
+              <ActionRow
+                key={`h-${a.id}`}
+                action={a}
+                source={source}
+                onRestore={() => restoreAction(a)}
+                onClick={() => {
+                  if (source === "builtin") openViewBuiltin(a.id);
+                  else {
+                    const idx = userActions.indexOf(a);
+                    if (idx >= 0) openEdit(idx);
+                  }
+                }}
+              />
+            ))}
+          </div>
+        </HiddenSection>
       </div>
 
       <footer class="diff-footer">
@@ -410,6 +555,15 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
             setDiscardOpen(false);
             onClose();
           }}
+        />
+      ) : null}
+
+      {undo ? (
+        <UndoToast
+          key={undo.key}
+          message={undo.message}
+          onUndo={undoLast}
+          onDismiss={() => setUndo(null)}
         />
       ) : null}
     </ManageRoot>
