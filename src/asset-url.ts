@@ -48,3 +48,28 @@ export function describeOriginMismatch(origin: string, url: string): string | nu
   const fileUrl = url.startsWith("file://");
   return httpOrigin && fileUrl ? ORIGIN_HINT : null;
 }
+
+/**
+ * Normalise the response from `logseq.Request._request({ returnType: "base64" })`
+ * into a clean base64 string. The Electron handler returns a raw base64 string
+ * (`logseq/src/electron/electron/handler.cljs:376-379`), but the SDK wrapper
+ * occasionally nests payloads under `{ data }` — host-scope.ts handles both
+ * shapes for HTTP and we mirror that here. Strips a leading `data:…;base64,`
+ * prefix defensively in case a future host build changes shape.
+ *
+ * Returns the base64 string on success, or `null` if the payload is missing,
+ * empty, or not a string. Pure — no DOM, no SDK access — so it can be unit
+ * tested without jsdom.
+ */
+export function extractRequestBase64(result: unknown): string | null {
+  const raw =
+    typeof result === "string"
+      ? result
+      : typeof (result as { data?: unknown })?.data === "string"
+        ? (result as { data: string }).data
+        : null;
+  if (!raw) return null;
+  const commaIdx = raw.startsWith("data:") ? raw.indexOf(",") : -1;
+  const base64 = commaIdx === -1 ? raw : raw.slice(commaIdx + 1);
+  return base64.length > 0 ? base64 : null;
+}

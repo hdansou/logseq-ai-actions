@@ -1,7 +1,8 @@
 /// <reference types="@logseq/libs" />
 
-import { describeOriginMismatch, type LoadAssetFailure } from "../asset-url";
+import { describeOriginMismatch, extractRequestBase64, type LoadAssetFailure } from "../asset-url";
 import { type AssetBlock, assetFilePath, getAssetType, imageMimeType } from "../image-asset";
+import { isHostScopeReachable } from "./host-scope";
 
 export type LoadImageAssetResult =
   | { ok: true; mimeType: string; base64: string }
@@ -13,12 +14,23 @@ export type LoadImageAssetResult =
  * toast instead of collapsing every failure to "path or asset type
  * unrecognised".
  *
- * Strategy: (1) `fetch(makeUrl(path))` — works under filesystem-load and
- * marketplace install. (2) `<img>` → canvas → `toDataURL` fallback —
- * defensive layer for Electron builds where `<img>` is more permissive than
- * `fetch`. Both paths fail under HMR (`http://localhost`) when `makeUrl`
- * returns `file://` — `describeOriginMismatch` detects that and the hint
- * tells the user to switch to `pnpm build:watch` or marketplace install.
+ * Strategy:
+ *   (1) `logseq.Request._request({ returnType: "base64" })` — primary
+ *       on Logseq Desktop. IPCs to the main process which uses
+ *       `node-fetch` (supports `file://`) and base64-encodes the
+ *       response server-side. See logseq/src/electron/electron/
+ *       handler.cljs `:httpRequest` and `utils.cljs` `fetch`. The
+ *       plugin iframe runs at `lsp://logseq.io/...` and cannot directly
+ *       load `file://` URLs (Chromium blocks cross-origin local
+ *       resources), so this IPC route is the canonical path.
+ *   (2) `fetch(url)` — fallback for Logseq Web where `makeUrl` returns
+ *       a `blob:` URL the renderer can read directly.
+ *   (3) `<img>` → canvas → `toDataURL` — last-resort fallback. Kept as
+ *       defence-in-depth; rarely engages in practice.
+ *
+ * If every path fails, `describeOriginMismatch` adds a hint pointing
+ * the user at filesystem-load when the failure looks like an HMR
+ * origin/scheme cross.
  */
 export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageAssetResult> {
   const path = assetFilePath(block);
@@ -35,6 +47,11 @@ export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageA
     return { ok: false, reason: "makeurl-failed" };
   }
 
+  if (isHostScopeReachable()) {
+    const ipc = await tryLogseqRequestAsBase64(url, mimeType);
+    if (ipc.ok) return ipc;
+  }
+
   const fetched = await tryFetchAsDataUrl(url, mimeType);
   if (fetched.ok) return fetched;
 
@@ -45,6 +62,21 @@ export async function loadImageAssetBytes(block: AssetBlock): Promise<LoadImageA
     canvased.reason === "decode-failed" ? "decode-failed" : "fetch-failed";
   const hint = describeOriginMismatch(window.location.origin, url) ?? undefined;
   return hint ? { ok: false, reason, hint } : { ok: false, reason };
+}
+
+async function tryLogseqRequestAsBase64(
+  url: string,
+  mimeType: string,
+): Promise<LoadImageAssetResult> {
+  const req = (logseq as { Request?: { _request?: (opts: unknown) => Promise<unknown> } }).Request;
+  if (!req?._request) return { ok: false, reason: "fetch-failed" };
+  try {
+    const result = await req._request({ url, method: "GET", returnType: "base64" });
+    const base64 = extractRequestBase64(result);
+    return base64 ? { ok: true, mimeType, base64 } : { ok: false, reason: "decode-failed" };
+  } catch {
+    return { ok: false, reason: "fetch-failed" };
+  }
 }
 
 async function tryFetchAsDataUrl(url: string, mimeType: string): Promise<LoadImageAssetResult> {
