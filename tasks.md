@@ -316,12 +316,12 @@ TDD ordering — pure helpers first (RED → GREEN → REFACTOR), settings + reg
 
 **Pure core**
 
-- [ ] Test (RED): `src/visibility.test.ts` — `filterHiddenActions(actions, hiddenIds): readonly Action[]`. Cases: empty `hiddenIds` returns input content unchanged; one id drops only that action; multiple ids drop multiples; ids absent from `actions` are ignored; declared order preserved across surviving items; built-in / user mix.
-- [ ] Implement: `filterHiddenActions` in `src/visibility.ts`.
-- [ ] Test (RED): `parseHiddenActionIds(raw: unknown): string[]` — cases: `undefined` / `null` / `""` / `[]` → `[]`; valid string array → array; non-array → `[]`; non-string entries inside an array → filtered out (warns, does not throw).
-- [ ] Implement: `parseHiddenActionIds` in `src/visibility.ts`.
-- [ ] Test (RED): `partitionVisibleAndHidden(actions, hiddenIds): { visible, hidden }` — used by Manage panel rendering. Cases: all visible; all hidden; mixed; empty; ordering preserved within each partition.
-- [ ] Implement: `partitionVisibleAndHidden` in `src/visibility.ts` (or `src/ui/manage-actions/types.ts` if the only consumer is the panel — pick by use site).
+- [x] Test (RED): `src/visibility.test.ts` — `filterHiddenActions(actions, hiddenIds): readonly Action[]`. 7 cases — empty `hiddenIds`; one id; multiple ids; ids absent from input; declared order preserved; built-in / user mix; all-hidden empties the list.
+- [x] Implement: `filterHiddenActions` in `src/visibility.ts`.
+- [x] Test (RED): `parseHiddenActionIds(raw: unknown): string[]` — 7 cases — `undefined` / `null` / `[]` → `[]`; non-array (number / string / object) → `[]`; valid string array unchanged; non-string entries filtered out without throwing; returns a fresh array (not a reference to input).
+- [x] Implement: `parseHiddenActionIds` in `src/visibility.ts`.
+- [x] Test (RED): `partitionVisibleAndHidden(actions, hiddenIds): { visible, hidden }` — 5 cases — all visible; all hidden; mixed (order preserved per bucket); empty actions list; hidden ids that don't match any action.
+- [x] Implement: `partitionVisibleAndHidden` in `src/visibility.ts`.
 
 **Settings + registry plumbing**
 
