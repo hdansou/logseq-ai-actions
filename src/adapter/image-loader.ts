@@ -16,7 +16,7 @@ export type LoadImageAssetResult =
  * Strategy (each step logs `[ai-actions] image-loader: ...` so failures
  * can be diagnosed from the user's console):
  *
- *   (1) postMessage → `apis.doAction([':readFileRaw', path])` — primary on
+ *   (1) postMessage → `apis.doAction(['readFileRaw', path])` — primary on
  *       Desktop. Reads the file via Node's `fs.readFileSync` in the main
  *       process and returns a Buffer. We get bytes back via the Postmate
  *       caller (cross-origin-safe). Why not the SDK's `Request._request`?
@@ -30,7 +30,7 @@ export type LoadImageAssetResult =
  *       `logseq/src/electron/electron/handler.cljs:88` and uses
  *       `fs.readFileSync` directly — bypasses node-fetch.
  *
- *       Path: `_execCallableAPIAsync('doAction', [':readFileRaw', path])`.
+ *       Path: `_execCallableAPIAsync('doAction', ['readFileRaw', path])`.
  *       The `safeSnakeCase` lookup chain in
  *       `logseq/libs/src/common.ts:invokeHostExportedApi` resolves
  *       `'doAction'` to `window.apis.doAction` on the host (since
@@ -98,7 +98,11 @@ async function tryReadFileRawIPC(url: string, mimeType: string): Promise<LoadIma
 
   let raw: unknown;
   try {
-    raw = await exec("doAction", [":readFileRaw", fsPath]);
+    // No leading colon — host dispatcher does `(keyword (first args))` and
+    // `(keyword ":readFileRaw")` in ClojureScript yields a keyword whose
+    // name is `":readFileRaw"`, not `:readFileRaw`. The SDK's own internals
+    // (`apis.doAction(["readFile", path])`) follow the same convention.
+    raw = await exec("doAction", ["readFileRaw", fsPath]);
   } catch (err) {
     console.warn("[ai-actions] image-loader: readFileRaw IPC threw", err);
     return { ok: false, reason: "fetch-failed" };
