@@ -283,18 +283,38 @@ Mechanism:
 Path translation: `Assets.makeUrl` returns `file:///abs/path`. Strip `file://` and `decodeURIComponent` to get the filesystem path. Windows: `file:///C:/Users/...` → drop the leading `/` before the drive letter.
 
 - [x] Implement: replace `tryPostmateExperRequestBase64` with `tryReadFileRawIPC` + `fileUrlToPath` + `toUint8Array` helpers in `src/adapter/image-loader.ts`. The `:readFileRaw` keyword is passed verbatim with its colon (the host dispatcher keywordises the first arg).
-- [-] Test (no DOM in Vitest).
-- [ ] Manual verify (marketplace zip install): `/AI Generate Title` returns 3 candidates; console shows `readFileRaw IPC succeeded (<N> bytes)`.
-- [ ] Manual verify: `/AI Extract Image Text` succeeds on a screenshot block.
+- [-] Test (no DOM in Vitest) — superseded by v1.1.2: pure helpers extracted and tested in `src/adapter/image-loader.test.ts`.
+- [-] Manual verify (marketplace zip install) — superseded by v1.1.2 (the v1.0.5 → v1.1.1 stack still produced transit-encoded bytes the loader couldn't decode).
+- [-] Manual verify: `/AI Extract Image Text` — superseded by v1.1.2.
 - [-] Manual verify (Windows): not accessible.
 - [x] Docs: REQUIREMENTS §6, AGENTS.md updated.
 - [x] Changelog: `.changeset/vision-readfileraw.md`.
-- [ ] Version bump to `v1.0.5`; tag + push.
+- [x] Version bump to `v1.0.5`; tag + push.
 - [-] Manual verify (Logseq Web): not accessible in this session; deferred.
-- [x] Docs: REQUIREMENTS §6 — rewritten loader description (this entry).
-- [x] Docs: AGENTS.md — replace v1.0.1 fetch-permissive landmine with the IPC path landmine (read source, don't trust the .d.ts).
-- [x] Changelog: `.changeset/vision-asset-loader-ipc-fix.md`.
-- [ ] Version bump to `v1.0.2`; tag + push.
+
+### Vision asset loader — `js-obj` flag — v1.1.2 (2026-05-08)
+
+Bug: v1.1.1 corrected the colon convention but the loader still failed silently on filesystem-loaded installs (and would have failed the same way on marketplace zips). Cause was orthogonal: Logseq's IPC dispatcher (`set-ipc-handler!` in `logseq/src/electron/electron/handler.cljs:531`) wraps every result with `sqlite-util/write-transit-str` *unless* the inbound message ends with the `:js-obj` flag. So `(utils/read-file-raw path)` returned a Node Buffer that was transit-encoded into a string of the form `["~#'", "~b<base64>"]` before crossing Postmate. Our `toUint8Array` returned `null` for that string (correctly — it isn't bytes), and the warn that would have surfaced the failure was filtered out of the user's console by the default level filter.
+
+Verified empirically by direct CDP probe in the plugin frame on 2026-05-08:
+- `await logseq._execCallableAPIAsync('doAction', ['readFileRaw', path])` → transit string (broken).
+- `await logseq._execCallableAPIAsync('doAction', ['readFileRaw', path, 'js-obj'])` → `Uint8Array(1178431)` with the correct PNG magic bytes (working).
+
+Fix: append `'js-obj'` as the trailing flag on the IPC args. The dispatcher then returns `(bean/->js result)` — Buffer is a `Uint8Array` subclass and survives Postmate structured-clone intact, so our existing `toUint8Array` accepts it directly. One-line change plus a doc comment explaining the wire-format gotcha.
+
+TDD ordering — pure helpers extracted and tested first; orchestrator unchanged behavioural-shape so manual verify continues to be the gate (Vitest is `environment: "node"`, no DOM).
+
+- [x] Test (RED): `src/adapter/image-loader.test.ts` covering `toUint8Array` (Uint8Array passthrough, ArrayBuffer wrap, `{type:'Buffer',data:[…]}` envelope, **transit-string rejection regression guard**, null/undefined/empty rejection) and `fileUrlToPath` (strip + percent-decode, Windows drive-letter normalisation, blob:/http: reject). 13 cases.
+- [x] Implement: export `fileUrlToPath` and `toUint8Array` from `src/adapter/image-loader.ts`; append `'js-obj'` to the IPC args in `tryReadFileRawIPC`. Comment block updated to reference `handler.cljs:531`.
+- [x] Manual verify (filesystem-loaded unpacked install on Logseq Desktop, 2026-05-08): `/AI Generate Title` returns 3 candidate titles; CDP probe confirmed bytes arrive as a `Uint8Array`.
+- [ ] Manual verify (marketplace zip install): `/AI Generate Title` returns 3 candidates without the "Could not read the image bytes" toast.
+- [ ] Manual verify: `/AI Extract Image Text` succeeds on a screenshot block.
+- [-] Manual verify (Logseq Web): blob:-URL `fetch` path unchanged; deferred.
+- [-] Manual verify (Windows): not accessible.
+- [x] Docs: REQUIREMENTS §6 — `js-obj` flag rationale folded into the loader description.
+- [x] Docs: AGENTS.md — new landmine: "doAction returns are transit-encoded by default; pass `'js-obj'` flag for raw JS values".
+- [x] Changelog: `.changeset/vision-readfileraw-jsobj.md` (patch bump).
+- [x] Version bump to `v1.1.2`; tag + push.
 
 ### Theme integration — light/dark sync (2026-05-02)
 
@@ -351,6 +371,41 @@ TDD ordering — pure helpers first (RED → GREEN → REFACTOR), settings + reg
 - [x] README — new §5 "Hide actions you don't use" added under "Add your own actions"; mentions the slash-command session caveat in the same paragraph as the existing user-action one.
 - [-] AGENTS.md — skipped. The slash-command deregister landmine is already documented in README §4 (user actions); duplicating into AGENTS.md doesn't add signal.
 - [x] Changelog: `.changeset/hide-actions.md` (minor bump). `[Unreleased]` entry will be folded in by `pnpm changeset version` at release time.
+
+### Keybindings — optional `keybinding` field on actions (2026-05-07)
+
+Branch: `feat/keybindings`. Goal: let users define and modify keyboard shortcuts for AI actions. Scope locked at: register-only — no defaults shipped on seed actions; users assign shortcuts via Logseq's built-in **Settings → Keymap** UI (every command-palette entry already shows up there). User-defined actions in JSON gain an optional `keybinding` field so a binding travels with the action across graphs and exports.
+
+Decision (2026-05-07): no default chord prefix on seed actions, since any prefix risks colliding with Logseq core or other plugins; all 13 seed actions already register via `registerCommandPalette` so they appear in Keymap for user assignment. The schema-level `keybinding` field exists primarily for portable user actions; the Manage Actions UI exposes it as a plain string input.
+
+**Pure core**
+
+- [x] Test (RED): `src/action.test.ts` — `keybinding` accepts `string` (e.g. `"mod+shift+a g"`), accepts object form `{ binding, mode?, mac? }`, accepts `binding: string[]`, omitted is fine, empty string rejected, empty `binding: []` rejected, unknown `mode` rejected, non-string members rejected.
+- [x] Implement: `KeybindingSchema` union in `src/action.ts`; add `keybinding: KeybindingSchema.optional()` to `ActionSchema`. No transform — the schema preserves the user's shape (string vs object) so the JSON round-trip is identity.
+- [x] Test (RED): `normalizeKeybinding(kb)` pure helper in `src/action.ts` — `string → { binding, mode: 'global' }`; object → fills missing `mode` to `'global'`, preserves `mac`; `undefined → undefined`. 4 cases.
+- [x] Implement: `normalizeKeybinding` so `index.ts` and tests share one boundary normalizer.
+
+**Registration plumbing**
+
+- [x] Implement: in `src/index.ts`, when `action.keybinding` is set, pass `normalizeKeybinding(action.keybinding)` as the `keybinding` field on `registerCommandPalette({ key, label, keybinding })`. Same caveat as title/prompt edits — keybinding changes on an existing action's id only take effect on plugin reload because `registeredInvocationIds.has(action.id)` skips re-registration; a new id always picks up the binding.
+
+**UI — Manage Actions panel**
+
+- [x] Implement: add `keybinding: string` to `DraftAction` + `BLANK_DRAFT`; `draftFrom` reads `action.keybinding` (string form) or stringifies object form for display. Empty string at save time omits the field. Shared `draftToCandidate` helper strips the empty value before schema validation/parse.
+- [x] Implement: `DetailEditor.tsx` — new `Keybinding (optional)` input under the Output mode field; placeholder `e.g. mod+shift+a g`; hint mentions Logseq Keymap overrides.
+- [x] Implement: `DetailReadonly.tsx` — display the binding for built-ins (currently always undefined; future-proof in case a built-in gets one).
+- [x] Implement: `ManageActionsPanel.saveEditor` — drop empty `keybinding` from the saved object so the JSON stays compact.
+
+**Manual verify**
+
+- [x] Logseq Web smoke test (2026-05-07): plugin loaded with 13 actions, no errors. Set `userActionsJson` to a single test action `{"id":"test-bind","keybinding":"mod+shift+a t",…}` then reloaded — Logseq's host emitted `:shortcut/register-shortcut … :keybinding {:binding mod+shift+a t, :mode global}` with the action's handler attached. Confirms schema acceptance + `normalizeKeybinding` + `registerCommandPalette` pass-through end-to-end. Pre-existing seed-action ids surface "duplicate registration" errors on reload — known Logseq Web reload caveat, unrelated to this feature.
+- [ ] User-confirmed end-to-end on Logseq Desktop against `pnpm build`: (1) Override an action's binding in **Settings → Keymap**, confirm the user's chord fires the action. (2) Override the same action's binding in Keymap, confirm it wins over the action JSON. (3) Confirm a `keybinding` set on a user action survives plugin reload + Logseq restart.
+
+**Docs**
+
+- [x] README — new §6 "Keyboard shortcuts" under "Add your own actions"; covers the Keymap UI override path, the schema field, the reload caveat.
+- [x] REQUIREMENTS — new §17 documenting the field shape + register-only stance.
+- [x] Changeset: `.changeset/keybindings.md` (minor bump).
 
 ## Deferred / v2 candidates
 

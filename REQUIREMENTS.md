@@ -108,8 +108,8 @@ Additional behaviours:
 - One-click undo (in-session revert of pre-action content).
 - Streaming updates live into block (replace mode) or into "proposed" side (diff panel).
 - Vision-kind actions take an entirely separate runtime path (`runVisionAction`) that reads asset bytes from `assets/<uuid>.<ext>`, base64-encodes them, and POSTs an OpenAI-multimodal `messages` body to the same `/v1/chat/completions` endpoint. They dispatch on `outputMode` for the write step (picker-replace vs. outline-append at present).
-- The asset-byte loader (`src/adapter/image-loader.ts`) routes through Logseq's postMessage caller via `logseq._execCallableAPIAsync("doAction", [":readFileRaw", path])`. `Assets.makeUrl` returns `file:///abs/path` on Electron (`logseq/src/main/frontend/handler/assets.cljs:154`), and the plugin iframe runs at the `lsp://logseq.io/...` origin cross-origin with the Logseq main window, so `fetch(file://)` and `<img src="file://">` both hit Chromium's "Not allowed to load local resource". `logseq.Request._request` is unavailable in this configuration: it uses `Experiments.invokeExperMethod` → `ensureHostScope()` which synchronously reads `parent.window.logseq`, and that property access throws `SecurityError` cross-origin. `:httpRequest` (the IPC handler `Request._request` would have hit) is wrong for `file://` because Logseq pins `node-fetch@3.3.2` which rejects `file://` URLs. `:readFileRaw` (`logseq/src/electron/electron/handler.cljs:88`) uses `fs.readFileSync` directly and returns a Node Buffer — bypasses node-fetch entirely. The Postmate-based caller (`logseq/libs/src/LSPlugin.caller.ts`) uses `window.postMessage` which is cross-origin-safe; the call resolves `"doAction"` to `window.apis.doAction` via the snake-case lookup chain in `logseq/libs/src/common.ts:invokeHostExportedApi`, which `ipcRenderer.invoke("main", [...])` to the main-process dispatcher, which keywordises the first arg and routes to `:readFileRaw`. The Buffer flows back through structured-clone IPC + Postmate; we Blob/FileReader it to base64 in the plugin. Renderer-side `fetch` and `<img>+canvas` are kept as fallbacks for Logseq Web.
-- Returns a discriminated `{ ok: true, … } | { ok: false, reason, hint? }` (reasons: `no-path`, `no-type`, `unsupported-mime`, `makeurl-failed`, `fetch-failed`, `decode-failed`) so `runVisionAction`'s toast names the actual failure instead of the generic "path or asset type unrecognised". Pure `describeOriginMismatch(origin, url)` adds a last-resort hint when every read path fails and the plugin is on an HTTP origin reading a `file://` URL. **Lesson from v1.0.1 (superseded by v1.0.2):** the SDK does have a documented bytes-read path — `Request._request` with `returnType: "base64"`. Earlier we claimed `IAssetsProxy` was the only surface and shipped a fetch + `<img>+canvas` strategy; both paths are blocked on Desktop and the "empirical verification" was wrong (canvas fallback never had a chance). Always read Logseq's source, not just the plugin SDK `.d.ts`, when an SDK guarantee looks too thin.
+- The asset-byte loader (`src/adapter/image-loader.ts`) routes through Logseq's postMessage caller via `logseq._execCallableAPIAsync("doAction", ["readFileRaw", path, "js-obj"])`. `Assets.makeUrl` returns `file:///abs/path` on Electron (`logseq/src/main/frontend/handler/assets.cljs:154`), and the plugin iframe runs at the `lsp://logseq.io/...` origin cross-origin with the Logseq main window, so `fetch(file://)` and `<img src="file://">` both hit Chromium's "Not allowed to load local resource". `logseq.Request._request` is unavailable in this configuration: it uses `Experiments.invokeExperMethod` → `ensureHostScope()` which synchronously reads `parent.window.logseq`, and that property access throws `SecurityError` cross-origin. `:httpRequest` (the IPC handler `Request._request` would have hit) is wrong for `file://` because Logseq pins `node-fetch@3.3.2` which rejects `file://` URLs. `:readFileRaw` (`logseq/src/electron/electron/handler.cljs:79`) uses `fs.readFileSync` directly and returns a Node Buffer — bypasses node-fetch entirely. The Postmate-based caller (`logseq/libs/src/LSPlugin.caller.ts`) uses `window.postMessage` which is cross-origin-safe; the call resolves `"doAction"` to `window.apis.doAction` via the snake-case lookup chain in `logseq/libs/src/common.ts:invokeHostExportedApi`, which `ipcRenderer.invoke("main", [...])` to the main-process dispatcher, which keywordises the first arg and routes to `:readFileRaw`. The trailing `"js-obj"` flag is critical: without it, `set-ipc-handler!` (`logseq/src/electron/electron/handler.cljs:531`) wraps the result with `sqlite-util/write-transit-str`, so the Buffer comes back as a transit-encoded string of the form `["~#'", "~b<base64>"]` and the loader can't decode it. With the flag, the dispatcher returns `(bean/->js result)` — Buffer is a `Uint8Array` subclass and survives Postmate structured-clone intact. We Blob/FileReader it to base64 in the plugin. Renderer-side `fetch` and `<img>+canvas` are kept as fallbacks for Logseq Web.
+- Returns a discriminated `{ ok: true, … } | { ok: false, reason, hint? }` (reasons: `no-path`, `no-type`, `unsupported-mime`, `makeurl-failed`, `fetch-failed`, `decode-failed`) so `runVisionAction`'s toast names the actual failure instead of the generic "path or asset type unrecognised". Pure `describeOriginMismatch(origin, url)` adds a last-resort hint when every read path fails and the plugin is on an HTTP origin reading a `file://` URL. **Lesson from v1.1.2:** matching the IPC keyword (`:readFileRaw`) and reaching the right handler isn't enough — Logseq's IPC dispatcher transit-encodes returns by default. v1.0.5 → v1.1.1 fought the keyword/colon mechanics and never noticed the bytes were arriving as a string (`toUint8Array` correctly returned null; the diagnostic warn was filtered out by the user's console levels). Always probe the IPC return shape directly when an "it should work" path fails.
 
 ## 7. Extensibility
 
@@ -321,3 +321,36 @@ Shadowing happens first; hide applies to whatever's effective:
 - Drag-and-drop between sections (button-only).
 - Sort / filter options inside the Hidden section.
 - Per-graph vs. global hidden state — v1 follows the rest of the plugin (per-graph).
+
+## 17. Keybindings
+
+### Approach
+
+Every action — built-in or user-defined — already registers as a `logseq.App.registerCommandPalette` entry with a stable key (`logseq-ai-actions/<id>`). Those entries appear automatically in Logseq's **Settings → Keyboard shortcuts** UI, where users can assign or rebind any chord with no extra plugin work. That's the primary surface for end-user customisation; the plugin layers an optional schema field on top for portable defaults inside user-action JSON.
+
+### No shipped defaults on seed actions
+
+The plugin does NOT ship a default keybinding for any built-in action. Reasoning: any single-key or chord-prefix default risks colliding with Logseq core or another plugin in someone's setup. Asking users to assign their own chord via the keymap UI is one click per action and produces a binding that survives plugin reloads, plugin updates, and Logseq's "reset shortcuts" flow.
+
+### Schema field on `Action`
+
+Optional `keybinding` field accepts:
+
+- **String form** — a Logseq chord string (e.g. `"mod+shift+a g"`). Sugar that expands at registration time to `{ binding: <string>, mode: "global" }`.
+- **Object form** — `{ binding: string | string[], mode?: 'global' | 'non-editing' | 'editing', mac?: string }`, mirroring Logseq's `SimpleCommandKeybinding`. Empty `binding` arrays and empty strings are rejected by the schema.
+
+The schema PRESERVES whichever shape was authored — JSON round-trip through the Manage panel is identity for the object form when the user keeps the JSON textarea as their authoring surface. The Manage panel's inline `Keybinding` input collapses object forms to their primary chord string when displayed, so editing in the panel reduces an object form to a string.
+
+### Registration boundary
+
+`normalizeKeybinding(action.keybinding)` (pure, in `src/action.ts`) converts both forms into the SDK's `SimpleCommandKeybinding` shape and is passed as the `keybinding` option on `registerCommandPalette`. Logseq's keymap UI overrides whatever the plugin registers, so the field is a default, not a lock.
+
+### Reload caveat
+
+`registeredInvocationIds` in `src/index.ts` is a one-shot guard that prevents the same action id from registering twice in the same session. Consequence: changing the `keybinding` on an existing action — just like changing its title or prompt — only takes effect on the NEXT plugin reload. Adding a new action with a `keybinding` always picks the binding up immediately. This is the same caveat that already applies to slash command and palette label edits.
+
+### Out of scope for this iteration
+
+- Default keybindings on seed actions (decision locked above; revisit only if user feedback shows the empty default is a real friction point).
+- Per-graph keybinding overrides — Logseq's keymap UI is global; plugin-side `keybinding` defaults are global by virtue of riding on `registerCommandPalette`. A graph-scoped override layer is not on the v1 roadmap.
+- A keybinding-capture widget in the Manage panel (e.g. "press your chord to set"). The plain text input is shippable; a capture widget can come later if users hit syntax-friction.

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.1.2
+
+### Patch Changes
+
+- Vision actions: pass `"js-obj"` flag on the `:readFileRaw` IPC so bytes arrive as a `Uint8Array` instead of a transit-encoded string
+
+  v1.1.1 corrected the keyword-colon convention but the loader still failed
+  silently. Logseq's IPC dispatcher (`set-ipc-handler!` in
+  `logseq/src/electron/electron/handler.cljs:531`) wraps every result with
+  `sqlite-util/write-transit-str` unless the inbound message ends with the
+  `"js-obj"` flag — so the Node Buffer that `:readFileRaw` returned came
+  back over Postmate as the string `["~#'", "~b<base64>"]`, which the
+  loader correctly rejected as non-bytes. The diagnostic `console.warn`
+  was masked by the user's default console level filter, making the
+  failure mode look identical to the "fetch blocked" path it falls through
+  to.
+
+  Fix: append `"js-obj"` to the IPC args. The dispatcher then returns
+  `(bean/->js result)` and Buffer (a `Uint8Array` subclass) survives
+  structured-clone intact, hitting our existing `toUint8Array` happy path.
+
+  Adds regression-guard tests for the pure helpers
+  (`src/adapter/image-loader.test.ts`): `toUint8Array` rejects
+  transit-encoded strings, accepts `Uint8Array` / `ArrayBuffer` /
+  Node-Buffer-envelope shapes; `fileUrlToPath` strips `file://`,
+  percent-decodes, and normalises Windows drive-letter paths.
+
 ## 1.1.1
 
 ### Patch Changes

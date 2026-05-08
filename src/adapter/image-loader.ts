@@ -102,7 +102,16 @@ async function tryReadFileRawIPC(url: string, mimeType: string): Promise<LoadIma
     // `(keyword ":readFileRaw")` in ClojureScript yields a keyword whose
     // name is `":readFileRaw"`, not `:readFileRaw`. The SDK's own internals
     // (`apis.doAction(["readFile", path])`) follow the same convention.
-    raw = await exec("doAction", ["readFileRaw", fsPath]);
+    //
+    // Trailing `"js-obj"` flag opts out of transit-cljs serialisation on
+    // the return value. Without it, `set-ipc-handler!` wraps the result
+    // with `sqlite-util/write-transit-str`, so a Node Buffer comes back
+    // as a transit-encoded string `["~#'", "~b<base64>"]` and our
+    // `toUint8Array` rejects it. With the flag, the dispatcher returns
+    // `bean/->js result` — Buffer is a Uint8Array subclass and survives
+    // structured-clone through Postmate intact. See
+    // `logseq/src/electron/electron/handler.cljs:531`.
+    raw = await exec("doAction", ["readFileRaw", fsPath, "js-obj"]);
   } catch (err) {
     console.warn("[ai-actions] image-loader: readFileRaw IPC threw", err);
     return { ok: false, reason: "fetch-failed" };
@@ -138,7 +147,7 @@ async function tryReadFileRawIPC(url: string, mimeType: string): Promise<LoadIma
  * Windows-style `file:///C:/...` by dropping the leading slash before the
  * drive letter.
  */
-function fileUrlToPath(url: string): string | null {
+export function fileUrlToPath(url: string): string | null {
   if (!url.startsWith("file://")) return null;
   let parsed: URL;
   try {
@@ -151,7 +160,7 @@ function fileUrlToPath(url: string): string | null {
   return p;
 }
 
-function toUint8Array(value: unknown): Uint8Array | null {
+export function toUint8Array(value: unknown): Uint8Array | null {
   if (value instanceof Uint8Array) return value;
   if (
     typeof ArrayBuffer !== "undefined" &&
