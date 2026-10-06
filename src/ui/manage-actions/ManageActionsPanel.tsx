@@ -1,4 +1,4 @@
-import type { FunctionComponent } from "preact";
+import type { ComponentChildren, FunctionComponent } from "preact";
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { type Action, ActionSchema } from "../../action";
 import { parseUserActions } from "../../registry";
@@ -8,6 +8,7 @@ import { DetailEditor } from "./DetailEditor";
 import { DetailReadonly } from "./DetailReadonly";
 import { HiddenSection } from "./HiddenSection";
 import { ImportView } from "./ImportView";
+import { buildHiddenRows, mergeImported, uniqueCopyId, validateDraft } from "./logic";
 import { ManageRoot } from "./ManageRoot";
 import { OverflowMenu } from "./OverflowMenu";
 import {
@@ -99,29 +100,10 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
     [userActions, query, hiddenSet],
   );
 
-  // Hidden bin: one row per hidden id; user shadow wins, otherwise the
-  // built-in. Built-ins first (seed order), then orphan user actions.
-  // Ids in `hiddenIds` that no longer match any action (e.g., user
-  // deleted a custom action that was hidden) are silently dropped — the
-  // entry stays in storage so a re-imported action restores its hidden
-  // state, but there's nothing to render.
-  const hiddenRows = useMemo<readonly { source: "builtin" | "user"; action: Action }[]>(() => {
-    if (hiddenIds.length === 0) return [];
-    const userById = new Map(userActions.map((u) => [u.id, u]));
-    const builtinById = new Map(builtin.map((b) => [b.id, b]));
-    const rows: { source: "builtin" | "user"; action: Action }[] = [];
-    for (const b of builtin) {
-      if (!hiddenSet.has(b.id)) continue;
-      const shadow = userById.get(b.id);
-      rows.push(shadow ? { source: "user", action: shadow } : { source: "builtin", action: b });
-    }
-    for (const u of userActions) {
-      if (!hiddenSet.has(u.id)) continue;
-      if (builtinById.has(u.id)) continue; // already rendered as a shadow above
-      rows.push({ source: "user", action: u });
-    }
-    return rows;
-  }, [hiddenIds, hiddenSet, builtin, userActions]);
+  const hiddenRows = useMemo(
+    () => buildHiddenRows(builtin, userActions, hiddenIds),
+    [builtin, userActions, hiddenIds],
+  );
 
   const filteredHidden = useMemo(
     () =>
@@ -208,42 +190,20 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
   const duplicateBuiltin = (id: string) => {
     const b = builtin.find((x) => x.id === id);
     if (!b) return;
-    let newId = `${b.id}-copy`;
-    let n = 2;
-    while (userIds.has(newId) || builtinIds.has(newId)) {
-      newId = `${b.id}-copy-${n}`;
-      n += 1;
-    }
+    const newId = uniqueCopyId(b.id, new Set([...userIds, ...builtinIds]));
     const next = draftFrom({ ...b, id: newId, title: `${b.title} (copy)` });
     setDraft(next);
     setErrors({});
     setView({ kind: "create" });
   };
 
-  const validateDraft = (d: DraftAction, exceptIndex: number | null): Record<string, string> => {
-    const errs: Record<string, string> = {};
-    const parsed = ActionSchema.safeParse(d);
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) {
-        const field = String(issue.path[0] ?? "");
-        if (field && !errs[field]) errs[field] = issue.message;
-      }
-    }
-    if (d.id) {
-      if (userActions.some((a, i) => a.id === d.id && i !== exceptIndex)) {
-        errs.id = "Another user action already uses this id.";
-      } else if (builtinIds.has(d.id) && exceptIndex === null) {
-        // Allow shadowing on intent, but warn when it's almost certainly a mistake.
-        errs.id = `Id "${d.id}" matches a built-in. Pick a different id, or proceed to shadow it (clear this warning by picking a unique id).`;
-      }
-    }
-    return errs;
-  };
+  const errorsFor = (d: DraftAction, exceptIndex: number | null) =>
+    validateDraft(d, { userActions, builtinIds, exceptIndex });
 
   const liveErrors = useMemo(() => {
     if (view.kind !== "edit" && view.kind !== "create") return {};
     const exceptIndex = view.kind === "edit" ? view.index : null;
-    return validateDraft(draft, exceptIndex);
+    return errorsFor(draft, exceptIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, view, userActions]);
 
@@ -252,7 +212,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
   const saveEditor = () => {
     if (view.kind !== "edit" && view.kind !== "create") return;
     const exceptIndex = view.kind === "edit" ? view.index : null;
-    const errs = validateDraft(draft, exceptIndex);
+    const errs = errorsFor(draft, exceptIndex);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
       return;
@@ -310,24 +270,26 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
       setStatus(`Import failed: ${parseErrors[0] ?? "unknown parse error"}`);
       return;
     }
-    const existingIds = new Set(userActions.map((a) => a.id));
-    const incoming: Action[] = [];
-    let skipped = 0;
-    for (const a of parsed) {
-      if (existingIds.has(a.id)) {
-        skipped += 1;
-        continue;
-      }
-      existingIds.add(a.id);
-      incoming.push(a);
-    }
-    setUserActions([...userActions, ...incoming]);
-    const pieces = [`imported ${incoming.length}`];
+    const { merged, imported, skipped } = mergeImported(userActions, parsed);
+    setUserActions(merged);
+    const pieces = [`imported ${imported}`];
     if (skipped > 0) pieces.push(`${skipped} skipped (id already exists)`);
     if (parseErrors.length > 0) pieces.push(`${parseErrors.length} invalid`);
     setStatus(pieces.join(" · "));
     setView({ kind: "gallery" });
   };
+
+  const deleteConfirm = (onConfirm: () => void) =>
+    deleteIndex === null ? null : (
+      <ConfirmOverlay
+        title={`Delete "${userActions[deleteIndex]?.title || userActions[deleteIndex]?.id || ""}"?`}
+        message="This removes the action from your list. The slash command, palette entry, and context-menu item stay registered until you reload the plugin (Logseq has no deregister API). Invoking a removed action shows a 'no longer available' toast."
+        confirmLabel="Delete"
+        danger
+        onCancel={cancelDelete}
+        onConfirm={onConfirm}
+      />
+    );
 
   // ─── View rendering ───
   if (view.kind === "edit" || view.kind === "create") {
@@ -344,19 +306,10 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
           onSave={saveEditor}
           {...(view.kind === "edit" ? { onDelete: () => requestDelete(view.index) } : {})}
         />
-        {deleteIndex !== null ? (
-          <ConfirmOverlay
-            title={`Delete "${userActions[deleteIndex]?.title || userActions[deleteIndex]?.id || ""}"?`}
-            message="This removes the action from your list. The slash command, palette entry, and context-menu item stay registered until you reload the plugin (Logseq has no deregister API). Invoking a removed action shows a 'no longer available' toast."
-            confirmLabel="Delete"
-            danger
-            onCancel={cancelDelete}
-            onConfirm={() => {
-              confirmDelete();
-              setView({ kind: "gallery" });
-            }}
-          />
-        ) : null}
+        {deleteConfirm(() => {
+          confirmDelete();
+          setView({ kind: "gallery" });
+        })}
       </ManageRoot>
     );
   }
@@ -429,10 +382,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
             <div class="manage-section-header">
               <span class="manage-section-label">Built-in</span>
             </div>
-            <div
-              class="manage-row-list"
-              style={`--row-count:${Math.max(1, Math.ceil(filteredBuiltin.length / 2))}`}
-            >
+            <RowList count={filteredBuiltin.length}>
               {sortByTitle(filteredBuiltin).map((a) => {
                 const shadowed = userActions.some((u) => u.id === a.id);
                 return (
@@ -446,7 +396,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
                   />
                 );
               })}
-            </div>
+            </RowList>
           </>
         ) : null}
 
@@ -461,10 +411,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
         ) : filteredUser.length === 0 && query.trim().length > 0 ? (
           <p class="manage-row-empty-search">No user actions match "{query}".</p>
         ) : (
-          <div
-            class="manage-row-list"
-            style={`--row-count:${Math.max(1, Math.ceil(filteredUser.length / 2))}`}
-          >
+          <RowList count={filteredUser.length}>
             {sortByTitle(filteredUser).map((a) => {
               // The displayed list is sorted, but edit/delete still need to
               // target the original position in `userActions` so the JSON
@@ -481,7 +428,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
                 />
               );
             })}
-          </div>
+          </RowList>
         )}
 
         <HiddenSection
@@ -489,10 +436,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
           open={hiddenOpen}
           onToggle={() => setHiddenOpen((v) => !v)}
         >
-          <div
-            class="manage-row-list"
-            style={`--row-count:${Math.max(1, Math.ceil(filteredHidden.length / 2))}`}
-          >
+          <RowList count={filteredHidden.length}>
             {filteredHidden.map(({ source, action: a }) => (
               <ActionRow
                 key={`h-${a.id}`}
@@ -508,7 +452,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
                 }}
               />
             ))}
-          </div>
+          </RowList>
         </HiddenSection>
       </div>
 
@@ -533,16 +477,7 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
         </button>
       </footer>
 
-      {deleteIndex !== null ? (
-        <ConfirmOverlay
-          title={`Delete "${userActions[deleteIndex]?.title || userActions[deleteIndex]?.id || ""}"?`}
-          message="This removes the action from your list. The slash command, palette entry, and context-menu item stay registered until you reload the plugin (Logseq has no deregister API). Invoking a removed action shows a 'no longer available' toast."
-          confirmLabel="Delete"
-          danger
-          onCancel={cancelDelete}
-          onConfirm={confirmDelete}
-        />
-      ) : null}
+      {deleteConfirm(confirmDelete)}
 
       {discardOpen ? (
         <ConfirmOverlay
@@ -569,3 +504,13 @@ export const ManageActionsPanel: FunctionComponent<ManageActionsPanelProps> = ({
     </ManageRoot>
   );
 };
+
+/** Two-column action grid; `--row-count` lets the CSS size rows column-first. */
+const RowList: FunctionComponent<{ count: number; children: ComponentChildren }> = ({
+  count,
+  children,
+}) => (
+  <div class="manage-row-list" style={`--row-count:${Math.max(1, Math.ceil(count / 2))}`}>
+    {children}
+  </div>
+);
