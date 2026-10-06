@@ -50,9 +50,7 @@ describe("createNetFetch", () => {
 
     await netFetch(new URL("http://localhost:8888/v1/models"));
 
-    expect((request.mock.calls[0]?.[0] as { url: string }).url).toBe(
-      "http://localhost:8888/v1/models",
-    );
+    expect(request.mock.calls[0]?.[0]?.url).toBe("http://localhost:8888/v1/models");
   });
 
   it("passes the abort signal through to Net", async () => {
@@ -62,7 +60,7 @@ describe("createNetFetch", () => {
 
     await netFetch("http://x/y", { method: "POST", body: "{}", signal: controller.signal });
 
-    expect((request.mock.calls[0]?.[0] as { signal?: AbortSignal }).signal).toBe(controller.signal);
+    expect(request.mock.calls[0]?.[0]?.signal).toBe(controller.signal);
   });
 
   it("returns a body that can be read as a stream (SSE parser contract)", async () => {

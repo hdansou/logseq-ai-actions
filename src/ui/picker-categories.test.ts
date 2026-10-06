@@ -61,14 +61,12 @@ describe("categorizeAction", () => {
   });
 
   describe("custom", () => {
-    it.each([
-      "translate",
-      "explain",
-      "make-toc",
-      "my-custom-thing",
-    ])("%s (no prefix match) → custom", (id) => {
-      expect(categorizeAction(a(id))).toBe("custom");
-    });
+    it.each(["translate", "explain", "make-toc", "my-custom-thing"])(
+      "%s (no prefix match) → custom",
+      (id) => {
+        expect(categorizeAction(a(id))).toBe("custom");
+      },
+    );
 
     it("does not treat partial-word matches as prefix matches", () => {
       // "rewriter" is not "rewrite" + "-something" — it should NOT match Rewrite.

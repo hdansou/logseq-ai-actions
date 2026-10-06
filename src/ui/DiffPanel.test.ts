@@ -34,7 +34,7 @@ describe("partitionBarItems", () => {
     expect(items[2]).toMatchObject({ kind: "group", groupId: "rewrite", label: "Rewrite" });
     expect(items[3]).toEqual({ kind: "single", id: "summarize", title: "Summarize" });
     const group = items[2];
-    if (!group || group.kind !== "group") throw new Error("expected group");
+    if (group?.kind !== "group") throw new Error("expected group");
     expect(group.items.map((m) => m.id)).toEqual([
       "rewrite",
       "rewrite-formal",
@@ -62,7 +62,7 @@ describe("partitionBarItems", () => {
     ]);
     expect(items).toHaveLength(1);
     const group = items[0];
-    if (!group || group.kind !== "group") throw new Error("expected group");
+    if (group?.kind !== "group") throw new Error("expected group");
     expect(group.items.map((m) => m.id)).toEqual(["rewrite", "rewrite-snarky"]);
   });
 });
