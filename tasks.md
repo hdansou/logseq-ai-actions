@@ -372,40 +372,33 @@ TDD ordering — pure helpers first (RED → GREEN → REFACTOR), settings + reg
 - [-] AGENTS.md — skipped. The slash-command deregister landmine is already documented in README §4 (user actions); duplicating into AGENTS.md doesn't add signal.
 - [x] Changelog: `.changeset/hide-actions.md` (minor bump). `[Unreleased]` entry will be folded in by `pnpm changeset version` at release time.
 
-### Keybindings — optional `keybinding` field on actions (2026-05-07)
+### Keybindings — Logseq Keymap UI only (2026-05-08)
 
-Branch: `feat/keybindings`. Goal: let users define and modify keyboard shortcuts for AI actions. Scope locked at: register-only — no defaults shipped on seed actions; users assign shortcuts via Logseq's built-in **Settings → Keymap** UI (every command-palette entry already shows up there). User-defined actions in JSON gain an optional `keybinding` field so a binding travels with the action across graphs and exports.
+Goal: let users assign keyboard shortcuts to AI actions. Final scope: **register-only — no plugin authoring surface**. Every action already registers as a `logseq.App.registerCommandPalette` entry with a stable key (`logseq-ai-actions/<id>`), which means it shows up automatically in Logseq's **Settings → Keyboard shortcuts** UI for chord assignment. That's the entire feature — no schema field, no Manage Actions input, no `normalizeKeybinding` helper, no `keybinding` JSON field.
 
-Decision (2026-05-07): no default chord prefix on seed actions, since any prefix risks colliding with Logseq core or other plugins; all 13 seed actions already register via `registerCommandPalette` so they appear in Keymap for user assignment. The schema-level `keybinding` field exists primarily for portable user actions; the Manage Actions UI exposes it as a plain string input.
+**Decision history**
 
-**Pure core**
+- 2026-05-07: drafted schema + normalizer + Manage Actions input + JSON `keybinding` field. Logseq-Web smoke-tested; the SDK's `registerCommandPalette` accepted the keybinding option and the cljs host emitted `:shortcut/register-shortcut`.
+- 2026-05-08: reverted in favour of "Logseq Keymap UI only". Reasoning: the in-plugin authoring path duplicates a UX Logseq already provides (Settings → Keyboard shortcuts), and a JSON-only field is invisible without UI. Smaller surface, less drift, no half-baked input. If portable defaults inside user-action JSON become a real ask later, the schema field can be added back without breaking changes.
 
-- [x] Test (RED): `src/action.test.ts` — `keybinding` accepts `string` (e.g. `"mod+shift+a g"`), accepts object form `{ binding, mode?, mac? }`, accepts `binding: string[]`, omitted is fine, empty string rejected, empty `binding: []` rejected, unknown `mode` rejected, non-string members rejected.
-- [x] Implement: `KeybindingSchema` union in `src/action.ts`; add `keybinding: KeybindingSchema.optional()` to `ActionSchema`. No transform — the schema preserves the user's shape (string vs object) so the JSON round-trip is identity.
-- [x] Test (RED): `normalizeKeybinding(kb)` pure helper in `src/action.ts` — `string → { binding, mode: 'global' }`; object → fills missing `mode` to `'global'`, preserves `mac`; `undefined → undefined`. 4 cases.
-- [x] Implement: `normalizeKeybinding` so `index.ts` and tests share one boundary normalizer.
+**Reverted (2026-05-08, decision above)**
 
-**Registration plumbing**
+- [-] `KeybindingSchema` union + `keybinding` field on `ActionSchema` — reverted.
+- [-] `normalizeKeybinding` helper — reverted.
+- [-] `registerCommandPalette` keybinding pass-through in `src/index.ts` — reverted (registration call back to plain `{ key, label }`).
+- [-] `DraftAction.keybinding`, `keybindingDraftFrom`, `draftToCandidate` in `src/ui/manage-actions/types.ts` — reverted.
+- [-] `Keybinding` input in `DetailEditor.tsx` and read-only display in `DetailReadonly.tsx` — reverted.
+- [-] All keybinding test cases in `src/action.test.ts` — reverted.
 
-- [x] Implement: in `src/index.ts`, when `action.keybinding` is set, pass `normalizeKeybinding(action.keybinding)` as the `keybinding` field on `registerCommandPalette({ key, label, keybinding })`. Same caveat as title/prompt edits — keybinding changes on an existing action's id only take effect on plugin reload because `registeredInvocationIds.has(action.id)` skips re-registration; a new id always picks up the binding.
+**Shipped**
 
-**UI — Manage Actions panel**
-
-- [x] Implement: add `keybinding: string` to `DraftAction` + `BLANK_DRAFT`; `draftFrom` reads `action.keybinding` (string form) or stringifies object form for display. Empty string at save time omits the field. Shared `draftToCandidate` helper strips the empty value before schema validation/parse.
-- [x] Implement: `DetailEditor.tsx` — new `Keybinding (optional)` input under the Output mode field; placeholder `e.g. mod+shift+a g`; hint mentions Logseq Keymap overrides.
-- [x] Implement: `DetailReadonly.tsx` — display the binding for built-ins (currently always undefined; future-proof in case a built-in gets one).
-- [x] Implement: `ManageActionsPanel.saveEditor` — drop empty `keybinding` from the saved object so the JSON stays compact.
+- [x] Docs: REQUIREMENTS §17 — rewritten to "Keymap UI only, no schema field, no in-plugin authoring; reasoning recorded above".
+- [x] Docs: README §6 — covers Settings → Keyboard shortcuts (search for `AI:`) as the sole authoring path; drops the JSON `keybinding` field paragraph and example; drops the `keybinding` row from the user-action JSON field table.
+- [x] Changeset: `.changeset/keybindings.md` rewritten as a patch bump (no schema/API changes; doc-only release).
 
 **Manual verify**
 
-- [x] Logseq Web smoke test (2026-05-07): plugin loaded with 13 actions, no errors. Set `userActionsJson` to a single test action `{"id":"test-bind","keybinding":"mod+shift+a t",…}` then reloaded — Logseq's host emitted `:shortcut/register-shortcut … :keybinding {:binding mod+shift+a t, :mode global}` with the action's handler attached. Confirms schema acceptance + `normalizeKeybinding` + `registerCommandPalette` pass-through end-to-end. Pre-existing seed-action ids surface "duplicate registration" errors on reload — known Logseq Web reload caveat, unrelated to this feature.
-- [ ] User-confirmed end-to-end on Logseq Desktop against `pnpm build`: (1) Override an action's binding in **Settings → Keymap**, confirm the user's chord fires the action. (2) Override the same action's binding in Keymap, confirm it wins over the action JSON. (3) Confirm a `keybinding` set on a user action survives plugin reload + Logseq restart.
-
-**Docs**
-
-- [x] README — new §6 "Keyboard shortcuts" under "Add your own actions"; covers the Keymap UI override path, the schema field, the reload caveat.
-- [x] REQUIREMENTS — new §17 documenting the field shape + register-only stance.
-- [x] Changeset: `.changeset/keybindings.md` (minor bump).
+- [ ] User-confirmed on Logseq Desktop against `pnpm build`: assign a chord to an `AI: …` command in Settings → Keyboard shortcuts; confirm the chord fires the action. Then disable + re-enable the plugin; confirm the binding survives.
 
 ## Deferred / v2 candidates
 

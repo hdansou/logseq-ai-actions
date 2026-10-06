@@ -139,7 +139,7 @@ Each entry needs:
 | `systemPrompt` | The LLM system prompt. Tune for your model — small models need explicit "return ONLY …" instructions. |
 | `description` | Optional, one-line. Shown in the gallery card and the diff-panel header. |
 
-**Hot reload:** editing an existing entry's title or prompt takes effect on the next invocation. Adding or removing entries **requires toggling the plugin off and on** — Logseq has no way to deregister a slash command from a plugin API call.
+**Hot reload:** editing an existing entry's title or prompt takes effect on the next invocation. Adding or removing entries **requires toggling the plugin off and on**. Logseq has no way to deregister a slash command or rebind a palette command from a plugin API call.
 
 **Validation:** invalid entries are skipped silently (your other actions still load); a warning toast + console entry tell you how many were skipped, with the failing index and id. Full detail lives in the console.
 
@@ -150,6 +150,16 @@ The Manage Actions panel has a per-row **Hide** button (visible on hover) for ev
 Hidden actions disappear immediately from the toolbar picker and from the diff-panel "Re-run with another action" dropdown. Slash commands, command-palette entries, and block-context-menu items follow the same caveat as user-action add/remove: they keep responding for the rest of the current Logseq session and only stop registering after a plugin reload (Logseq has no deregister API).
 
 Hidden state is per-graph, stored in the `hiddenActionIds` plugin setting. The Manage panel is the only writer — the gear-icon settings UI doesn't expose it as a separate field on purpose.
+
+### 6. (Optional) Keyboard shortcuts
+
+Every action — built-in or user-defined — registers as a Logseq command, so **every action is bindable from Logseq's built-in keymap UI** without any plugin-side configuration:
+
+1. Open Logseq's **Settings → Keyboard shortcuts** (also reachable via the command palette as "Keyboard shortcuts").
+2. Search for `AI:` to filter to this plugin's commands.
+3. Click the binding cell next to e.g. `AI: Grammar` and press your chord. Single keys, modified keys, and two-key sequences like `g g` are all supported.
+
+Bindings set there persist across plugin reloads. The plugin doesn't ship default shortcuts — any prefix risks colliding with Logseq core or another plugin in some users' setups, and the keymap UI is one click away.
 
 ## Privacy & data egress
 

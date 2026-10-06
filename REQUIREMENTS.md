@@ -324,33 +324,17 @@ Shadowing happens first; hide applies to whatever's effective:
 
 ## 17. Keybindings
 
-### Approach
+Every action — built-in or user-defined — already registers via `logseq.App.registerCommandPalette` with a stable key (`logseq-ai-actions/<id>`). Those entries appear automatically in Logseq's **Settings → Keyboard shortcuts** UI, where users assign or rebind chords. That's the only authoring surface — the plugin does not own keybinding state.
 
-Every action — built-in or user-defined — already registers as a `logseq.App.registerCommandPalette` entry with a stable key (`logseq-ai-actions/<id>`). Those entries appear automatically in Logseq's **Settings → Keyboard shortcuts** UI, where users can assign or rebind any chord with no extra plugin work. That's the primary surface for end-user customisation; the plugin layers an optional schema field on top for portable defaults inside user-action JSON.
+### No shipped defaults
 
-### No shipped defaults on seed actions
+The plugin does NOT ship a default keybinding for any built-in action. Any single-key or chord-prefix default risks colliding with Logseq core or another plugin in someone's setup. Assigning a chord via the keymap UI is one click per action and produces a binding that survives plugin reloads, plugin updates, and Logseq's "reset shortcuts" flow.
 
-The plugin does NOT ship a default keybinding for any built-in action. Reasoning: any single-key or chord-prefix default risks colliding with Logseq core or another plugin in someone's setup. Asking users to assign their own chord via the keymap UI is one click per action and produces a binding that survives plugin reloads, plugin updates, and Logseq's "reset shortcuts" flow.
+### No `Action.keybinding` schema field
 
-### Schema field on `Action`
+Considered (2026-05-07) and rejected (2026-05-08). The field would have let user-action JSON travel a default chord with the action — but the in-plugin authoring path (Manage Actions text input) duplicates a UX Logseq already does better, and the JSON-only path is invisible without a UI. Keymap-UI-only is simpler, lower-surface, and matches user expectations. If portable defaults become a real ask later, the field can be added without breaking changes.
 
-Optional `keybinding` field accepts:
+### Out of scope
 
-- **String form** — a Logseq chord string (e.g. `"mod+shift+a g"`). Sugar that expands at registration time to `{ binding: <string>, mode: "global" }`.
-- **Object form** — `{ binding: string | string[], mode?: 'global' | 'non-editing' | 'editing', mac?: string }`, mirroring Logseq's `SimpleCommandKeybinding`. Empty `binding` arrays and empty strings are rejected by the schema.
-
-The schema PRESERVES whichever shape was authored — JSON round-trip through the Manage panel is identity for the object form when the user keeps the JSON textarea as their authoring surface. The Manage panel's inline `Keybinding` input collapses object forms to their primary chord string when displayed, so editing in the panel reduces an object form to a string.
-
-### Registration boundary
-
-`normalizeKeybinding(action.keybinding)` (pure, in `src/action.ts`) converts both forms into the SDK's `SimpleCommandKeybinding` shape and is passed as the `keybinding` option on `registerCommandPalette`. Logseq's keymap UI overrides whatever the plugin registers, so the field is a default, not a lock.
-
-### Reload caveat
-
-`registeredInvocationIds` in `src/index.ts` is a one-shot guard that prevents the same action id from registering twice in the same session. Consequence: changing the `keybinding` on an existing action — just like changing its title or prompt — only takes effect on the NEXT plugin reload. Adding a new action with a `keybinding` always picks the binding up immediately. This is the same caveat that already applies to slash command and palette label edits.
-
-### Out of scope for this iteration
-
-- Default keybindings on seed actions (decision locked above; revisit only if user feedback shows the empty default is a real friction point).
-- Per-graph keybinding overrides — Logseq's keymap UI is global; plugin-side `keybinding` defaults are global by virtue of riding on `registerCommandPalette`. A graph-scoped override layer is not on the v1 roadmap.
-- A keybinding-capture widget in the Manage panel (e.g. "press your chord to set"). The plain text input is shippable; a capture widget can come later if users hit syntax-friction.
+- Per-graph keybinding overrides — Logseq's keymap UI is global. A graph-scoped override layer is not on the v1 roadmap.
+- A keybinding-capture widget in the Manage panel — superseded by "use Logseq's keymap UI", which already has one.
