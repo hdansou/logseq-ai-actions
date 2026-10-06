@@ -400,6 +400,19 @@ Goal: let users assign keyboard shortcuts to AI actions. Final scope: **register
 
 - [ ] User-confirmed on Logseq Desktop against `pnpm build`: assign a chord to an `AI: …` command in Settings → Keyboard shortcuts; confirm the chord fires the action. Then disable + re-enable the plugin; confirm the binding survives.
 
+### LLM transport — route through `logseq.Net` (2026-10-05)
+
+Bug: against Unsloth Desktop (`http://127.0.0.1:8888/v1`, works from curl) every action failed with `No 'Access-Control-Allow-Origin' header` in the console. `logseqFetch` (src/adapter/host-scope.ts) tried `logseq.Request._request` only when `window.parent.document` was reachable; on current Desktop builds it never is (cross-origin host scope, see AGENTS.md), so every call fell through to plain `fetch` and needed server-side CORS. Servers with a CORS toggle (LM Studio) masked this.
+
+- [x] Bump `@logseq/libs` `^0.3.2` → `^0.3.4` (first release with `logseq.Net`; `next` dist-tag verified at 0.3.4). Validated by the `logseq-net-probe` plugin: 8/8 probes pass on Desktop, incl. a no-CORS site.
+- [x] Test (RED→GREEN): `src/net-fetch.test.ts` — POST method/headers/body/text/no-cache pass-through, GET default, URL input, abort signal, SSE body readable as a stream, non-2xx → non-ok `Response` with status+body, non-HTTP errors rethrown (no fetch fallback), aborts rethrown, fallback when `Net` missing or body isn't a string.
+- [x] Implement: `src/net-fetch.ts:createNetFetch` (pure; `Net` injected). Wired in `src/index.ts`. Removed `src/adapter/host-scope.ts` (`isHostScopeReachable` had no remaining callers; `logseq.Request` branch was dead on Desktop).
+- [x] Docs: README CORS section (Desktop now uses `logseq.Net`; buffered streaming caveat), AGENTS.md (new Net rule, SDK pin).
+- [x] Changeset: `.changeset/logseq-net-transport.md` (patch).
+- [x] Manual verify on Logseq Desktop (unpacked build, 2026-10-05): actions succeed against Unsloth at `http://127.0.0.1:8888/v1` and `http://192.168.101.14:8888` with no server-side CORS configured.
+- Known limitation: `Net` buffers the response, so `provider.stream()` delivers all tokens at once. Revisit if long outputs feel slow.
+- Not fixed here: vision actions on graphs whose assets resolve to `assets://` URLs log `image-loader: not a file:// URL, skipping IPC` (separate bug).
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

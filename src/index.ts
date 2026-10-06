@@ -7,11 +7,11 @@ import {
   probeFocusedBlockNow,
   startEditingBlockTracker,
 } from "./adapter/editing-block-cache";
-import { logseqFetch } from "./adapter/host-scope";
 import { type RunActionContext, runAction } from "./adapter/run-action";
 import { handlePresetChange, readPrivateSetting, readSettings } from "./adapter/settings";
 import { startThemeSync } from "./adapter/theme-sync";
 import { classifyEndpoint } from "./endpoint";
+import { createNetFetch } from "./net-fetch";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
 import { buildRegistry, parseUserActions } from "./registry";
@@ -110,7 +110,11 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
   },
 ];
 
-const provider = createOpenAIProvider({ fetchImpl: logseqFetch });
+// Route LLM calls through logseq.Net (host-proxied on Desktop, so no CORS
+// requirement on the user's server); fall back to plain fetch if unavailable.
+const provider = createOpenAIProvider({
+  fetchImpl: createNetFetch(() => logseq.Net, globalThis.fetch.bind(globalThis)),
+});
 
 /**
  * Active action registry — built-ins merged with user-defined actions

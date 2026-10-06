@@ -53,8 +53,7 @@ export function describeOriginMismatch(origin: string, url: string): string | nu
  * Normalise the response from `logseq.Request._request({ returnType: "base64" })`
  * into a clean base64 string. The Electron handler returns a raw base64 string
  * (`logseq/src/electron/electron/handler.cljs:376-379`), but the SDK wrapper
- * occasionally nests payloads under `{ data }` — host-scope.ts handles both
- * shapes for HTTP and we mirror that here. Strips a leading `data:…;base64,`
+ * occasionally nests payloads under `{ data }`, so we accept both shapes here. Strips a leading `data:…;base64,`
  * prefix defensively in case a future host build changes shape.
  *
  * Returns the base64 string on success, or `null` if the payload is missing,

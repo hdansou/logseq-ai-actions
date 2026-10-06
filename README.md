@@ -50,7 +50,7 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
 
 The plugin iframe runs at a different origin from your LLM server, so the browser enforces CORS on every `POST /v1/chat/completions`. Your LLM server must send `Access-Control-Allow-Origin` or the request is blocked *before* it reaches the model. Symptom: a `Failed to fetch` error toast in Logseq and a `No 'Access-Control-Allow-Origin' header is present` message in the browser console.
 
-**On Logseq Desktop (Electron):** plugin HTTP routes through Logseq's main process via `logseq.Request`, which is not subject to browser CORS. No action needed if the plugin is using that path.
+**On Logseq Desktop (Electron):** plugin HTTP routes through Logseq's main process via `logseq.Net`, which is not subject to browser CORS. No action needed. Responses are buffered, so streamed output arrives all at once rather than token by token.
 
 **On Logseq Web (`yarn watch`, `localhost:3001`):** enable CORS on your LLM server.
 

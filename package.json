@@ -42,7 +42,7 @@
     "prepare": "simple-git-hooks"
   },
   "dependencies": {
-    "@logseq/libs": "^0.3.2",
+    "@logseq/libs": "^0.3.4",
     "diff": "^9.0.0",
     "preact": "^10.29.0",
     "zod": "^4.3.0"

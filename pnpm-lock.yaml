@@ -13,8 +13,8 @@ importers:
   .:
     dependencies:
       '@logseq/libs':
-        specifier: ^0.3.2
-        version: 0.3.2
+        specifier: ^0.3.4
+        version: 0.3.4
       diff:
         specifier: ^9.0.0
         version: 9.0.0
@@ -214,8 +214,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@logseq/libs@0.3.2':
-    resolution: {integrity: sha512-U0nMvmhR7gAL7Ph2AYw6sHCYyJvJDptebqIxPIzHNTvXDWsNeSo8ZyO9QiCGMAaWxj2rHikvx2lqt/Ialc6tBw==}
+  '@logseq/libs@0.3.4':
+    resolution: {integrity: sha512-/68j0j8Ps7PgEuKsWQhUoiLoineTQNH/DHTBQ07NX8M31rqSpWuZaI6fFhfWv46qLIK0Q9Gz+SKQf6XMQ9ADag==}
 
   '@manypkg/find-root@1.1.0':
     resolution: {integrity: sha512-mki5uBvhHzO8kYYix/WRy2WX8S3B5wdVSc9D6KcU5lQNglP2yt58/VfLuAK49glRXChosY8ap2oJ1qgma3GUVA==}
@@ -1272,7 +1272,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@logseq/libs@0.3.2':
+  '@logseq/libs@0.3.4':
     dependencies:
       change-case: 5.4.4
       csstype: 3.2.3
