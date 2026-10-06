@@ -1,6 +1,6 @@
 {
   "name": "logseq-ai-actions",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Logseq DB-graph plugin: AI actions on your blocks (spellcheck, grammar, rewrite with tones, summarize, key points, outlines, image titles and OCR) using a local OpenAI-compatible LLM like LM Studio or Ollama. Privacy-first: asks before sending anything to a remote host.",
   "keywords": [
     "logseq",
