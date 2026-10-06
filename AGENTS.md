@@ -4,7 +4,7 @@ Guidance that can't be discovered by reading the repo. For spec and plan see `RE
 
 ## Identity landmines
 
-- **Author display name is `Danzu`** (GitHub handle `hdansou`; email `hdansou@users.noreply.github.com`). Do not re-derive the display name from the email handle — an earlier guess of "Hermann Dansou" was wrong.
+- **Author display name is `Danzu`** (GitHub handle `hdansou`; commit email is the GitHub noreply address `hdansou@users.noreply.github.com` — never put a personal email in the repo). Do not re-derive the display name from the handle — an earlier guess of "Hermann Dansou" was wrong.
 - **Package name is `logseq-ai-actions`; local directory is `logseq-action/`.** The mismatch is intentional — don't "normalize" either side.
 
 ## Dev server

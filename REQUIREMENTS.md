@@ -167,7 +167,7 @@ Additional behaviours:
 - plugin id: `logseq-ai-actions`
 - display title: **AI Actions**
 - local dir: `logseq-action/` (intentional mismatch; documented in README)
-- author: `Danzu <hdansou@users.noreply.github.com>` *(email exposure to be confirmed before release)*
+- author: `Danzu` (GitHub handle `hdansou`; no email published)
 - repo: `https://github.com/hdansou/logseq-ai-actions`
 - license: MIT
 
