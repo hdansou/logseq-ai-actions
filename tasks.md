@@ -55,7 +55,7 @@ Legend: `[ ]` todo, `[~]` in progress, `[x]` done, `[-]` dropped.
 - [x] Streaming implementation — `provider.stream(req, onChunk)`, 5 tests with mocked ReadableStreams
 - [x] Preset table (Phase 2 item — same module)
 - [x] `fetchImpl` injection + `logseqFetch` shim (falls back to `globalThis.fetch` when host scope unreachable)
-- [ ] Tier 2 integration test against a live endpoint, gated by `TEST_LIVE_LLM=1` — placeholder
+- [x] Tier 2 integration test against a live endpoint, gated by `TEST_LIVE_LLM=1` — `tests/integration/live-llm.test.ts` (real provider + `createNetFetch`, `Net` stood in for by Node `fetch`); run `TEST_LIVE_LLM=1 LIVE_LLM_MODEL=<loaded model id> pnpm test:integration`. Passed 2026-10-05 against Unsloth (`gemma-4-E4B-it-qat-GGUF`). Note: Unsloth returns `404 model_not_found` for a downloaded-but-unloaded model.
 
 ## Phase 4 — Logseq adapter (inlined)
 
