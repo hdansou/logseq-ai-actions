@@ -10,12 +10,7 @@ import {
 import { type RunActionContext, runAction } from "./adapter/run-action";
 import { handlePresetChange, readPrivateSetting, readSettings } from "./adapter/settings";
 import { startThemeSync } from "./adapter/theme-sync";
-import {
-  classifyEndpoint,
-  endpointHost,
-  sendsKeyInCleartext,
-  shouldNotifyRemote,
-} from "./endpoint";
+import { nextEndpointMarker, sendsKeyInCleartext, shouldNotifyRemote } from "./endpoint";
 import { createNetFetch } from "./net-fetch";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
@@ -360,10 +355,9 @@ async function main(): Promise<void> {
           { timeout: 10000 },
         );
       }
-      const trust = classifyEndpoint(nextBaseUrl);
-      const host = endpointHost(nextBaseUrl);
-      if (prevEndpoint.trust !== trust || prevEndpoint.host !== host) {
-        logseq.updateSettings({ _lastEndpointTrust: trust, _lastEndpointHost: host });
+      const marker = nextEndpointMarker(prevEndpoint, nextBaseUrl);
+      if (marker) {
+        logseq.updateSettings({ _lastEndpointTrust: marker.trust, _lastEndpointHost: marker.host });
       }
     } catch (err) {
       console.error("logseq-ai-actions: settings-change handler failed", err);

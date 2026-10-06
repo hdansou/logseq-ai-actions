@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   classifyEndpoint,
   endpointHost,
+  nextEndpointMarker,
   redactUrl,
   sendsKeyInCleartext,
   shouldNotifyRemote,
@@ -113,5 +114,37 @@ describe("sendsKeyInCleartext", () => {
   });
   it("is false without a key", () => {
     expect(sendsKeyInCleartext("http://192.168.101.14:8888/v1", "  ")).toBe(false);
+  });
+});
+
+describe("nextEndpointMarker + shouldNotifyRemote (stored-host bookkeeping)", () => {
+  const hostA = { trust: "remote", host: "a.example.com" } as const;
+
+  it("keeps the last good marker while the URL is unparseable", () => {
+    expect(nextEndpointMarker(hostA, "not a url")).toBeNull();
+  });
+
+  it("does not notify for an unparseable URL (nothing can be sent to it)", () => {
+    expect(shouldNotifyRemote(hostA, "not a url")).toBe(false);
+  });
+
+  it("still notifies for host B after an unparseable value in between (A → invalid → B)", () => {
+    const afterInvalid = nextEndpointMarker(hostA, "not a url") ?? hostA;
+    expect(shouldNotifyRemote(afterInvalid, "https://b.example.com/v1")).toBe(true);
+  });
+
+  it("returns a new marker when trust or host changes", () => {
+    expect(nextEndpointMarker(hostA, "http://localhost:1234/v1")).toEqual({
+      trust: "local",
+      host: "localhost:1234",
+    });
+    expect(nextEndpointMarker(hostA, "https://b.example.com/v1")).toEqual({
+      trust: "remote",
+      host: "b.example.com",
+    });
+  });
+
+  it("returns null when nothing changed", () => {
+    expect(nextEndpointMarker(hostA, "https://a.example.com/v1")).toBeNull();
   });
 });

@@ -2,7 +2,7 @@
 
 AI-driven actions on Logseq blocks — spellcheck, grammar, rewrite (with tone variants), summarize, key-point extraction, nested outlines, image titling, image OCR — powered by a **small, locally-hosted LLM** you control (LM Studio, Ollama, or any OpenAI-compatible endpoint). Vision actions work with multimodal models like `qwen3.5:2b`, `qwen2.5-vl`, or `llava`.
 
-![Summarize action — side-by-side diff with the Rewrite tones dropdown open, streaming output from LM Studio at localhost:1234](docs/screenshots/diff-panel-summarize.png)
+![Summarize action — side-by-side diff with the Rewrite tones dropdown open, output from LM Studio at localhost:1234](docs/screenshots/diff-panel-summarize.png)
 
 > **DB graphs only** in v1. File-graph support is on the v2 backlog.
 > **Privacy-first**: by default, block content is sent to an endpoint on your own machine (`localhost`). The plugin labels endpoints LOCAL or REMOTE in the settings so you know exactly where your notes are going.

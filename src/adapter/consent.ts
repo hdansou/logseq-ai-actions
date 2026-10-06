@@ -1,5 +1,5 @@
 /// <reference types="@logseq/libs" />
-import { classifyEndpoint, endpointHost } from "../endpoint";
+import { nextEndpointMarker } from "../endpoint";
 import { showConfirm } from "../ui/show-confirm";
 import { readPrivateSetting, readSettings } from "./settings";
 
@@ -22,13 +22,15 @@ export async function runFirstRunFlow(): Promise<void> {
   // Seed the last-trust marker so the very first baseUrl change after
   // plugin install correctly detects a transition (rather than assuming
   // everyone started LOCAL).
-  const currentTrust = classifyEndpoint(baseUrl);
-  const currentHost = endpointHost(baseUrl);
-  if (
-    readPrivateSetting("_lastEndpointTrust", "") !== currentTrust ||
-    readPrivateSetting("_lastEndpointHost", "") !== currentHost
-  ) {
-    logseq.updateSettings({ _lastEndpointTrust: currentTrust, _lastEndpointHost: currentHost });
+  const marker = nextEndpointMarker(
+    {
+      trust: readPrivateSetting("_lastEndpointTrust", ""),
+      host: readPrivateSetting("_lastEndpointHost", ""),
+    },
+    baseUrl,
+  );
+  if (marker) {
+    logseq.updateSettings({ _lastEndpointTrust: marker.trust, _lastEndpointHost: marker.host });
   }
 }
 

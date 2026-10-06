@@ -3,6 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- CSP: only our own bundle may run (the plugin uses no eval / injected
+         scripts). Styles need 'unsafe-inline' (this file's <style> + Preact
+         style attributes). img/connect stay open: the LLM endpoint is
+         user-defined, the image loader's fallbacks read assets:/file:/blob:/
+         data: URLs, and ws: is the Vite dev server's HMR socket. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src * data: blob: assets: file:; connect-src * ws: data: blob: assets: file:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
     <title>AI Actions</title>
     <style>
       /* Theme variables — fallback values match Logseq DB's modern default

@@ -57,14 +57,29 @@ export function endpointHost(url: string): string {
  * on a LOCAL → REMOTE change, or when a REMOTE endpoint moves to another host.
  * `prev.host` is "" until a host has been recorded, so upgrading users who are
  * already REMOTE are not re-prompted for the endpoint they already accepted.
+ * An unparseable URL never notifies: nothing can be sent to it.
  */
-export function shouldNotifyRemote(
-  prev: { readonly trust: string; readonly host: string },
-  baseUrl: string,
-): boolean {
-  if (classifyEndpoint(baseUrl) !== "remote") return false;
+export function shouldNotifyRemote(prev: EndpointMarker, baseUrl: string): boolean {
+  if (!endpointHost(baseUrl) || classifyEndpoint(baseUrl) !== "remote") return false;
   if (prev.trust !== "remote") return true;
   return prev.host !== "" && prev.host !== endpointHost(baseUrl);
+}
+
+export interface EndpointMarker {
+  readonly trust: string;
+  readonly host: string;
+}
+
+/**
+ * The endpoint marker to store after a settings change, or null to keep the
+ * current one. An unparseable URL (e.g. a half-edited field) keeps the last
+ * good marker, so A → invalid → B still notifies for B.
+ */
+export function nextEndpointMarker(prev: EndpointMarker, baseUrl: string): EndpointMarker | null {
+  const host = endpointHost(baseUrl);
+  if (!host) return null;
+  const trust = classifyEndpoint(baseUrl);
+  return trust === prev.trust && host === prev.host ? null : { trust, host };
 }
 
 /** True when an API key would travel unencrypted (`http:`) to a non-loopback host. */
