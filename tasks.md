@@ -433,6 +433,18 @@ Found during the `assets://` CDP check: the image-title picker rendered as bare 
 - [x] Verified over CDP on `plugin-test` (stable Logseq.app): rows computed `border 1px / radius 8px / display flex`, subtitle below title; picker cancelled, block title unchanged.
 - [x] Changeset: `.changeset/choice-panel-styles.md` (patch).
 
+### Security audit follow-ups (2026-10-06)
+
+`/security-audit` on v1.1.3: risk LOW, no remotely exploitable issues; prod deps clean. Fixed test-first (pure logic in `src/endpoint.ts` / `src/image-asset.ts`, thin wiring in `index.ts` / `consent.ts` / UI):
+
+- [x] SEC-001 (medium): toast when an API key would go over `http:` to a non-loopback host — `sendsKeyInCleartext`; fires only when the condition becomes true on a settings change.
+- [x] SEC-002 (medium): REMOTE notice also fires when a REMOTE endpoint moves to a different host — `shouldNotifyRemote` + new private setting `_lastEndpointHost` (seeded by `runFirstRunFlow`; empty for upgrading users, so no spurious dialog).
+- [x] SEC-003 (low): `assetFilePath` requires a UUID and an alphanumeric type before building the path that feeds `:readFileRaw`.
+- [x] SEC-004 (low): `redactUrl` strips `user:pass@` from the badge tooltip, provider HTTP errors, and debug-log entries (redacted at record time, so the clipboard copy is clean too). Badge reuses `endpointHost`.
+- [x] Docs: settings text, first-run text, README trust/settings lines, REQUIREMENTS §8 no longer promise a "one-time" warning. Changeset: `.changeset/security-hardening.md`.
+- [ ] Manual verify (needs the user's app — the CDP instance must not change shared plugin settings): change Base URL between two LAN hosts → REMOTE dialog; set an API key with an `http://` LAN URL → warning toast.
+- Informational, not changed: plaintext API key in Logseq settings (documented), no CSP meta in `index.html`, prompt injection from block/image content, in-memory debug log.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

@@ -86,12 +86,17 @@ export function imageMimeType(assetType: string): string | undefined {
 /**
  * Construct the in-graph path Logseq uses for an asset block:
  * `assets/<uuid>.<ext>`. Pass this to `logseq.Assets.makeUrl(path)` to
- * get a fetchable URL. Returns `null` if uuid or asset/type is missing.
+ * get a fetchable URL. Returns `null` if uuid or asset/type is missing or
+ * malformed (non-UUID uuid, non-alphanumeric type).
  */
 export function assetFilePath(block: AssetBlock): string | null {
+  // The result is read straight off disk (`:readFileRaw`) and may be sent to a
+  // remote endpoint, so only ever build `assets/<uuid>.<ext>`.
   const uuid = block.uuid;
-  if (typeof uuid !== "string" || uuid.length === 0) return null;
-  const type = getAssetType(block);
-  if (!type) return null;
-  return `assets/${uuid}.${type.toLowerCase()}`;
+  if (typeof uuid !== "string" || !UUID_RE.test(uuid)) return null;
+  const type = getAssetType(block)?.toLowerCase();
+  if (!type || !/^[a-z0-9]+$/.test(type)) return null;
+  return `assets/${uuid}.${type}`;
 }
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -89,6 +89,19 @@ describe("createOpenAIProvider", () => {
     await expect(createOpenAIProvider().complete(baseReq)).rejects.toBeInstanceOf(LLMProviderError);
   });
 
+  it("keeps credentials in the base URL out of the error message", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("nope", { status: 401 }));
+
+    await expect(
+      createOpenAIProvider().complete({
+        ...baseReq,
+        baseUrl: "http://user:s3cret@192.168.1.5:8888/v1",
+      }),
+    ).rejects.toMatchObject({
+      message: "HTTP 401 from http://192.168.1.5:8888/v1/chat/completions",
+    });
+  });
+
   it("surfaces HTTP status and body excerpt on the error details", async () => {
     fetchMock.mockResolvedValueOnce(new Response("Model not found", { status: 404 }));
 

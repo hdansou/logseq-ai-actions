@@ -1,3 +1,5 @@
+import { redactUrl } from "./endpoint";
+
 /** Non-streaming completion request against an OpenAI-compatible endpoint. */
 export interface CompleteRequest {
   readonly baseUrl: string;
@@ -154,7 +156,7 @@ async function postChat(opts: PostChatOptions): Promise<PostChatResult> {
   if (!res.ok) {
     clearTimer();
     const bodyText = await res.text().catch(() => "");
-    throw new LLMProviderError(`HTTP ${res.status} from ${url}`, {
+    throw new LLMProviderError(`HTTP ${res.status} from ${redactUrl(url)}`, {
       status: res.status,
       bodyExcerpt: bodyText.slice(0, 200),
     } satisfies LLMProviderErrorDetails);

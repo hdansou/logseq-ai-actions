@@ -2,6 +2,7 @@
 import type { Action } from "../action";
 import { failureMessage } from "../asset-url";
 import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "../debug-log";
+import { redactUrl } from "../endpoint";
 import { type AssetBlock, getAssetType, isImageAsset } from "../image-asset";
 import { countOutlineNodes, parseOutline, renderOutlinePreview } from "../parse-outline";
 import { parsePoints } from "../parse-points";
@@ -384,7 +385,7 @@ async function runVisionAction(
         scope: action.scope,
         outputMode: action.outputMode,
         model: visionModel,
-        baseUrl: settings.baseUrl,
+        baseUrl: redactUrl(settings.baseUrl),
         requestPreview: `[image asset: ${block?.uuid ?? "?"}]`,
         durationMs: Date.now() - startedAt,
         ...(output !== undefined
@@ -439,7 +440,7 @@ function recordDebugEntry(
     scope: action.scope,
     outputMode: action.outputMode,
     model: settings.model,
-    baseUrl: settings.baseUrl,
+    baseUrl: redactUrl(settings.baseUrl),
     requestPreview: truncate(input.llmInput, PREVIEW_TRUNCATION_LIMIT),
     durationMs: Date.now() - startedAt,
     ...(output !== undefined

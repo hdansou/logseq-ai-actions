@@ -114,6 +114,16 @@ describe("imageMimeType", () => {
 });
 
 describe("assetFilePath", () => {
+  it.each([
+    ["a non-UUID uuid", { uuid: "../../../etc/passwd", "logseq.property.asset/type": "png" }],
+    [
+      "a non-alphanumeric type",
+      { uuid: "abcd1234-ef56-7890-abcd-1234567890ab", "logseq.property.asset/type": "png/../../x" },
+    ],
+  ])("refuses to build a path from %s (the path feeds a raw file read)", (_label, block) => {
+    expect(assetFilePath(block as AssetBlock)).toBeNull();
+  });
+
   it("constructs assets/<uuid>.<ext> from a block", () => {
     expect(
       assetFilePath({

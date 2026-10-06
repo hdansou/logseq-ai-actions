@@ -127,7 +127,8 @@ Additional behaviours:
 - **LOCAL/REMOTE endpoint labeling** everywhere the endpoint is visible.
   - Pure `classifyEndpoint(baseUrl)` — loopback (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) → LOCAL, anything else → REMOTE (strict for v1; LAN ranges are REMOTE).
   - Colored badge (green LOCAL, amber REMOTE), same component everywhere.
-  - One-time warning modal on LOCAL → REMOTE endpoint change.
+  - Warning modal on LOCAL → REMOTE endpoint change, and when a REMOTE endpoint moves to a different host (`_lastEndpointHost`).
+  - Warning toast when an API key would be sent over plain `http://` to a non-loopback host.
 - **Debug log.** Off by default. When enabled: in-memory ring buffer of last 50 requests, viewable in settings, "copy to clipboard" for bug reports. **Never written to disk.**
 - **Redaction / content filtering.** Not in v1. README warns users not to invoke on content they don't want sent to their configured endpoint.
 

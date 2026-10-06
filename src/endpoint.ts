@@ -25,3 +25,53 @@ export function classifyEndpoint(baseUrl: string): EndpointTrust {
   if (!host) return "remote";
   return LOOPBACK_HOSTS.has(host) ? "local" : "remote";
 }
+
+function parseUrl(url: string): URL | null {
+  try {
+    return new URL(url);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Drop `user:pass@` from a URL before it is shown or logged (badge tooltip,
+ * error toasts, debug log). URLs without credentials are returned exactly as
+ * typed; unparseable input is returned unchanged.
+ */
+export function redactUrl(url: string): string {
+  const parsed = parseUrl(url);
+  if (!parsed || (!parsed.username && !parsed.password)) return url;
+  parsed.username = "";
+  parsed.password = "";
+  return parsed.href;
+}
+
+/** Lowercased `host[:port]` of a URL (never includes credentials); "" if unparseable. */
+export function endpointHost(url: string): string {
+  return parseUrl(url)?.host.toLowerCase() ?? "";
+}
+
+/**
+ * Whether changing the endpoint to `baseUrl` should show the REMOTE notice:
+ * on a LOCAL → REMOTE change, or when a REMOTE endpoint moves to another host.
+ * `prev.host` is "" until a host has been recorded, so upgrading users who are
+ * already REMOTE are not re-prompted for the endpoint they already accepted.
+ */
+export function shouldNotifyRemote(
+  prev: { readonly trust: string; readonly host: string },
+  baseUrl: string,
+): boolean {
+  if (classifyEndpoint(baseUrl) !== "remote") return false;
+  if (prev.trust !== "remote") return true;
+  return prev.host !== "" && prev.host !== endpointHost(baseUrl);
+}
+
+/** True when an API key would travel unencrypted (`http:`) to a non-loopback host. */
+export function sendsKeyInCleartext(baseUrl: string, apiKey: string): boolean {
+  return (
+    apiKey.trim() !== "" &&
+    parseUrl(baseUrl)?.protocol === "http:" &&
+    classifyEndpoint(baseUrl) === "remote"
+  );
+}

@@ -1,5 +1,5 @@
 /// <reference types="@logseq/libs" />
-import { classifyEndpoint } from "../endpoint";
+import { classifyEndpoint, endpointHost } from "../endpoint";
 import { showConfirm } from "../ui/show-confirm";
 import { readPrivateSetting, readSettings } from "./settings";
 
@@ -11,7 +11,7 @@ export async function runFirstRunFlow(): Promise<void> {
   if (!consentSeen) {
     await showConfirm("AI Actions — welcome", {
       message:
-        "When you invoke an AI action (like /AI Rewrite or /AI Summarize), the content of your current block is sent to the configured endpoint. By default that's a server running on your own machine. You can change the endpoint in plugin settings — any non-loopback host will be clearly marked REMOTE and trigger a one-time warning.",
+        "When you invoke an AI action (like /AI Rewrite or /AI Summarize), the content of your current block is sent to the configured endpoint. By default that's a server running on your own machine. You can change the endpoint in plugin settings — any non-loopback host will be clearly marked REMOTE, and you will be warned when you switch to one.",
       acceptLabel: "Got it",
       hideReject: true,
       baseUrl,
@@ -23,9 +23,12 @@ export async function runFirstRunFlow(): Promise<void> {
   // plugin install correctly detects a transition (rather than assuming
   // everyone started LOCAL).
   const currentTrust = classifyEndpoint(baseUrl);
-  const existing = readPrivateSetting("_lastEndpointTrust", "");
-  if (existing !== currentTrust) {
-    logseq.updateSettings({ _lastEndpointTrust: currentTrust });
+  const currentHost = endpointHost(baseUrl);
+  if (
+    readPrivateSetting("_lastEndpointTrust", "") !== currentTrust ||
+    readPrivateSetting("_lastEndpointHost", "") !== currentHost
+  ) {
+    logseq.updateSettings({ _lastEndpointTrust: currentTrust, _lastEndpointHost: currentHost });
   }
 }
 

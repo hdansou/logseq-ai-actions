@@ -1,5 +1,5 @@
 import type { FunctionComponent } from "preact";
-import { classifyEndpoint } from "../endpoint";
+import { classifyEndpoint, endpointHost, redactUrl } from "../endpoint";
 
 export interface LocalRemoteBadgeProps {
   readonly baseUrl: string;
@@ -22,14 +22,12 @@ export const LocalRemoteBadge: FunctionComponent<LocalRemoteBadgeProps> = ({
   showHost = true,
 }) => {
   const trust = classifyEndpoint(baseUrl);
-  let host = "";
-  try {
-    host = new URL(baseUrl).host;
-  } catch {
-    /* invalid URL — showHost falls back to empty, classifyEndpoint already returned "remote" */
-  }
+  const host = endpointHost(baseUrl);
   return (
-    <span class={`endpoint-badge endpoint-badge-${trust}`} title={`Endpoint: ${baseUrl}`}>
+    <span
+      class={`endpoint-badge endpoint-badge-${trust}`}
+      title={`Endpoint: ${redactUrl(baseUrl)}`}
+    >
       <strong>{trust.toUpperCase()}</strong>
       {showHost && host ? ` · ${host}` : null}
     </span>
