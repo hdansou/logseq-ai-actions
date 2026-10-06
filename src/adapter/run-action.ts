@@ -6,6 +6,7 @@ import { type AssetBlock, getAssetType, isImageAsset } from "../image-asset";
 import { countOutlineNodes, parseOutline, renderOutlinePreview } from "../parse-outline";
 import { parsePoints } from "../parse-points";
 import { parseTitles } from "../parse-titles";
+import { buildChatMessages, cleanModelOutput } from "../prompting";
 import { type LLMProvider, LLMProviderError } from "../provider";
 import type { ChoicePanelChoice } from "../ui/ChoicePanel";
 import { showChoice } from "../ui/show-choice";
@@ -416,8 +417,7 @@ function buildProviderRequest(action: Action, input: ResolvedInput, settings: Re
   return {
     baseUrl: settings.baseUrl,
     model: settings.model,
-    system: action.systemPrompt,
-    user: input.llmInput,
+    ...buildChatMessages(action.systemPrompt, input.llmInput),
     temperature: settings.temperature,
     timeoutMs: settings.timeoutMs,
     ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
@@ -492,7 +492,8 @@ async function performLLM(
   try {
     const req = buildProviderRequest(action, input, settings);
     output = onChunk ? await provider.stream(req, onChunk) : await provider.complete(req);
-    return output;
+    // The debug log keeps the raw reply; the caller gets it without wrapping.
+    return cleanModelOutput(output, input.llmInput);
   } catch (err) {
     error = formatProviderError(err);
     throw err;
