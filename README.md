@@ -64,6 +64,10 @@ The plugin iframe runs at a different origin from your LLM server, so the browse
 
 Allowing `*` is a reasonable default for a server that's already bound to `localhost` — no extra risk beyond what loopback binding already implies.
 
+#### Server on another machine (macOS: Local Network permission)
+
+If the LLM server runs on another computer on your network and requests fail with `EHOSTUNREACH` even though `curl` from Terminal works, macOS 15+ is blocking Logseq's **Local Network** access (Terminal has its own permission). Allow Logseq in **System Settings → Privacy & Security → Local Network**, then quit and reopen Logseq. macOS asks only once and can't be made to ask again; if Logseq isn't listed and no prompt appears, see Apple's [TN3179](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy) (it documents a system-wide `AllowedWiFiLocalNetworkAddresses` setting, which exempts a whole subnet for every app). Also make sure the server listens on its LAN address, not only `127.0.0.1`.
+
 ### 2. Install this plugin
 
 **From the marketplace (recommended):** in Logseq open **More (⋯) → Plugins → Marketplace**, search for **AI Actions**, and install. Each release is also attached as `logseq-ai-actions.zip` to the [latest GitHub release](https://github.com/hdansou/logseq-ai-actions/releases/latest) (**Load unpacked plugin** on the unzipped folder).

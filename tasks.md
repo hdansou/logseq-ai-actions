@@ -470,6 +470,14 @@ User verification of SEC-001/SEC-002 in their app: the http:// key toast worked,
 - [x] User check of the Continue path in their app (2026-10-06): first action on the LAN endpoint → dialog → Continue → action runs; next action → no dialog. Confirmed by the user.
 - Unused now: `_lastEndpointTrust` / `_lastEndpointHost` in existing settings files (harmless; never read).
 
+### Network error hints (2026-10-06)
+
+Reported from a second Mac: `Request failed: … FetchError … connect EHOSTUNREACH 192.168.101.14:8888`, while `curl` from Terminal returned 200 — macOS 15+ Local Network privacy blocking Logseq (Terminal is exempt; TN3179). Server side was fine (listening on both LAN IPs, firewall allows Unsloth's interpreter).
+
+- [x] Test (RED→GREEN): `networkErrorHint` (pure, `src/provider.ts`) — EHOSTUNREACH/ENETUNREACH → Local Network permission hint; ECONNREFUSED → "nothing is listening"; ENOTFOUND → host name; else null. Provider-over-Net test asserts the hint is appended to the "Request failed" message.
+- [x] README: "Server on another machine (macOS: Local Network permission)"; changeset `network-error-hints.md`.
+- Note: Unsloth answers 401 "Not authenticated" when addressed by host name (`zatak.local`) but 200 by IP for keyless access — use the IP or set a real API key.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

@@ -100,6 +100,16 @@ describe("provider over logseq.Net (end to end)", () => {
     expect(fallback).not.toHaveBeenCalled();
   });
 
+  it("adds the Local Network hint when the host can't route to the endpoint", async () => {
+    const { net } = fakeNet(async () => {
+      throw new Error(
+        "Error invoking remote method 'main': FetchError: request to http://192.168.101.14:8888/v1/chat/completions failed, reason: connect EHOSTUNREACH 192.168.101.14:8888",
+      );
+    });
+
+    await expect(providerOver(net).complete(req)).rejects.toThrow(/EHOSTUNREACH.*Local Network/s);
+  });
+
   it("reports a timeout as a timeout when the host rejects with its own abort error", async () => {
     const { net } = fakeNet(() => new Promise(() => {})); // never answers
 

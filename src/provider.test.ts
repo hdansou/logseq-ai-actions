@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createOpenAIProvider, LLMProviderError } from "./provider";
+import { createOpenAIProvider, LLMProviderError, networkErrorHint } from "./provider";
 
 const baseReq = {
   baseUrl: "http://localhost:1234/v1",
@@ -315,5 +315,30 @@ describe("createOpenAIProvider", () => {
         /no content in vision/i,
       );
     });
+  });
+});
+
+describe("networkErrorHint", () => {
+  const hostUnreachable =
+    "Error invoking remote method 'main': FetchError: request to http://192.168.101.14:8888/v1/chat/completions failed, reason: connect EHOSTUNREACH 192.168.101.14:8888 - Local (192.168.101.206:56673)";
+
+  it("points macOS users at the Local Network permission for EHOSTUNREACH", () => {
+    expect(networkErrorHint(hostUnreachable)).toMatch(/Privacy & Security → Local Network.*Logseq/);
+  });
+
+  it("treats ENETUNREACH the same way", () => {
+    expect(networkErrorHint("connect ENETUNREACH 10.0.0.5:8888")).toMatch(/Local Network/);
+  });
+
+  it("says nothing is listening for ECONNREFUSED", () => {
+    expect(networkErrorHint("connect ECONNREFUSED 127.0.0.1:1234")).toMatch(/Nothing is listening/);
+  });
+
+  it("says the host name could not be found for ENOTFOUND", () => {
+    expect(networkErrorHint("getaddrinfo ENOTFOUND my-llm.local")).toMatch(/host name/);
+  });
+
+  it("returns null for anything else", () => {
+    expect(networkErrorHint("Failed to fetch")).toBeNull();
   });
 });

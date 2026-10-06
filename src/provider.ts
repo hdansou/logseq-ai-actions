@@ -84,6 +84,27 @@ export interface LLMProviderErrorDetails {
   readonly bodyExcerpt?: string;
 }
 
+/**
+ * A plain-language next step for the connection errors people actually hit,
+ * keyed on the Node/OS error code inside the transport's message (`logseq.Net`
+ * on Desktop surfaces node-fetch's `connect EHOSTUNREACH …`). Null otherwise.
+ *
+ * EHOSTUNREACH is usually macOS 15+ Local Network privacy, not routing: Logseq
+ * is blocked from LAN hosts while Terminal (`curl`) is allowed (TN3179).
+ */
+export function networkErrorHint(message: string): string | null {
+  if (/\bE(HOST|NET)UNREACH\b/.test(message)) {
+    return "Can't reach that host. On macOS 15+, allow Logseq in System Settings → Privacy & Security → Local Network, then quit and reopen Logseq; otherwise check that both machines are on the same network";
+  }
+  if (/\bECONNREFUSED\b/.test(message)) {
+    return "Nothing is listening at that address: is the LLM server running, and on this port?";
+  }
+  if (/\bENOTFOUND\b/.test(message)) {
+    return "The host name could not be found: check the Base URL, or use the server's IP address";
+  }
+  return null;
+}
+
 /** Thrown for any failure — HTTP, timeout, network, or malformed response. */
 export class LLMProviderError extends Error {
   readonly details?: LLMProviderErrorDetails;
@@ -150,7 +171,9 @@ async function postChat(opts: PostChatOptions): Promise<PostChatResult> {
     if ((err as Error).name === "AbortError") {
       throw new LLMProviderError(`Request timed out after ${opts.timeoutMs}ms`);
     }
-    throw new LLMProviderError(`Request failed: ${(err as Error).message}`);
+    const detail = (err as Error).message;
+    const hint = networkErrorHint(detail);
+    throw new LLMProviderError(`Request failed: ${detail}${hint ? `. ${hint}` : ""}`);
   }
 
   if (!res.ok) {
