@@ -414,6 +414,16 @@ Bug: against Unsloth Desktop (`http://127.0.0.1:8888/v1`, works from curl) every
 - Known limitation: `Net` buffers the response, so `provider.stream()` delivers all tokens at once. Revisit if long outputs feel slow.
 - Not fixed here: vision actions on graphs whose assets resolve to `assets://` URLs log `image-loader: not a file:// URL, skipping IPC` (separate bug).
 
+### Vision — `assets://` URLs (2026-10-05)
+
+Bug: on current Desktop `logseq.Assets.makeUrl` returns `assets:///Users/…/assets/<uuid>.png`, not `file://`. `fileUrlToPath` accepted only `file://`, so the `:readFileRaw` IPC was skipped (`image-loader: not a file:// URL, skipping IPC`) and the `fetch`/canvas fallbacks can't read `assets://` from the plugin iframe, so every vision action (image-title, extract-image-text) failed. The host protocol is just an absolute path (`logseq/src/electron/electron/core.cljs:80-98`); the file exists at that path on disk.
+
+- [x] Test (RED→GREEN): `src/adapter/image-loader.test.ts` — `assets://` absolute path, percent-escapes, Windows `/logseq__colon/` drive colon; UNC (host part) stays `null`.
+- [x] Implement: `assetUrlToFsPath` (renamed from `fileUrlToPath`) handles `file://` and `assets://`; mirrors the host decode.
+- [x] **Follow-up (same day): first fix failed in the real app.** Console showed `not a file:// or assets:// URL, skipping IPC` and a fetch to `assets://users/dzu/…`: Chromium parses `assets` as a standard scheme (host `users`, lowercased), so the `new URL()` + "host ⇒ UNC ⇒ null" guard rejected every real URL, while Node parses it with an empty host so the unit tests passed. RED: regression test that stubs `URL` with Chromium-like parsing; GREEN: parse `assets://` as a string exactly as the host does (`core.cljs:80-98`), keep `URL` only for `file://`.
+- [x] Docs: AGENTS.md (`makeUrl` shapes). Changeset: `.changeset/vision-assets-scheme.md` (patch).
+- [x] Manual verify (2026-10-06, stable Logseq.app, second instance over CDP, `plugin-test` graph): `AI: Generate Title` on the asset block `69f79799-…` logged `image-loader: readFileRaw IPC succeeded (1178431 bytes)` (= the PNG's `asset/size`) and the picker showed 3 generated titles + "Keep current title" under `REMOTE · 192.168.101.14:8888`. Picker cancelled with Esc; block title unchanged.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

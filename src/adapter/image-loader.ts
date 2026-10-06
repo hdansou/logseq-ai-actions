@@ -90,9 +90,9 @@ async function tryReadFileRawIPC(url: string, mimeType: string): Promise<LoadIma
     return { ok: false, reason: "fetch-failed" };
   }
 
-  const fsPath = fileUrlToPath(url);
+  const fsPath = assetUrlToFsPath(url);
   if (!fsPath) {
-    console.warn("[ai-actions] image-loader: not a file:// URL, skipping IPC", url);
+    console.warn("[ai-actions] image-loader: not a file:// or assets:// URL, skipping IPC", url);
     return { ok: false, reason: "fetch-failed" };
   }
 
@@ -142,12 +142,21 @@ async function tryReadFileRawIPC(url: string, mimeType: string): Promise<LoadIma
 }
 
 /**
- * Strip `file://` and decode percent-escapes to a filesystem path. Returns
- * null when the URL isn't `file://` (e.g. `blob:` on Logseq Web). Handles
- * Windows-style `file:///C:/...` by dropping the leading slash before the
- * drive letter.
+ * Turn an asset URL into a filesystem path. Returns null for anything the host
+ * can't read from disk (e.g. `blob:` on Logseq Web).
+ *
+ * - `file://` (older Desktop builds): the URL path. Windows `file:///C:/...`
+ *   drops the leading slash before the drive letter.
+ * - `assets://` (current Desktop builds): Logseq's own protocol carrying an
+ *   absolute path. Parsed as a STRING, exactly as the host does
+ *   (`logseq/src/electron/electron/core.cljs:80-98`) — never via `URL`:
+ *   Chromium treats `assets` as a standard scheme and would turn
+ *   `assets:///Users/me/x.png` into host `users` + path `/me/x.png`. The drive
+ *   colon travels as `/logseq__colon/`; anything not starting with `/` is a
+ *   Windows UNC path, which we leave to the fallbacks.
  */
-export function fileUrlToPath(url: string): string | null {
+export function assetUrlToFsPath(url: string): string | null {
+  if (url.startsWith("assets://")) return assetsSchemeToPath(url);
   if (!url.startsWith("file://")) return null;
   let parsed: URL;
   try {
@@ -155,9 +164,22 @@ export function fileUrlToPath(url: string): string | null {
   } catch {
     return null;
   }
-  let p = decodeURIComponent(parsed.pathname);
-  if (/^\/[A-Za-z]:\//.test(p)) p = p.slice(1);
-  return p;
+  return dropDriveSlash(decodeURIComponent(parsed.pathname));
+}
+
+function assetsSchemeToPath(url: string): string | null {
+  let p: string;
+  try {
+    p = decodeURIComponent(url.slice("assets://".length).replace("/logseq__colon/", ":/"));
+  } catch {
+    return null;
+  }
+  return p.startsWith("/") ? dropDriveSlash(p) : null;
+}
+
+/** Windows `/C:/x` → `C:/x`. */
+function dropDriveSlash(p: string): string {
+  return /^\/[A-Za-z]:\//.test(p) ? p.slice(1) : p;
 }
 
 export function toUint8Array(value: unknown): Uint8Array | null {
