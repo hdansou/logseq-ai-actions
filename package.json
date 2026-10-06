@@ -1,6 +1,6 @@
 {
   "name": "logseq-ai-actions",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "AI-driven actions on Logseq blocks (DB graphs only) — spellcheck, grammar, rewrite, summarize, vision actions via a local OpenAI-compatible endpoint (LM Studio / Ollama).",
   "keywords": [
     "logseq",
@@ -63,7 +63,7 @@
   "pnpm": {
     "overrides": {
       "lodash-es": "^4.18.1",
-      "dompurify": "^3.4.1"
+      "dompurify": "^3.4.16"
     }
   },
   "logseq": {
@@ -71,7 +71,7 @@
     "title": "AI Actions",
     "icon": "./icon.png",
     "main": "dist/index.html",
-    "minSDKVersion": "0.3.2",
+    "minSDKVersion": "0.3.4",
     "supportsDB": true,
     "supportsDBOnly": true
   }

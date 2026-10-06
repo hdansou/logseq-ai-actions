@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.1.3
+
+### Patch Changes
+
+- f047f19: Style the "Generate Title" picker
+
+  The choice list shown after generating image titles was unstyled (plain
+  browser buttons, with the current title running on after "Keep current
+  title"). Each option is now a bordered card, and the current title appears on
+  its own line.
+
+- Update the bundled `dompurify` to 3.4.16 and require Logseq SDK 0.3.4
+
+  `dompurify` ships inside the plugin via `@logseq/libs`; 3.4.1 had several
+  published advisories (moderate and low), all fixed in 3.4.16. The plugin's
+  minimum SDK version is now 0.3.4, the first release with `logseq.Net`, which
+  the plugin now uses for LLM requests.
+
+- d2f0acb: Document keyboard shortcuts as Logseq Keymap UI only
+
+  Every action — built-in and user-defined — already registers as a
+  Logseq command, so it appears automatically in **Settings → Keyboard
+  shortcuts**. Open that, search for `AI:`, click the binding cell next
+  to e.g. `AI: Grammar`, and press your chord (single keys, modified
+  keys, or two-key sequences like `g g` are all supported). Bindings set
+  there persist across plugin reloads.
+
+  The plugin doesn't ship default shortcuts: any prefix risks colliding
+  with Logseq core or another plugin in some users' setups, and the
+  keymap UI is one click away.
+
+  Doc-only release — no schema changes, no UI changes, no behaviour
+  changes. The `Action` JSON does NOT have a `keybinding` field; the
+  Manage Actions panel does not author chords. Settings → Keyboard
+  shortcuts owns keybinding state end-to-end.
+
+- 986201a: Fix "blocked by CORS policy" errors against local LLM servers that don't send CORS headers
+
+  On Logseq Desktop, requests to your LLM endpoint now go through Logseq's
+  `logseq.Net` (proxied by the app, so browser CORS doesn't apply). Previously
+  the plugin fell back to a plain browser `fetch` on current Desktop builds, so
+  servers such as Unsloth needed a CORS setting that most don't have. You no
+  longer need to enable CORS on the server.
+
+  Requires `@logseq/libs` 0.3.4 (bundled). Streamed output now arrives all at
+  once instead of token by token, because the host returns the whole response.
+
+  Also fixes request timeouts through `logseq.Net` being reported as a generic
+  "Request failed" error; they now read "Request timed out after Nms" again.
+
+- d853cfc: Fix image actions (image title, extract image text) failing on Logseq Desktop builds that serve graph assets over `assets://`
+
+  The plugin could only read images behind `file://` URLs, so on current Desktop
+  builds it skipped the file read and the vision action failed. It now reads
+  `assets://` images too.
+
 ## 1.1.2
 
 ### Patch Changes
