@@ -46,6 +46,8 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
 | **Ollama** | `http://localhost:11434/v1` | `ollama serve` (and `ollama pull <model>` for a first model) |
 | **Custom** | — | Any server speaking the OpenAI Chat Completions API |
 
+Tested with **Unsloth Studio** as a Custom endpoint (e.g. `http://127.0.0.1:8888/v1`). Unsloth only serves the model that is currently *loaded* in Studio; asking for a downloaded-but-unloaded model returns `404 model_not_found`, so set **Model** to the loaded one (listed by `GET /v1/models`, where it has `"loaded": true`).
+
 #### CORS — required on Logseq Web; not required on Logseq Desktop
 
 The plugin iframe runs at a different origin from your LLM server, so the browser enforces CORS on every `POST /v1/chat/completions`. Your LLM server must send `Access-Control-Allow-Origin` or the request is blocked *before* it reaches the model. Symptom: a `Failed to fetch` error toast in Logseq and a `No 'Access-Control-Allow-Origin' header is present` message in the browser console.
@@ -64,7 +66,9 @@ Allowing `*` is a reasonable default for a server that's already bound to `local
 
 ### 2. Install this plugin
 
-This is pre-release software — no marketplace entry yet. Install from the local dev server:
+**From the marketplace (recommended):** in Logseq open **More (⋯) → Plugins → Marketplace**, search for **AI Actions**, and install. Each release is also attached as `logseq-ai-actions.zip` to the [latest GitHub release](https://github.com/hdansou/logseq-ai-actions/releases/latest) (**Load unpacked plugin** on the unzipped folder).
+
+**From source (development):**
 
 ```bash
 git clone https://github.com/hdansou/logseq-ai-actions.git
