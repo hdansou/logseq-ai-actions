@@ -478,6 +478,20 @@ Reported from a second Mac: `Request failed: … FetchError … connect EHOSTUNR
 - [x] README: "Server on another machine (macOS: Local Network permission)"; changeset `network-error-hints.md`.
 - Note: Unsloth answers 401 "Not authenticated" when addressed by host name (`zatak.local`) but 200 by IP for keyless access — use the IP or set a real API key.
 
+### Prompt review — live evals, input framing, DB-accurate rules (2026-10-06)
+
+- [x] D1: `tests/integration/prompts.test.ts` — live prompt evals (gated by `TEST_LIVE_LLM=1`), invariants not exact strings, each case must pass `LIVE_LLM_REPEATS` (default 3) runs at `LIVE_LLM_TEMPERATURE` (default 1, the user's setting). Shared setup in `tests/integration/live.ts`. Baseline on gemma-4-E4B failed 5/8: wrote a haiku instead of spellchecking, answered "BANANA" to an embedded instruction, "utilize", invented summary details, lost Key Points context.
+- [x] B1/B2: `src/prompting.ts` (pure, tested) — `buildChatMessages` wraps the block in `<text>` tags and appends `INPUT_FRAMING` to every text action (built-in or user-defined); `cleanModelOutput` strips `<think>` blocks, echoed tags, fences/quotes the input lacked, and a leading framing line. Wired at the single choke point `performLLM`; the debug log keeps the raw reply.
+- [x] A1: DB-accurate reference rules from a source review (raw `.title` holds `[[<uuid>]]` / `#[[<uuid>]]`; dropping a tag untags; leading `# ` → heading, fenced reply → code block, `$$` → math; TODO / `[#A]` / `key::` are inert text in DB graphs): shared `KEEP_REFS`, `COPY_REFS`, `NO_NEW_STRUCTURE`; replaced OG-era "[[wikilinks]]" wording. Guard test in `seed-actions.test.ts`.
+- [x] A2–A4, B3: short input passes through (Summarize, Rewrite); outline input described and parent context carried (Key Points); plain words (Professional); `SAME_LANGUAGE`; Spellcheck keeps British/American variety.
+- [x] Result: 12 cases × 5 runs — all pass at temperature 0.2; at temperature 1 Spellcheck occasionally misses a typo ("parc", 1/5) — sampling noise, not prompt (feeds decision C1).
+- [x] Grammar: English-first with occasional French (`ENGLISH_AND_FRENCH`, example-based — explaining agreement rules made gemma-4B *add* agreement), plus `NO_CHANGE_MARKUP` for Grammar and Spellcheck (the model wrapped an edit as `parlé**s**`). Eval cases: English errors, fewer/less, French agreement, mixed EN/FR, `se sont parlé` (now kept).
+- [ ] **Known model limit (left failing on purpose):** gemma-4B rewrites the correct `elle s'est rendu compte` to `rendue` even with the form listed as correct, at temperature 1 and 0.2. Options: report-only "hard case", retest with a larger model (e.g. Qwen3.6-35B), or drop it. The live suite is gated (not in CI), so it does not block.
+- [ ] C1 (user decision): per-action temperature (fix actions ~0.2) vs one global setting.
+- [ ] C2 (user decision): image titles — accept Title Case or normalize.
+- [ ] Verify (UNCONFIRMED in source review): does `updateBlock` with an unchanged `#[[<tag-uuid>]]` keep the tag, or create a bogus tag named by the uuid? Test in a throwaway graph.
+- [ ] UX: the diff panel shows raw `[[<uuid>]]` ids (the plugin sends `.title`); show `fullTitle` for display only, keep sending the raw title.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

@@ -1,40 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createNetFetch, type NetLike } from "../../src/net-fetch";
-import { createOpenAIProvider } from "../../src/provider";
-import { netHttpError, netResponse } from "../../src/test-support/net";
+import { baseUrl, live, model, provider } from "./live";
 
-/**
- * Tier 2: the real provider + `createNetFetch` against a live OpenAI-compatible
- * server. Node has no CORS, so `Net` is stood in for by Node's `fetch`; this
- * checks the wire format (body, auth, SSE) against a real server, not Logseq.
- *
- *   TEST_LIVE_LLM=1 LIVE_LLM_MODEL=<model id> [LIVE_LLM_BASE_URL=http://127.0.0.1:8888/v1] \
- *     pnpm test:integration
- */
-const live = import.meta.env.TEST_LIVE_LLM === "1";
-const baseUrl = import.meta.env.LIVE_LLM_BASE_URL ?? "http://127.0.0.1:8888/v1";
-const model = import.meta.env.LIVE_LLM_MODEL ?? "";
-
-const nodeNet: NetLike = {
-  async request({ url, method, headers, body, signal }) {
-    const res = await fetch(url, {
-      method: method ?? "GET",
-      headers: headers ?? {},
-      body: body ?? null,
-      signal: signal ?? null,
-    });
-    const fake = netResponse({
-      status: res.status,
-      statusText: res.statusText,
-      ok: res.ok,
-      body: await res.text(),
-    });
-    if (!res.ok) throw netHttpError(fake);
-    return fake;
-  },
-};
-
-const provider = createOpenAIProvider({ fetchImpl: createNetFetch(() => nodeNet, fetch) });
+/** Tier 2 transport check: wire format (body, auth, SSE) against a real server. */
 const req = {
   baseUrl,
   model,

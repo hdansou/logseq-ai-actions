@@ -4,29 +4,66 @@ import { type Action, parseAction } from "./action";
 // The hard rule across all prompts is "return ONLY the transformed text" —
 // small models love to preface answers with "Here is..." or wrap in quotes,
 // which would end up literally pasted back into the user's block.
+//
+// Shared fragments keep the cross-cutting rules identical across prompts.
+// `INPUT_FRAMING` (prompting.ts) is appended to every text action at request
+// time, built-in or user-defined.
 
-const SPELLCHECK_PROMPT = `You are a careful spellcheck assistant. Fix ONLY actual spelling errors. Do not change grammar, style, word choice, punctuation, sentence structure, or line breaks. Preserve proper nouns, technical terms, code identifiers, and any intentional stylization (camelCase, ALL_CAPS, neologisms) — if a word is unusual but plausible as a name or jargon, leave it alone. Do not modify content inside code blocks (text between backticks or triple backticks), URLs, email addresses, Logseq [[wikilinks]], or #tags. If nothing is misspelled, return the text exactly as given. Return ONLY the corrected text — no preamble, no explanation, no surrounding quotes, no list of changes.`;
+/** Small models drift to English on non-English notes. */
+const SAME_LANGUAGE = "Write in the same language as the text.";
+const outputOnly = (what: string) =>
+  `Return ONLY the ${what} — no preamble, no explanation, no surrounding quotes.`;
+/**
+ * Logseq DB graphs store references as ids in the raw title the plugin sends:
+ * `[[<uuid>]]` for pages and blocks, `#[[<uuid>]]` for tags. Editing one breaks
+ * the ref; dropping a tag untags the block on save.
+ */
+const KEEP_REFS =
+  "Keep every [[…]] reference and every #[[…]] tag exactly as written, character for character — they usually hold an id such as [[6a08c6bf-d1eb-4cd8-9b69-886d4c5bc286]]. Never correct, translate, or reformat anything inside [[ ]], (( )), or {{ }}.";
+/** Same rule for actions that condense the text and may leave a reference out. */
+const COPY_REFS =
+  "If you include a [[…]] reference or #[[…]] tag from the text, copy it exactly, character for character; never edit anything inside [[ ]], (( )), or {{ }}.";
+/**
+ * The DB editor turns a leading "# " into a heading and a fully fenced reply
+ * into a code block; TODO, [#A], and key:: lines are inert text in DB graphs.
+ */
+const NO_NEW_STRUCTURE =
+  "Do not add Markdown headings (a line starting with #), code fences, task markers (TODO, DONE), priorities like [#A], or key:: value lines.";
+/** Small models mark their edits with **bold** — which would land in the note. */
+const NO_CHANGE_MARKUP = "Never add formatting such as **bold** or _italics_ to mark your changes.";
+/**
+ * The owner writes mostly in English and sometimes in French (occasionally both
+ * in one note). French rules are spelled out because the live evals caught the
+ * model "correcting" a correct `se sont parlé` to `parlés`.
+ */
+const ENGLISH_AND_FRENCH =
+  'The text is usually English and sometimes French, occasionally both in one note. Correct each passage in its own language and never translate. In English text, leave French words and phrases ("je ne sais quoi", "c\'est la vie") exactly as they are, and vice versa. In French, fix clear errors such as an infinitive used for a past participle ("j\'ai acheter" → "j\'ai acheté"), adjectives that don\'t agree with their noun, and missing accents. These French forms are already correct — leave them exactly as written: "ils se sont parlé", "elle s\'est rendu compte", "ils se sont dit", "elles se sont téléphoné", "elle s\'est permis". When you are not sure something is an error, leave it unchanged.';
+/** The input of subtree-scoped actions (Summarize, Key Points, Outline). */
+const OUTLINE_INPUT =
+  'The text may be a Logseq outline: a parent block with its child blocks indented below it, each line starting with "- ".';
 
-const GRAMMAR_PROMPT = `You are a careful grammar checker. Fix ONLY objective grammatical errors — subject-verb agreement, verb tense consistency, pronoun reference, misplaced or dangling modifiers, incorrect prepositions, run-on sentences, comma splices, parallelism in lists and comparisons, comparative/superlative forms, and word-form confusions (affect/effect, fewer/less, who/whom). Do NOT flag style or note-taking conventions: passive voice, sentence length, split infinitives, sentence-ending prepositions, contractions, deliberate sentence fragments (common in outline bullets), or lowercase sentence starts. The text often comes from a Logseq block — bullet-style brevity and informal register are usually intentional. Do NOT rewrite for tone, concision, or "better flow." Preserve the author's voice and word choice. Preserve and DO NOT change: quoted material, code blocks (text between backticks or triple backticks), URLs, email addresses, file paths, Logseq [[wikilinks]], #tags, proper nouns, and technical or domain-specific terminology. If the text is grammatically correct, return it exactly as given. Return ONLY the corrected text — no preamble, no explanation, no surrounding quotes, no list of changes.`;
+const SPELLCHECK_PROMPT = `You are a careful spellcheck assistant. Fix ONLY actual spelling errors. Do not change grammar, style, word choice, punctuation, sentence structure, or line breaks. Keep the author's spelling variety as written (British "colour", "realise" or American "color", "realize") — a variant is not a misspelling. Preserve proper nouns, technical terms, code identifiers, and any intentional stylization (camelCase, ALL_CAPS, neologisms) — if a word is unusual but plausible as a name or jargon, leave it alone. Do not modify content inside code blocks (text between backticks or triple backticks), URLs, email addresses, or #tags. ${KEEP_REFS} ${NO_CHANGE_MARKUP} If nothing is misspelled, return the text exactly as given. Return ONLY the corrected text — no preamble, no explanation, no surrounding quotes, no list of changes.`;
 
-const REWRITE_PROMPT = `Rewrite the text to be clearer and more concise while preserving meaning, tone, and any Markdown or wiki-style syntax. Do not add new information. Return ONLY the rewritten text — no preamble, no explanation, no surrounding quotes.`;
+const GRAMMAR_PROMPT = `You are a careful grammar checker. Fix ONLY objective grammatical errors — subject-verb agreement, verb tense consistency, pronoun reference, misplaced or dangling modifiers, incorrect prepositions, run-on sentences, comma splices, parallelism in lists and comparisons, comparative/superlative forms, and word-form confusions (affect/effect, fewer/less, who/whom). Do NOT flag style or note-taking conventions: passive voice, sentence length, split infinitives, sentence-ending prepositions, contractions, deliberate sentence fragments (common in outline bullets), or lowercase sentence starts. The text often comes from a Logseq block — bullet-style brevity and informal register are usually intentional. Do NOT rewrite for tone, concision, or "better flow." Preserve the author's voice and word choice. ${ENGLISH_AND_FRENCH} ${NO_CHANGE_MARKUP} Preserve and DO NOT change: quoted material, code blocks (text between backticks or triple backticks), URLs, email addresses, file paths, #tags, proper nouns, and technical or domain-specific terminology. ${KEEP_REFS} If the text is grammatically correct, return it exactly as given. Return ONLY the corrected text — no preamble, no explanation, no surrounding quotes, no list of changes.`;
 
-const REWRITE_FORMAL_PROMPT = `Rewrite the text in a formal, professional tone suitable for business or academic contexts. Use precise vocabulary, complete sentences, and conventional grammar. Do not add new information or change the meaning. Preserve any Markdown or wiki-style syntax ([[links]], #tags, **bold**, etc.). Return ONLY the rewritten text — no preamble, no explanation, no surrounding quotes.`;
+const REWRITE_PROMPT = `Rewrite the text to be clearer and more concise while preserving meaning, tone, and Markdown formatting. ${KEEP_REFS} ${NO_NEW_STRUCTURE} Do not add new information, and keep every fact, number, and name. If the text is already clear and concise, return it unchanged. ${SAME_LANGUAGE} ${outputOnly("rewritten text")}`;
+
+const REWRITE_FORMAL_PROMPT = `Rewrite the text in a formal, professional tone suitable for business or academic contexts. Use precise vocabulary, complete sentences, and conventional grammar. Do not add new information or change the meaning. Preserve Markdown formatting, #tags, inline code, and URLs. ${KEEP_REFS} ${NO_NEW_STRUCTURE} ${SAME_LANGUAGE} ${outputOnly("rewritten text")}`;
 
 // "Writing the Amazon Way" — Amazon's internal writing guidance famously favours
 // narrative clarity over bullets/PowerPoint: short declarative sentences, active
 // voice, specific nouns, data over adjectives, and zero weasel words.
-const REWRITE_PROFESSIONAL_PROMPT = `Rewrite the text following "Writing the Amazon Way" principles. Use clear, declarative sentences in active voice, one idea per sentence. Prefer concrete nouns and specific data over vague adjectives. Remove weasel words ("very", "really", "many", "some", "could be", "might", "basically") and filler. Keep sentences short and direct. Do not add new information or change the meaning. Preserve any Markdown or wiki-style syntax ([[links]], #tags, **bold**, etc.). Return ONLY the rewritten text — no preamble, no explanation, no surrounding quotes.`;
+const REWRITE_PROFESSIONAL_PROMPT = `Rewrite the text following "Writing the Amazon Way" principles. Use clear, declarative sentences in active voice, one idea per sentence. Prefer concrete nouns and specific data over vague adjectives. Remove weasel words ("very", "really", "many", "some", "could be", "might", "basically") and filler. Use plain words: "use", not "utilize"; "help", not "facilitate"; "start", not "commence". Keep sentences short and direct. Do not add new information or change the meaning, and keep every fact, number, and name. Preserve Markdown formatting, #tags, inline code, and URLs. ${KEEP_REFS} ${NO_NEW_STRUCTURE} ${SAME_LANGUAGE} ${outputOnly("rewritten text")}`;
 
-const REWRITE_CASUAL_PROMPT = `Rewrite the text in a casual, conversational tone, as if talking to a friend. Use contractions and everyday words where they fit naturally. Do not add new information or change the meaning. Preserve any Markdown or wiki-style syntax ([[links]], #tags, **bold**, etc.). Return ONLY the rewritten text — no preamble, no explanation, no surrounding quotes.`;
+const REWRITE_CASUAL_PROMPT = `Rewrite the text in a casual, conversational tone, as if talking to a friend. Use contractions and everyday words where they fit naturally. Do not add new information or change the meaning. Preserve Markdown formatting, #tags, inline code, and URLs. ${KEEP_REFS} ${NO_NEW_STRUCTURE} ${SAME_LANGUAGE} ${outputOnly("rewritten text")}`;
 
-const REWRITE_FRIENDLY_PROMPT = `Rewrite the text in a warm, friendly, approachable tone. Keep it natural — do not overdo it with exclamation marks or forced enthusiasm. Do not add new information or change the meaning. Preserve any Markdown or wiki-style syntax ([[links]], #tags, **bold**, etc.). Return ONLY the rewritten text — no preamble, no explanation, no surrounding quotes.`;
+const REWRITE_FRIENDLY_PROMPT = `Rewrite the text in a warm, friendly, approachable tone. Keep it natural — do not overdo it with exclamation marks or forced enthusiasm. Do not add new information or change the meaning. Preserve Markdown formatting, #tags, inline code, and URLs. ${KEEP_REFS} ${NO_NEW_STRUCTURE} ${SAME_LANGUAGE} ${outputOnly("rewritten text")}`;
 
-const SUMMARIZE_PROMPT = `Summarize the text in 2 to 3 sentences, capturing the key points. Use plain prose; do not use bullet lists. Preserve any essential wiki-style [[links]] or #tags if they appear. Return ONLY the summary — no preamble, no explanation, no surrounding quotes.`;
+const SUMMARIZE_PROMPT = `Summarize the text in 2 to 3 sentences, capturing the key points. ${OUTLINE_INPUT} Use plain prose; do not use bullet lists. Use only what the text says: never add facts, obligations, deadlines, or interpretation, and never comment on the text itself. If the text is already a single short sentence, return it exactly as given. ${COPY_REFS} ${NO_NEW_STRUCTURE} ${SAME_LANGUAGE} ${outputOnly("summary")}`;
 
-const KEY_POINTS_PROMPT = `Extract the key points from the text. Return ONLY a plain list — one point per line, no prefix or bullet character, no numbering, no headings, no commentary. Each point should stand alone as a complete short sentence. Aim for 3 to 7 points unless the text clearly warrants more. Do not include "Here are" preambles or closing remarks.`;
+const KEY_POINTS_PROMPT = `Extract the key points from the text. ${OUTLINE_INPUT} Each point must stand alone without its parent, so carry the parent's context into it (e.g. "Q4 planning: hire two backend engineers"). Keep each point to one short statement. Return ONLY a plain list — one point per line, no prefix or bullet character, no numbering, no headings, no commentary. Aim for 3 to 7 points unless the text clearly warrants more. ${COPY_REFS} Do not include "Here are" preambles or closing remarks. ${SAME_LANGUAGE}`;
 
-const OUTLINE_PROMPT = `Organize the text as a nested outline. Use a markdown bulleted list with two-space indent per nesting level (e.g., "- Parent", then "  - Child", then "    - Grandchild"). Each bullet should be a short complete phrase, not a long sentence. Group related ideas under a common parent. Aim for 2 to 5 top-level items and up to 3 levels of depth where it makes sense; do not force depth. Do not add new information — every bullet must be grounded in the source text. Return ONLY the bulleted outline — no headings, no code fences, no numbering, no commentary.`;
+const OUTLINE_PROMPT = `Organize the text as a nested outline. ${OUTLINE_INPUT} Use a markdown bulleted list with two-space indent per nesting level (e.g., "- Parent", then "  - Child", then "    - Grandchild"). Each bullet should be a short complete phrase, not a long sentence. Group related ideas under a common parent. Aim for 2 to 5 top-level items and up to 3 levels of depth where it makes sense; do not force depth. Do not add new information — every bullet must be grounded in the source text. ${COPY_REFS} ${SAME_LANGUAGE} Return ONLY the bulleted outline — no headings, no code fences, no numbering, no commentary.`;
 
 // Image-title prompt — tuned for small vision models (Qwen3.5 0.8B/2B,
 // Llava, Qwen2.5-VL). Three explicit constraints: count (3), length (3-6

@@ -160,3 +160,21 @@ describe("findSeedAction", () => {
     expect(findSeedAction("")).toBeUndefined();
   });
 });
+
+describe("seed prompts keep Logseq DB references intact", () => {
+  const text = SEED_ACTIONS.filter((a) => a.kind === "text");
+
+  it.each(text.map((a) => [a.id, a]))(
+    "%s tells the model to keep [[…]] / #[[…]] verbatim",
+    (_id, a) => {
+      expect(a.systemPrompt).toMatch(/character for character/);
+    },
+  );
+
+  it.each(text.filter((a) => /^(rewrite|summarize)/.test(a.id)).map((a) => [a.id, a]))(
+    "%s forbids adding headings, fences, task markers and key:: lines",
+    (_id, a) => {
+      expect(a.systemPrompt).toMatch(/Do not add Markdown headings/);
+    },
+  );
+});
