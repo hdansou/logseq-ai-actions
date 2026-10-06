@@ -80,6 +80,9 @@ export function createNetFetch(getNet: () => NetLike | undefined, fallback: Fetc
       // reports the status and body. Anything else (refused connection,
       // abort, timeout) is rethrown — falling back to `fetch` here would
       // only replace the real cause with a misleading CORS error.
+      // The host words its own abort errors differently from fetch, so when
+      // our signal fired, report a standard AbortError (callers key on `name`).
+      if (init?.signal?.aborted) throw new DOMException("The request was aborted", "AbortError");
       const response = httpErrorResponse(err);
       if (response) return toResponse(response);
       throw err;

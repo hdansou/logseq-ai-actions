@@ -410,6 +410,7 @@ Bug: against Unsloth Desktop (`http://127.0.0.1:8888/v1`, works from curl) every
 - [x] Docs: README CORS section (Desktop now uses `logseq.Net`; buffered streaming caveat), AGENTS.md (new Net rule, SDK pin).
 - [x] Changeset: `.changeset/logseq-net-transport.md` (patch).
 - [x] Manual verify on Logseq Desktop (unpacked build, 2026-10-05): actions succeed against Unsloth at `http://127.0.0.1:8888/v1` and `http://192.168.101.14:8888` with no server-side CORS configured.
+- [x] End-to-end TDD pass (strict RED→GREEN→REFACTOR, one behavior at a time): `src/provider-net.test.ts` drives the real provider through `createNetFetch` with a faithful fake `Net` (complete, stream, 401 mapping, refused connection, timeout). **Found and fixed a real bug:** the host rejects an in-flight abort with a plain `Error` whose message (not `name`) says `AbortError`, so a timeout surfaced as "Request failed: Error invoking remote method…" instead of "Request timed out". `createNetFetch` now reports our own aborted signal as `AbortError`. Shared fakes live in `src/test-support/net.ts` (excluded from coverage); `tests/` is now type-checked via `tsconfig.json`.
 - Known limitation: `Net` buffers the response, so `provider.stream()` delivers all tokens at once. Revisit if long outputs feel slow.
 - Not fixed here: vision actions on graphs whose assets resolve to `assets://` URLs log `image-loader: not a file:// URL, skipping IPC` (separate bug).
 

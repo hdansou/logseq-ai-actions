@@ -15,6 +15,7 @@ export default defineConfig({
         "src/**/*.test.tsx",
         "src/index.ts",
         "src/__sdk_guard__.ts",
+        "src/test-support/**",
         "src/adapter/**",
         "src/ui/**",
       ],

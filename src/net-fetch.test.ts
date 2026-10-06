@@ -1,32 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createNetFetch, type NetLike } from "./net-fetch";
-
-interface FakeResponse {
-  status: number;
-  statusText: string;
-  ok: boolean;
-  headers: Record<string, string>;
-  text: () => Promise<string>;
-}
-
-function netResponse(overrides: Partial<FakeResponse> & { body?: string } = {}): FakeResponse {
-  const { body = "", ...rest } = overrides;
-  return {
-    status: 200,
-    statusText: "OK",
-    ok: true,
-    headers: { "content-type": "application/json" },
-    text: async () => body,
-    ...rest,
-  };
-}
-
-/** Mimics `LSPluginNetError`: an Error that carries the HTTP response. */
-function netHttpError(response: FakeResponse): Error & { response: FakeResponse } {
-  return Object.assign(new Error(`HTTP request failed with status ${response.status}`), {
-    response,
-  });
-}
+import { netHttpError, netResponse } from "./test-support/net";
 
 function makeFetch(request: NetLike["request"] | undefined, fallback = vi.fn()) {
   const netFetch = createNetFetch(() => (request ? { request } : undefined), fallback);
@@ -131,12 +105,19 @@ describe("createNetFetch", () => {
     expect(fallback).not.toHaveBeenCalled();
   });
 
-  it("rethrows aborts so the provider can report a timeout", async () => {
-    const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
-    const request = vi.fn().mockRejectedValue(abort);
+  it("reports our own abort as AbortError even when the host words it differently", async () => {
+    const controller = new AbortController();
+    const request = vi.fn().mockImplementation(async () => {
+      controller.abort();
+      throw new Error(
+        "Error invoking remote method 'main': AbortError: The operation was aborted.",
+      );
+    });
     const { netFetch } = makeFetch(request);
 
-    await expect(netFetch("http://x/y")).rejects.toMatchObject({ name: "AbortError" });
+    await expect(netFetch("http://x/y", { signal: controller.signal })).rejects.toMatchObject({
+      name: "AbortError",
+    });
   });
 
   it("falls back to the provided fetch when Net is unavailable", async () => {
