@@ -1140,7 +1140,8 @@
         grid-template-columns: 1fr 1fr;
         gap: 6px;
       }
-      .picker-card {
+      .picker-card,
+      .picker-row {
         display: flex;
         flex-direction: column;
         gap: 4px;
@@ -1154,13 +1155,33 @@
         text-align: left;
         min-width: 0;
       }
-      .picker-card:hover:not(:disabled) {
+      .picker-card:hover:not(:disabled),
+      .picker-row:hover:not(:disabled) {
         background: var(--hover);
         border-color: var(--accent);
       }
-      .picker-card:disabled {
+      .picker-card:disabled,
+      .picker-row:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+      }
+      /* Choice panel (picker-replace, e.g. image title): rows reuse the card
+         look above; label and subtitle stack as separate lines. */
+      .picker-list {
+        padding: 14px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: calc(100vh - 200px);
+        overflow-y: auto;
+        background: var(--bg);
+      }
+      .picker-row-title { font-weight: 600; line-height: 1.25; }
+      .picker-row-desc {
+        color: var(--muted);
+        font-size: 0.85em;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
       }
       .picker-card-title {
         font-weight: 600;

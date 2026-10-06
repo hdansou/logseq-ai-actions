@@ -424,6 +424,15 @@ Bug: on current Desktop `logseq.Assets.makeUrl` returns `assets:///Users/…/ass
 - [x] Docs: AGENTS.md (`makeUrl` shapes). Changeset: `.changeset/vision-assets-scheme.md` (patch).
 - [x] Manual verify (2026-10-06, stable Logseq.app, second instance over CDP, `plugin-test` graph): `AI: Generate Title` on the asset block `69f79799-…` logged `image-loader: readFileRaw IPC succeeded (1178431 bytes)` (= the PNG's `asset/size`) and the picker showed 3 generated titles + "Keep current title" under `REMOTE · 192.168.101.14:8888`. Picker cancelled with Esc; block title unchanged.
 
+### Choice panel (picker-replace) styling (2026-10-06)
+
+Found during the `assets://` CDP check: the image-title picker rendered as bare browser buttons and the subtitle ran on after the label ("Keep current titleA feature…"). Cause: `ChoicePanel` used `picker-row*` / `picker-list` classes that had no CSS in `index.html`.
+
+- [x] Test (RED→GREEN): `src/ui/choice-panel-styles.test.ts` — every class `ChoicePanel` uses must have a CSS rule (failed for the 5 unstyled classes). `tsconfig` gains `vite/client` types so tests can `?raw`-import `index.html` / the component source.
+- [x] Implement: `.picker-row` shares the existing `.picker-card` rules (DRY); added `.picker-list`, `.picker-row-title`, `.picker-row-desc`; dropped the redundant `picker-row-header` wrapper.
+- [x] Verified over CDP on `plugin-test` (stable Logseq.app): rows computed `border 1px / radius 8px / display flex`, subtitle below title; picker cancelled, block title unchanged.
+- [x] Changeset: `.changeset/choice-panel-styles.md` (patch).
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

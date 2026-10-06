@@ -79,10 +79,8 @@ export const ChoicePanel: FunctionComponent<ChoicePanelProps> = ({
               class="picker-row"
               onClick={() => onAccept(choice.value)}
             >
-              <span class="picker-row-header">
-                <span class="picker-row-title">
-                  <kbd>{idx + 1}</kbd> {choice.label}
-                </span>
+              <span class="picker-row-title">
+                <kbd>{idx + 1}</kbd> {choice.label}
               </span>
               {choice.subtitle ? <span class="picker-row-desc">{choice.subtitle}</span> : null}
             </button>
