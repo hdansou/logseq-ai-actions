@@ -1,8 +1,7 @@
 /// <reference types="@logseq/libs" />
 import type { Action } from "../action";
 import { failureMessage } from "../asset-url";
-import { debugLog, PREVIEW_TRUNCATION_LIMIT, truncate } from "../debug-log";
-import { redactUrl } from "../endpoint";
+import { buildDebugEntry, debugLog } from "../debug-log";
 import { type AssetBlock, getAssetType, isImageAsset } from "../image-asset";
 import { countOutlineNodes, parseOutline, renderOutlinePreview } from "../parse-outline";
 import { parsePoints } from "../parse-points";
@@ -116,8 +115,7 @@ export async function runAction(
   // busy-toast + one-shot `complete()` flow.
   let busyToastKey: string | number | null = null;
   try {
-    const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
-    busyToastKey = (msg as unknown as string | number | null) ?? null;
+    busyToastKey = await showBusyToast(action.title);
 
     const output = await performLLM(ctx.provider, action, input, settings);
 
@@ -283,8 +281,7 @@ async function runVisionAction(
       return;
     }
 
-    const msg = await logseq.UI.showMsg(`${action.title}…`, "info", { timeout: 0 });
-    busyToastKey = (msg as unknown as string | number | null) ?? null;
+    busyToastKey = await showBusyToast(action.title);
 
     // Short user-side nudge per outputMode. Most of the work is in the
     // system prompt; this is just a hint that orients the model on what
@@ -378,21 +375,18 @@ async function runVisionAction(
     );
   } finally {
     if (settings.debugLog) {
-      debugLog.push({
-        timestamp: startedAt,
-        actionId: action.id,
-        actionTitle: action.title,
-        scope: action.scope,
-        outputMode: action.outputMode,
-        model: visionModel,
-        baseUrl: redactUrl(settings.baseUrl),
-        requestPreview: `[image asset: ${block?.uuid ?? "?"}]`,
-        durationMs: Date.now() - startedAt,
-        ...(output !== undefined
-          ? { responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT) }
-          : {}),
-        ...(error !== undefined ? { error } : {}),
-      });
+      debugLog.push(
+        buildDebugEntry({
+          action,
+          model: visionModel,
+          baseUrl: settings.baseUrl,
+          request: `[image asset: ${block?.uuid ?? "?"}]`,
+          startedAt,
+          now: Date.now(),
+          output,
+          error,
+        }),
+      );
     }
   }
 }
@@ -433,21 +427,24 @@ function recordDebugEntry(
   error: string | undefined,
 ): void {
   if (!settings.debugLog) return;
-  debugLog.push({
-    timestamp: startedAt,
-    actionId: action.id,
-    actionTitle: action.title,
-    scope: action.scope,
-    outputMode: action.outputMode,
-    model: settings.model,
-    baseUrl: redactUrl(settings.baseUrl),
-    requestPreview: truncate(input.llmInput, PREVIEW_TRUNCATION_LIMIT),
-    durationMs: Date.now() - startedAt,
-    ...(output !== undefined
-      ? { responsePreview: truncate(output, PREVIEW_TRUNCATION_LIMIT) }
-      : {}),
-    ...(error !== undefined ? { error } : {}),
-  });
+  debugLog.push(
+    buildDebugEntry({
+      action,
+      model: settings.model,
+      baseUrl: settings.baseUrl,
+      request: input.llmInput,
+      startedAt,
+      now: Date.now(),
+      output,
+      error,
+    }),
+  );
+}
+
+/** Sticky "<title>…" toast; returns its key for `closeBusyToast`. */
+async function showBusyToast(title: string): Promise<string | number | null> {
+  const msg = await logseq.UI.showMsg(`${title}…`, "info", { timeout: 0 });
+  return (msg as unknown as string | number | null) ?? null;
 }
 
 function formatProviderError(err: unknown): string {

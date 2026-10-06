@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createRingBuffer, truncate } from "./debug-log";
+import { buildDebugEntry, createRingBuffer, PREVIEW_TRUNCATION_LIMIT, truncate } from "./debug-log";
 
 describe("createRingBuffer", () => {
   it("throws on a non-positive integer capacity", () => {
@@ -74,5 +74,47 @@ describe("truncate", () => {
 
   it("handles the empty string", () => {
     expect(truncate("", 10)).toBe("");
+  });
+});
+
+describe("buildDebugEntry", () => {
+  const action = {
+    id: "grammar",
+    title: "Grammar",
+    scope: "block",
+    outputMode: "replace",
+  } as const;
+  const base = {
+    action,
+    model: "m",
+    baseUrl: "http://user:s3cret@192.168.1.5:8888/v1",
+    request: "x".repeat(PREVIEW_TRUNCATION_LIMIT + 10),
+    startedAt: 1_000,
+    now: 1_250,
+  };
+
+  it("builds the entry with redacted URL, truncated request, and duration", () => {
+    const entry = buildDebugEntry({ ...base, output: "y".repeat(PREVIEW_TRUNCATION_LIMIT + 3) });
+
+    expect(entry).toMatchObject({
+      timestamp: 1_000,
+      actionId: "grammar",
+      actionTitle: "Grammar",
+      scope: "block",
+      outputMode: "replace",
+      model: "m",
+      baseUrl: "http://192.168.1.5:8888/v1",
+      durationMs: 250,
+    });
+    expect(entry.requestPreview).toBe(truncate(base.request, PREVIEW_TRUNCATION_LIMIT));
+    expect(entry.responsePreview).toMatch(/… \[3 more chars\]$/);
+    expect(entry).not.toHaveProperty("error");
+  });
+
+  it("records the error and omits the response when the call failed", () => {
+    const entry = buildDebugEntry({ ...base, error: "HTTP 401" });
+
+    expect(entry.error).toBe("HTTP 401");
+    expect(entry).not.toHaveProperty("responsePreview");
   });
 });

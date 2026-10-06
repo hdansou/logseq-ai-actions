@@ -1,3 +1,4 @@
+import { redactUrl } from "./endpoint";
 import type { ActionScope, OutputMode } from "./types";
 
 /**
@@ -60,6 +61,45 @@ export function createRingBuffer<T>(capacity: number): RingBuffer<T> {
 export function truncate(s: string, limit: number): string {
   if (s.length <= limit) return s;
   return `${s.slice(0, limit)}… [${s.length - limit} more chars]`;
+}
+
+export interface DebugEntryInput {
+  readonly action: {
+    readonly id: string;
+    readonly title: string;
+    readonly scope: ActionScope;
+    readonly outputMode: OutputMode;
+  };
+  readonly model: string;
+  readonly baseUrl: string;
+  /** Raw request text; truncated here. */
+  readonly request: string;
+  readonly startedAt: number;
+  readonly now: number;
+  readonly output?: string | undefined;
+  readonly error?: string | undefined;
+}
+
+/**
+ * The one place a debug-log entry is built: credentials are stripped from the
+ * URL and previews truncated, so nothing sensitive or unbounded is stored.
+ */
+export function buildDebugEntry(i: DebugEntryInput): DebugLogEntry {
+  return {
+    timestamp: i.startedAt,
+    actionId: i.action.id,
+    actionTitle: i.action.title,
+    scope: i.action.scope,
+    outputMode: i.action.outputMode,
+    model: i.model,
+    baseUrl: redactUrl(i.baseUrl),
+    requestPreview: truncate(i.request, PREVIEW_TRUNCATION_LIMIT),
+    durationMs: i.now - i.startedAt,
+    ...(i.output !== undefined
+      ? { responsePreview: truncate(i.output, PREVIEW_TRUNCATION_LIMIT) }
+      : {}),
+    ...(i.error !== undefined ? { error: i.error } : {}),
+  };
 }
 
 /** Shared defaults; change here and every call site stays in sync. */
