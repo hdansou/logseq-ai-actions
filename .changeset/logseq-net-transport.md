@@ -12,3 +12,6 @@ longer need to enable CORS on the server.
 
 Requires `@logseq/libs` 0.3.4 (bundled). Streamed output now arrives all at
 once instead of token by token, because the host returns the whole response.
+
+Also fixes request timeouts through `logseq.Net` being reported as a generic
+"Request failed" error; they now read "Request timed out after Nms" again.
