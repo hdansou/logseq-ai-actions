@@ -11,9 +11,9 @@ import { netHttpError, netResponse } from "../../src/test-support/net";
  *   TEST_LIVE_LLM=1 LIVE_LLM_MODEL=<model id> [LIVE_LLM_BASE_URL=http://127.0.0.1:8888/v1] \
  *     pnpm test:integration
  */
-const live = process.env.TEST_LIVE_LLM === "1";
-const baseUrl = process.env.LIVE_LLM_BASE_URL ?? "http://127.0.0.1:8888/v1";
-const model = process.env.LIVE_LLM_MODEL ?? "";
+const live = import.meta.env.TEST_LIVE_LLM === "1";
+const baseUrl = import.meta.env.LIVE_LLM_BASE_URL ?? "http://127.0.0.1:8888/v1";
+const model = import.meta.env.LIVE_LLM_MODEL ?? "";
 
 const nodeNet: NetLike = {
   async request({ url, method, headers, body, signal }) {

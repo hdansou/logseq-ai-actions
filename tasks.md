@@ -445,6 +445,20 @@ Found during the `assets://` CDP check: the image-title picker rendered as bare 
 - [ ] Manual verify (needs the user's app — the CDP instance must not change shared plugin settings): change Base URL between two LAN hosts → REMOTE dialog; set an API key with an `http://` LAN URL → warning toast.
 - Informational, not changed: plaintext API key in Logseq settings (documented), no CSP meta in `index.html`, prompt injection from block/image content, in-memory debug log.
 
+### Production-hardening pass (2026-10-06)
+
+Baseline green (typecheck, biome, 373 tests, prod audit clean). Applied all three bundles:
+
+- [x] A1: `buildDebugEntry` (pure, `src/debug-log.ts`, tested) is the single debug-log builder — redaction + truncation in one place; both pipelines in `run-action.ts` use it.
+- [x] A2: `showBusyToast` helper replaces the duplicated busy-toast cast.
+- [x] C1: `nextEndpointMarker` (pure, tested) — an unparseable Base URL keeps the last good host marker and never shows the REMOTE notice, so A → invalid → B still warns for B. Shared by `index.ts` and `consent.ts`. Folded into `.changeset/security-hardening.md`.
+- [x] C2: README screenshot caption no longer claims streaming.
+- [x] E1: CI + publish workflows on Node 24 (active LTS); `engines` stays `>=22`.
+- [x] B1: `ManageActionsPanel.tsx` 571 → 516 lines; hidden-row building, draft validation, copy-id, and import merge moved to `src/ui/manage-actions/logic.ts` with 9 tests; `RowList` replaces three identical grids; one `deleteConfirm` replaces two overlays. Smoke-tested over CDP (13 cards, column-first layout, Esc closes clean).
+- [x] D1: `@changesets/cli` 2 → 3.0.3 — full `pnpm audit` now clean (was braces + sprintf-js). `changeset status` and a worktree dry-run of `changeset version` produce the same CHANGELOG format (v3 writes two spaces on blank lines inside entries).
+- [x] C4: CSP meta in `index.html` (`script-src 'self'`; styles `'unsafe-inline'`; img/connect open for the user-defined endpoint and assets:/file:/blob:/data:; `ws:` for HMR). Verified over CDP: policy active (an injected inline script is refused), Manage panel + Generate Title (IPC, Net, picker) run with no violations.
+- Deferred: B2 (adapter `as unknown as` casts at SDK-typing gaps — acceptable in the thin adapter). C3 (manual check of SEC-001/002 warnings) still needs the user's app.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
