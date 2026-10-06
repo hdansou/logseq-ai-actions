@@ -10,6 +10,7 @@ export interface ShowConfirmOptions {
   readonly baseUrl?: string;
   /** When true, the Reject button is hidden — acknowledgement-only notices. */
   readonly hideReject?: boolean;
+  readonly rejectLabel?: string;
 }
 
 /**
@@ -24,6 +25,7 @@ export function showConfirm(actionTitle: string, options: ShowConfirmOptions): P
       message: options.message,
       acceptLabel: options.acceptLabel ?? "Accept",
       hideReject: options.hideReject ?? false,
+      ...(options.rejectLabel ? { rejectLabel: options.rejectLabel } : {}),
       ...(options.preview !== undefined ? { preview: options.preview } : {}),
       ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),
       onAccept: () => teardown(true),

@@ -18,6 +18,8 @@ export interface ConfirmPanelProps {
   readonly baseUrl?: string;
   /** When true, hides the Reject button — use for acknowledgement-only notices. */
   readonly hideReject?: boolean;
+  /** Label for the Reject button (default "Reject"). */
+  readonly rejectLabel?: string;
   readonly onAccept: () => void;
   readonly onReject: () => void;
 }
@@ -29,6 +31,7 @@ export const ConfirmPanel: FunctionComponent<ConfirmPanelProps> = ({
   acceptLabel,
   baseUrl,
   hideReject = false,
+  rejectLabel = "Reject",
   onAccept,
   onReject,
 }) => {
@@ -55,7 +58,7 @@ export const ConfirmPanel: FunctionComponent<ConfirmPanelProps> = ({
             {baseUrl ? <LocalRemoteBadge baseUrl={baseUrl} /> : null}
           </span>
           <span class="diff-hint">
-            <kbd>Esc</kbd> reject · <kbd>⌘ ↵</kbd> {acceptLabel.toLowerCase()}
+            <kbd>Esc</kbd> {rejectLabel.toLowerCase()} · <kbd>⌘ ↵</kbd> {acceptLabel.toLowerCase()}
           </span>
         </header>
 
@@ -67,7 +70,7 @@ export const ConfirmPanel: FunctionComponent<ConfirmPanelProps> = ({
         <footer class="diff-footer">
           {hideReject ? null : (
             <button type="button" class="diff-btn" onClick={onReject}>
-              Reject
+              {rejectLabel}
             </button>
           )}
           <button type="button" class="diff-btn diff-btn-primary" onClick={onAccept}>

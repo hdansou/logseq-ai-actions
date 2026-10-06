@@ -127,8 +127,8 @@ Additional behaviours:
 - **LOCAL/REMOTE endpoint labeling** everywhere the endpoint is visible.
   - Pure `classifyEndpoint(baseUrl)` — loopback (`localhost`, `127.0.0.1`, `::1`, `0.0.0.0`) → LOCAL, anything else → REMOTE (strict for v1; LAN ranges are REMOTE).
   - Colored badge (green LOCAL, amber REMOTE), same component everywhere.
-  - Warning modal on LOCAL → REMOTE endpoint change, and when a REMOTE endpoint moves to a different host (`_lastEndpointHost`).
-  - Warning toast when an API key would be sent over plain `http://` to a non-loopback host.
+  - Send-time confirmation (Continue / Cancel) before the first request to a REMOTE host, and again whenever that host changes (`_approvedRemoteHost`); Cancel sends nothing. The prompt also warns when an API key would go over plain `http://`.
+  - Never shown from `onSettingsChanged`: plugin UI renders under Logseq's settings modal, and text settings commit half-typed values after a 1 s debounce.
 - **Debug log.** Off by default. When enabled: in-memory ring buffer of last 50 requests, viewable in settings, "copy to clipboard" for bug reports. **Never written to disk.**
 - **Redaction / content filtering.** Not in v1. README warns users not to invoke on content they don't want sent to their configured endpoint.
 

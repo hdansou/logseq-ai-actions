@@ -1,16 +1,15 @@
 import "@logseq/libs";
 
 import type { Action } from "./action";
-import { runFirstRunFlow, showRemoteTransitionNotice } from "./adapter/consent";
+import { runFirstRunFlow } from "./adapter/consent";
 import {
   getCachedEditingBlockUuid,
   probeFocusedBlockNow,
   startEditingBlockTracker,
 } from "./adapter/editing-block-cache";
 import { type RunActionContext, runAction } from "./adapter/run-action";
-import { handlePresetChange, readPrivateSetting, readSettings } from "./adapter/settings";
+import { handlePresetChange, readSettings } from "./adapter/settings";
 import { startThemeSync } from "./adapter/theme-sync";
-import { nextEndpointMarker, sendsKeyInCleartext, shouldNotifyRemote } from "./endpoint";
 import { createNetFetch } from "./net-fetch";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
@@ -50,7 +49,7 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
     default: PRIMARY_DEFAULT?.baseUrl ?? "http://localhost:1234/v1",
     title: "Base URL",
     description:
-      "OpenAI-compatible endpoint, usually ending in /v1. Any host other than localhost / 127.0.0.1 / ::1 (including LAN addresses) is labeled REMOTE; you get a warning when block content would start going to a new REMOTE host, and when an API key would be sent over plain http://.",
+      "OpenAI-compatible endpoint, usually ending in /v1. Any host other than localhost / 127.0.0.1 / ::1 (including LAN addresses) is labeled REMOTE; before the first send to a new REMOTE host you are asked to confirm (and warned if an API key would go over plain http://).",
   },
   {
     key: "model",
@@ -331,34 +330,6 @@ async function main(): Promise<void> {
         (newSettings as Record<string, unknown>).hiddenActionIds ?? [],
       );
       if (prev !== next || prevHidden !== nextHidden) rebuildRegistry(true);
-
-      // Warn when block content will start going to a new REMOTE host
-      // (LOCAL → REMOTE, or REMOTE host changed), and when an API key would
-      // start travelling unencrypted.
-      const nextS = newSettings as Record<string, unknown>;
-      const oldS = oldSettings as Record<string, unknown>;
-      const nextBaseUrl = String(nextS.baseUrl ?? "");
-      const prevEndpoint = {
-        trust: readPrivateSetting("_lastEndpointTrust", "local"),
-        host: readPrivateSetting("_lastEndpointHost", ""),
-      };
-      if (shouldNotifyRemote(prevEndpoint, nextBaseUrl)) {
-        void showRemoteTransitionNotice(nextBaseUrl);
-      }
-      if (
-        sendsKeyInCleartext(nextBaseUrl, String(nextS.apiKey ?? "")) &&
-        !sendsKeyInCleartext(String(oldS.baseUrl ?? ""), String(oldS.apiKey ?? ""))
-      ) {
-        logseq.UI.showMsg(
-          "AI Actions: your API key will be sent unencrypted (http://) to a non-local host. Use https:// if the server supports it.",
-          "warning",
-          { timeout: 10000 },
-        );
-      }
-      const marker = nextEndpointMarker(prevEndpoint, nextBaseUrl);
-      if (marker) {
-        logseq.updateSettings({ _lastEndpointTrust: marker.trust, _lastEndpointHost: marker.host });
-      }
     } catch (err) {
       console.error("logseq-ai-actions: settings-change handler failed", err);
     }

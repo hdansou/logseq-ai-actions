@@ -53,33 +53,15 @@ export function endpointHost(url: string): string {
 }
 
 /**
- * Whether changing the endpoint to `baseUrl` should show the REMOTE notice:
- * on a LOCAL → REMOTE change, or when a REMOTE endpoint moves to another host.
- * `prev.host` is "" until a host has been recorded, so upgrading users who are
- * already REMOTE are not re-prompted for the endpoint they already accepted.
- * An unparseable URL never notifies: nothing can be sent to it.
+ * Whether sending to `baseUrl` needs the user's go-ahead: the endpoint is
+ * REMOTE and its host is not the one they last approved. Checked at send time
+ * (not on settings change, where half-typed values commit and plugin UI sits
+ * under Logseq's settings modal). An unparseable URL never asks — the request
+ * would fail anyway.
  */
-export function shouldNotifyRemote(prev: EndpointMarker, baseUrl: string): boolean {
-  if (!endpointHost(baseUrl) || classifyEndpoint(baseUrl) !== "remote") return false;
-  if (prev.trust !== "remote") return true;
-  return prev.host !== "" && prev.host !== endpointHost(baseUrl);
-}
-
-export interface EndpointMarker {
-  readonly trust: string;
-  readonly host: string;
-}
-
-/**
- * The endpoint marker to store after a settings change, or null to keep the
- * current one. An unparseable URL (e.g. a half-edited field) keeps the last
- * good marker, so A → invalid → B still notifies for B.
- */
-export function nextEndpointMarker(prev: EndpointMarker, baseUrl: string): EndpointMarker | null {
+export function needsRemoteConsent(approvedHost: string, baseUrl: string): boolean {
   const host = endpointHost(baseUrl);
-  if (!host) return null;
-  const trust = classifyEndpoint(baseUrl);
-  return trust === prev.trust && host === prev.host ? null : { trust, host };
+  return host !== "" && classifyEndpoint(baseUrl) === "remote" && host !== approvedHost;
 }
 
 /** True when an API key would travel unencrypted (`http:`) to a non-loopback host. */
@@ -89,4 +71,17 @@ export function sendsKeyInCleartext(baseUrl: string, apiKey: string): boolean {
     parseUrl(baseUrl)?.protocol === "http:" &&
     classifyEndpoint(baseUrl) === "remote"
   );
+}
+
+/** Body of the send-time consent dialog. Names the host only (never credentials). */
+export function remoteConsentMessage(baseUrl: string, apiKey: string): string {
+  const lines = [
+    `This action will send block content to ${endpointHost(baseUrl)}, which is not your own machine. Continue only if you trust this server.`,
+  ];
+  if (sendsKeyInCleartext(baseUrl, apiKey)) {
+    lines.push(
+      "Your API key will be sent unencrypted (http://). Use https:// if the server supports it.",
+    );
+  }
+  return lines.join("\n\n");
 }

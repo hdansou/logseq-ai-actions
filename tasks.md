@@ -442,7 +442,7 @@ Found during the `assets://` CDP check: the image-title picker rendered as bare 
 - [x] SEC-003 (low): `assetFilePath` requires a UUID and an alphanumeric type before building the path that feeds `:readFileRaw`.
 - [x] SEC-004 (low): `redactUrl` strips `user:pass@` from the badge tooltip, provider HTTP errors, and debug-log entries (redacted at record time, so the clipboard copy is clean too). Badge reuses `endpointHost`.
 - [x] Docs: settings text, first-run text, README trust/settings lines, REQUIREMENTS §8 no longer promise a "one-time" warning. Changeset: `.changeset/security-hardening.md`.
-- [ ] Manual verify (needs the user's app — the CDP instance must not change shared plugin settings): change Base URL between two LAN hosts → REMOTE dialog; set an API key with an `http://` LAN URL → warning toast.
+- [x] Manual verify → **failed, then redesigned** (2026-10-06): see "C3 — send-time remote consent" below.
 - Informational, not changed: plaintext API key in Logseq settings (documented), no CSP meta in `index.html`, prompt injection from block/image content, in-memory debug log.
 
 ### Production-hardening pass (2026-10-06)
@@ -458,6 +458,17 @@ Baseline green (typecheck, biome, 373 tests, prod audit clean). Applied all thre
 - [x] D1: `@changesets/cli` 2 → 3.0.3 — full `pnpm audit` now clean (was braces + sprintf-js). `changeset status` and a worktree dry-run of `changeset version` produce the same CHANGELOG format (v3 writes two spaces on blank lines inside entries).
 - [x] C4: CSP meta in `index.html` (`script-src 'self'`; styles `'unsafe-inline'`; img/connect open for the user-defined endpoint and assets:/file:/blob:/data:; `ws:` for HMR). Verified over CDP: policy active (an injected inline script is refused), Manage panel + Generate Title (IPC, Net, picker) run with no violations.
 - Deferred: B2 (adapter `as unknown as` casts at SDK-typing gaps — acceptable in the thin adapter). C3 (manual check of SEC-001/002 warnings) still needs the user's app.
+
+### C3 — send-time remote consent (2026-10-06)
+
+User verification of SEC-001/SEC-002 in their app: the http:// key toast worked, but the REMOTE dialog was **never visible**, and slow typing committed partial hosts (`http://192.168.101.` parses as IPv4 `192.168.0.101`). Root causes, measured over CDP: the plugin main-UI container is `z-index: 99` under Logseq's settings overlay (`999`), so any dialog shown from `onSettingsChanged` is hidden; and text settings commit after a 1 s debounce (`plugins_settings.cljs:49`).
+
+- [x] Test (RED→GREEN): `needsRemoteConsent(approvedHost, url)` and `remoteConsentMessage(url, apiKey)` (pure, `src/endpoint.ts`); removed the settings-time `shouldNotifyRemote` / `nextEndpointMarker` and their tests (no callers).
+- [x] Implement: `confirmRemoteEndpoint` (`src/adapter/consent.ts`) runs at the top of `runAction` (covers text + vision): Continue / Cancel before the first send to a REMOTE host and whenever the host changes; Cancel sends nothing; approval stored as `_approvedRemoteHost`. The cleartext-key warning is part of the dialog (no separate toast). Settings handler no longer shows UI. `ConfirmPanel` gains `rejectLabel` (hint follows it); `.diag-confirm-message` uses `white-space: pre-line`.
+- [x] Docs: settings + first-run text, README, REQUIREMENTS §8, changeset, AGENTS.md (z-order + debounce landmine).
+- [x] Verified over CDP (Cancel path only, so nothing sent and no setting written): dialog on top of the page, names the host, shows the http:// key line, Cancel/Esc → "cancelled — nothing was sent", no image read or request, `_approvedRemoteHost` not written.
+- [x] User check of the Continue path in their app (2026-10-06): first action on the LAN endpoint → dialog → Continue → action runs; next action → no dialog. Confirmed by the user.
+- Unused now: `_lastEndpointTrust` / `_lastEndpointHost` in existing settings files (harmless; never read).
 
 ## Deferred / v2 candidates
 

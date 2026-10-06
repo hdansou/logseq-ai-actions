@@ -31,7 +31,7 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
   ![Toolbar action picker — actions grouped into Fix / Rewrite / Transform / Vision sections in dark mode](docs/screenshots/picker-dark.png)
 
 - **Extensibility**: add your own actions through the **Manage Actions** UI (gallery of cards + inline editor with live validation) or the hand-editable `userActionsJson` setting. Hot-reloads into the registry on save.
-- **Trust signals**: every UI surface that shows the configured endpoint labels it `LOCAL` or `REMOTE`. Switching to a non-loopback host, or to a different one, triggers a warning; so does sending an API key over plain `http://` to a non-loopback host.
+- **Trust signals**: every UI surface that shows the configured endpoint labels it `LOCAL` or `REMOTE`. Before the first request to a non-loopback host (and again whenever that host changes) you are asked to confirm; the prompt also warns if an API key would go over plain `http://`.
 - **Debug log (opt-in)**: in-memory ring buffer of the last 50 requests (request shape, response preview, duration, error if any), viewable in `/AI Diagnostics`. Never written to disk.
 
 > Planned for v2: whole-page and multi-select scopes, per-invocation scope/output override, form-based settings panel, WebLLM provider, true selection-scope with block-range splicing. See [`tasks.md`](./tasks.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
@@ -84,7 +84,7 @@ Then in Logseq:
 
 ### 3. Configure
 
-Open the plugin's settings (gear icon on the plugin card). Pick a preset — `baseUrl` and `model` are auto-filled. Override anything you need. Changing the `baseUrl` to a non-loopback host (or to a different one) shows a REMOTE-endpoint warning.
+Open the plugin's settings (gear icon on the plugin card). Pick a preset — `baseUrl` and `model` are auto-filled. Override anything you need. Pointing `baseUrl` at a non-loopback host makes the next action ask for confirmation before anything is sent.
 
 **Vision model (optional).** Vision actions (`image-title`, `extract-image-text`) need a multimodal model. If your **Model** setting is already a unified multimodal model (e.g. `qwen3.5:2b` — Alibaba's natively-multimodal line), leave **Vision model** empty and the same model handles both text and vision. Run a smaller text-only model alongside a separate vision model? Set **Vision model** explicitly. Confirmed working: `qwen3.5:2b`, `qwen3.5:0.8b`, `qwen2.5-vl`, `llava`. Quality scales with model size — clean printed text OCRs well at 2B; dense or low-contrast pages benefit from a larger model.
 

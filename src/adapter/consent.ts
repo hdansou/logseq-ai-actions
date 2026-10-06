@@ -1,45 +1,35 @@
 /// <reference types="@logseq/libs" />
-import { nextEndpointMarker } from "../endpoint";
+import { endpointHost, needsRemoteConsent, remoteConsentMessage } from "../endpoint";
 import { showConfirm } from "../ui/show-confirm";
 import { readPrivateSetting, readSettings } from "./settings";
 
 export async function runFirstRunFlow(): Promise<void> {
   const settings = (logseq.settings ?? {}) as Record<string, unknown>;
-  const consentSeen = Boolean(settings._consentSeen);
-  const baseUrl = readSettings().baseUrl;
-
-  if (!consentSeen) {
-    await showConfirm("AI Actions — welcome", {
-      message:
-        "When you invoke an AI action (like /AI Rewrite or /AI Summarize), the content of your current block is sent to the configured endpoint. By default that's a server running on your own machine. You can change the endpoint in plugin settings — any non-loopback host will be clearly marked REMOTE, and you will be warned when you switch to one.",
-      acceptLabel: "Got it",
-      hideReject: true,
-      baseUrl,
-    });
-    logseq.updateSettings({ _consentSeen: true });
-  }
-
-  // Seed the last-trust marker so the very first baseUrl change after
-  // plugin install correctly detects a transition (rather than assuming
-  // everyone started LOCAL).
-  const marker = nextEndpointMarker(
-    {
-      trust: readPrivateSetting("_lastEndpointTrust", ""),
-      host: readPrivateSetting("_lastEndpointHost", ""),
-    },
-    baseUrl,
-  );
-  if (marker) {
-    logseq.updateSettings({ _lastEndpointTrust: marker.trust, _lastEndpointHost: marker.host });
-  }
+  if (settings._consentSeen) return;
+  await showConfirm("AI Actions — welcome", {
+    message:
+      "When you invoke an AI action (like /AI Rewrite or /AI Summarize), the content of your current block is sent to the configured endpoint. By default that's a server running on your own machine. You can change the endpoint in plugin settings — any non-loopback host is clearly marked REMOTE, and you'll be asked to confirm before content is first sent to it.",
+    acceptLabel: "Got it",
+    hideReject: true,
+    baseUrl: readSettings().baseUrl,
+  });
+  logseq.updateSettings({ _consentSeen: true });
 }
 
-export async function showRemoteTransitionNotice(baseUrl: string): Promise<void> {
-  await showConfirm("Endpoint changed to REMOTE", {
-    message:
-      "Your endpoint is now a non-loopback address. AI actions you run will send block content to this host instead of your own machine. If this is what you intended, carry on. If not, change the Base URL back in plugin settings.",
-    acceptLabel: "I understand",
-    hideReject: true,
+/**
+ * Ask before the first send to a REMOTE host (and again whenever the host
+ * changes). Runs at send time, so the dialog is never hidden under Logseq's
+ * settings modal and half-typed Base URLs never prompt. Resolves `false` when
+ * the user cancels — the caller must not send.
+ */
+export async function confirmRemoteEndpoint(baseUrl: string, apiKey: string): Promise<boolean> {
+  if (!needsRemoteConsent(readPrivateSetting("_approvedRemoteHost", ""), baseUrl)) return true;
+  const ok = await showConfirm("Send to a REMOTE endpoint?", {
+    message: remoteConsentMessage(baseUrl, apiKey),
+    acceptLabel: "Continue",
+    rejectLabel: "Cancel",
     baseUrl,
   });
+  if (ok) logseq.updateSettings({ _approvedRemoteHost: endpointHost(baseUrl) });
+  return ok;
 }

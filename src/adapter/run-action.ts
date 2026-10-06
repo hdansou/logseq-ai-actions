@@ -11,6 +11,7 @@ import type { ChoicePanelChoice } from "../ui/ChoicePanel";
 import { showChoice } from "../ui/show-choice";
 import { showConfirm } from "../ui/show-confirm";
 import { showDiffPanel } from "../ui/show-diff";
+import { confirmRemoteEndpoint } from "./consent";
 import { loadImageAssetBytes } from "./image-loader";
 import { insertOutlineTree, removeBlockChildren } from "./outline-writer";
 import { type ResolvedInput, resolveInput } from "./resolve-input";
@@ -41,6 +42,11 @@ export async function runAction(
   explicitBlockUuid?: string,
 ): Promise<void> {
   const settings = readSettings();
+
+  if (!(await confirmRemoteEndpoint(settings.baseUrl, settings.apiKey))) {
+    logseq.UI.showMsg(`${action.title} cancelled — nothing was sent`, "info");
+    return;
+  }
 
   // Vision actions take an entirely different path — different model
   // resolution (visionModel || model), different input (image bytes), and

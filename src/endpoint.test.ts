@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   classifyEndpoint,
   endpointHost,
-  nextEndpointMarker,
+  needsRemoteConsent,
   redactUrl,
+  remoteConsentMessage,
   sendsKeyInCleartext,
-  shouldNotifyRemote,
 } from "./endpoint";
 
 describe("classifyEndpoint", () => {
@@ -79,29 +79,6 @@ describe("endpointHost", () => {
   });
 });
 
-describe("shouldNotifyRemote", () => {
-  const remote = "http://192.168.101.14:8888/v1";
-  it("notifies on a LOCAL -> REMOTE change", () => {
-    expect(shouldNotifyRemote({ trust: "local", host: "localhost:1234" }, remote)).toBe(true);
-  });
-  it("notifies when a REMOTE endpoint moves to a different host", () => {
-    expect(shouldNotifyRemote({ trust: "remote", host: "api.example.com" }, remote)).toBe(true);
-  });
-  it("stays quiet when the REMOTE host is unchanged", () => {
-    expect(shouldNotifyRemote({ trust: "remote", host: "192.168.101.14:8888" }, remote)).toBe(
-      false,
-    );
-  });
-  it("stays quiet for a REMOTE user with no recorded host yet (upgrade path)", () => {
-    expect(shouldNotifyRemote({ trust: "remote", host: "" }, remote)).toBe(false);
-  });
-  it("stays quiet for LOCAL endpoints", () => {
-    expect(shouldNotifyRemote({ trust: "remote", host: "x" }, "http://localhost:1234/v1")).toBe(
-      false,
-    );
-  });
-});
-
 describe("sendsKeyInCleartext", () => {
   it("is true for an API key over http:// to a non-loopback host", () => {
     expect(sendsKeyInCleartext("http://192.168.101.14:8888/v1", "k")).toBe(true);
@@ -117,34 +94,35 @@ describe("sendsKeyInCleartext", () => {
   });
 });
 
-describe("nextEndpointMarker + shouldNotifyRemote (stored-host bookkeeping)", () => {
-  const hostA = { trust: "remote", host: "a.example.com" } as const;
-
-  it("keeps the last good marker while the URL is unparseable", () => {
-    expect(nextEndpointMarker(hostA, "not a url")).toBeNull();
+describe("needsRemoteConsent", () => {
+  const lan = "http://192.168.101.14:8888/v1";
+  it("asks before the first send to a REMOTE host", () => {
+    expect(needsRemoteConsent("", lan)).toBe(true);
   });
-
-  it("does not notify for an unparseable URL (nothing can be sent to it)", () => {
-    expect(shouldNotifyRemote(hostA, "not a url")).toBe(false);
+  it("does not ask again for the approved host (case-insensitive)", () => {
+    expect(needsRemoteConsent("api.example.com", "https://API.example.com/v1")).toBe(false);
   });
-
-  it("still notifies for host B after an unparseable value in between (A → invalid → B)", () => {
-    const afterInvalid = nextEndpointMarker(hostA, "not a url") ?? hostA;
-    expect(shouldNotifyRemote(afterInvalid, "https://b.example.com/v1")).toBe(true);
+  it("asks again when the REMOTE host differs from the approved one", () => {
+    expect(needsRemoteConsent("192.168.101.14:8888", "https://api.example.com/v1")).toBe(true);
   });
-
-  it("returns a new marker when trust or host changes", () => {
-    expect(nextEndpointMarker(hostA, "http://localhost:1234/v1")).toEqual({
-      trust: "local",
-      host: "localhost:1234",
-    });
-    expect(nextEndpointMarker(hostA, "https://b.example.com/v1")).toEqual({
-      trust: "remote",
-      host: "b.example.com",
-    });
+  it("never asks for LOCAL endpoints", () => {
+    expect(needsRemoteConsent("", "http://127.0.0.1:8888/v1")).toBe(false);
   });
+  it("never asks for an unparseable URL (the request would fail anyway)", () => {
+    expect(needsRemoteConsent("", "not a url")).toBe(false);
+  });
+});
 
-  it("returns null when nothing changed", () => {
-    expect(nextEndpointMarker(hostA, "https://a.example.com/v1")).toBeNull();
+describe("remoteConsentMessage", () => {
+  it("names the host, never the credentials", () => {
+    const msg = remoteConsentMessage("https://user:pw@api.example.com/v1", "");
+    expect(msg).toContain("api.example.com");
+    expect(msg).not.toContain("pw");
+    expect(msg).not.toMatch(/unencrypted/i);
+  });
+  it("adds the cleartext warning when an API key would go over http://", () => {
+    expect(remoteConsentMessage("http://192.168.101.14:8888/v1", "k")).toMatch(
+      /API key will be sent unencrypted/,
+    );
   });
 });
