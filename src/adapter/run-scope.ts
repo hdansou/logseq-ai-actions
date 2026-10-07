@@ -37,24 +37,28 @@ interface Scope {
 }
 
 /**
- * Command-palette / keyboard-shortcut entry: selected blocks, else the block
- * being edited (the single-block path, unchanged), else the current page.
+ * Command-palette / keyboard-shortcut entry: two or more selected blocks, else
+ * one block (selected, or being edited) on the single-block path unchanged,
+ * else the current page. Opening the palette while editing turns the edited
+ * block into a one-block selection, so one selected block must keep the
+ * single-block path (diff panel with streaming, Edit, action bar).
  */
 export async function runFromCommand(action: Action, ctx: RunActionContext): Promise<void> {
-  const scope =
-    (await selectionScope()) ??
-    ((await logseq.Editor.getCurrentBlock()) ? null : await pageScope());
+  const selected = (await logseq.Editor.getSelectedBlocks()) ?? [];
+  if (selected.length > 1) return runOnScope(action, ctx, await selectionScope(selected));
+  if (selected.length === 1) return runAction(action, ctx, selected[0]?.uuid);
+  const scope = (await logseq.Editor.getCurrentBlock()) ? null : await pageScope();
   if (scope) await runOnScope(action, ctx, scope);
   else await runAction(action, ctx);
 }
 
-async function selectionScope(): Promise<Scope | null> {
-  const selected = (await logseq.Editor.getSelectedBlocks()) ?? [];
-  if (selected.length === 0) return null;
+async function selectionScope(selected: readonly { uuid: string }[]): Promise<Scope> {
   // Selected entities come without children; the run covers descendants too.
   const trees = await Promise.all(selected.map((b) => readTree(b.uuid)));
-  const label = selected.length === 1 ? "1 selected block" : `${selected.length} selected blocks`;
-  return { label, trees: trees.filter((t): t is TargetNode => t !== null) };
+  return {
+    label: `${selected.length} selected blocks`,
+    trees: trees.filter((t): t is TargetNode => t !== null),
+  };
 }
 
 async function pageScope(): Promise<Scope | null> {
@@ -120,6 +124,7 @@ async function runOnScope(action: Action, ctx: RunActionContext, scope: Scope): 
     const proceed = await showConfirm(action.title, {
       message: `${scope.label} has ${collected.targets.length} text blocks — more than one run handles. Run on the first ${capped.targets.length}?`,
       acceptLabel: `Run on first ${capped.targets.length}`,
+      rejectLabel: "Cancel",
       baseUrl: settings.baseUrl,
     });
     if (!proceed) {

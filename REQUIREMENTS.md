@@ -345,9 +345,11 @@ Considered (2026-05-07) and rejected (2026-05-08). The field would have let user
 **Goal.** Run any AI action on several blocks at once: a block selection, or a whole page or journal. Not to be confused with §14 (text highlighted *inside* one block): block selection is exposed by the SDK (`logseq.Editor.getSelectedBlocks()`), so §14's cross-origin blockers do not apply.
 
 **Target resolution** (existing per-action palette commands and keyboard shortcuts — right-click is not possible on a multi-block selection, see gate G2):
-1. Blocks selected (Esc + Shift-click / Shift-arrow) → those blocks plus their descendants.
-2. Editing a block → that block (unchanged behaviour).
-3. Neither → the current page (journals included).
+1. Two or more blocks selected (Esc + Shift-click / Shift-arrow) → those blocks plus their descendants.
+2. One block selected, or a block being edited → that block, on the existing single-block path (diff panel). Opening the palette while editing turns the edited block into a one-block selection, so one selected block must not switch to the multi-block review.
+3. Neither → the current page (journals included), or the zoomed-in block.
+
+Each action's palette command is registered with an empty keybinding so it is listed (unset) under Settings → Keymap → Plugins and users can bind a key; Logseq registers no shortcut for a palette command without one. Palette keys must not contain `/` (Logseq builds the shortcut id as `plugin.<pid>/<key>`; a slash collapsed all actions onto one Keymap entry).
 
 **Run kinds, chosen by the action:**
 - **Per-block** (Spellcheck, Grammar, Rewrite + tones, custom block-scope actions): one request per block (today's prompts and evals unchanged); one review panel that fills in progressively — a diff per changed block, accept/reject per block, Accept all, Cancel; unchanged blocks hidden; a failed block shows its error inline and the rest continue.
@@ -363,6 +365,6 @@ Considered (2026-05-07) and rejected (2026-05-08). The field would have let user
 - **G2** — Logseq shows plugin block-context-menu items on a multi-block selection, and what the handler receives.
 - **G3** — `updateBlock` with an unchanged `#[[<tag-uuid>]]` keeps the tag (vs. creating a bogus tag named by the uuid). Every per-block write depends on this.
 
-**Gate results (2026-10-06):** G1 passes for the command palette (keyboard shortcut still to verify). **G2 fails**: plugin context-menu items appear only in the single-block menu, not the multi-selection menu (`content.cljs:371` vs `:42`) — the right-click entry point needs an upstream SDK/host change. **G3**: `getPageBlocksTree` / `getSelectedBlocks` return raw id-refs, and writing raw `#[[<tag-uuid>]]` back adds a bogus tag; `getBlock` returns names, which round-trip correctly — so every target is re-read with `getBlock` before it is sent or written.
+**Gate results (2026-10-06):** G1 passes for the command palette and for a keyboard shortcut bound to a palette command (the handler sees the selection). **G2 fails**: plugin context-menu items appear only in the single-block menu, not the multi-selection menu (`content.cljs:371` vs `:42`) — the right-click entry point needs an upstream SDK/host change. **G3**: `getPageBlocksTree` / `getSelectedBlocks` return raw id-refs, and writing raw `#[[<tag-uuid>]]` back adds a bogus tag; `getBlock` returns names, which round-trip correctly — so every target is re-read with `getBlock` before it is sent or written.
 
 **Out of scope (v1):** vision actions on pages/selections; text-range selection (§14); selections spanning pages; renaming page titles; a page "…" menu entry; Logseq Web testing (same APIs, unverified).

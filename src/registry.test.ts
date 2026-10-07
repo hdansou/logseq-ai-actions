@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Action } from "./action";
-import { buildRegistry } from "./registry";
+import { buildRegistry, commandKey } from "./registry";
 
 const BUILTIN: readonly Action[] = [
   {
@@ -153,5 +153,18 @@ describe("buildRegistry", () => {
     buildRegistry(frozenBuiltin, JSON.stringify([]));
     // would throw TypeError if buildRegistry tried to mutate it
     expect(frozenBuiltin).toEqual(BUILTIN);
+  });
+});
+
+describe("commandKey", () => {
+  it("is the action id for ordinary ids", () => {
+    expect(commandKey("grammar")).toBe("action-grammar");
+    expect(commandKey("rewrite-formal")).toBe("action-rewrite-formal");
+  });
+
+  // Logseq builds the shortcut id as plugin.<pid>/<key>; a "/" in the key made
+  // every action collapse onto one Settings → Keymap entry.
+  it("never contains a slash or other characters Logseq rewrites", () => {
+    expect(commandKey("my/custom action:v2")).toBe("action-my-custom-action-v2");
   });
 });

@@ -14,7 +14,7 @@ import { startThemeSync } from "./adapter/theme-sync";
 import { createNetFetch } from "./net-fetch";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
-import { buildRegistry, parseUserActions } from "./registry";
+import { buildRegistry, commandKey, parseUserActions } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
 import { showActionPicker } from "./ui/show-action-picker";
 import { showDiagnostics } from "./ui/show-diagnostics";
@@ -192,9 +192,15 @@ function rebuildRegistry(showToastOnError: boolean): void {
       withFresh((fresh) => runAction(fresh, runActionCtx)),
     );
     // Palette (and any keyboard shortcut bound to it): selected blocks, else
-    // the block being edited, else the current page (REQUIREMENTS §18).
+    // the block being edited, else the current page (REQUIREMENTS §18). The
+    // empty keybinding lists the action under Settings → Keymap → Plugins so
+    // users can bind a key; without one Logseq registers no shortcut at all.
     logseq.App.registerCommandPalette(
-      { key: `logseq-ai-actions/${action.id}`, label: `AI: ${action.title}` },
+      {
+        key: commandKey(action.id),
+        label: `AI: ${action.title}`,
+        keybinding: { binding: [] },
+      },
       withFresh((fresh) => runFromCommand(fresh, runActionCtx)),
     );
     // Block context-menu entry: handler receives the clicked block's
