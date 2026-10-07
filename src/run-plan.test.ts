@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { capTargets, flattenTargets, MAX_COMBINED_CHARS, planRun } from "./run-plan";
+import {
+  appliedMessage,
+  capTargets,
+  flattenTargets,
+  MAX_COMBINED_CHARS,
+  planRun,
+} from "./run-plan";
 import { findSeedAction } from "./seed-actions";
 import type { Target } from "./targets";
 
@@ -92,5 +98,21 @@ describe("capTargets", () => {
       targets: [t("huge", "y".repeat(MAX_COMBINED_CHARS + 10))],
       capped: true,
     });
+  });
+});
+
+describe("appliedMessage", () => {
+  it("counts applied changes", () => {
+    expect(appliedMessage("Grammar", 1, 0)).toBe("Grammar: applied 1 change");
+    expect(appliedMessage("Grammar", 3, 0)).toBe("Grammar: applied 3 changes");
+  });
+
+  it("says when blocks were left alone because they changed during the run", () => {
+    expect(appliedMessage("Grammar", 2, 1)).toBe(
+      "Grammar: applied 2 changes; 1 block was edited during the run and left as is",
+    );
+    expect(appliedMessage("Grammar", 0, 2)).toBe(
+      "Grammar: applied 0 changes; 2 blocks were edited during the run and left as is",
+    );
   });
 });

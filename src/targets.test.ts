@@ -22,8 +22,14 @@ describe("collectTargets", () => {
 
   it("keeps a block once when a selection holds both a parent and its child", () => {
     const child = n("c", "Child");
-    const { targets } = collectTargets([n("p", "Parent", [child]), child]);
+    const { targets, roots } = collectTargets([n("p", "Parent", [child]), child]);
     expect(targets.map((t) => t.uuid)).toEqual(["p", "c"]);
+    expect(roots).toEqual(["p"]);
+  });
+
+  it("reports the top-level blocks walked (where combined output goes after), skipped ones included", () => {
+    const { roots } = collectTargets([n("a", "A"), n("img", "", undefined, { link: { id: 1 } })]);
+    expect(roots).toEqual(["a", "img"]);
   });
 
   it("skips ineligible blocks but still walks their children, and counts what it skipped", () => {

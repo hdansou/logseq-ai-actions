@@ -448,12 +448,12 @@ function recordDebugEntry(
 }
 
 /** Sticky "<title>…" toast; returns its key for `closeBusyToast`. */
-async function showBusyToast(title: string): Promise<string | number | null> {
+export async function showBusyToast(title: string): Promise<string | number | null> {
   const msg = await logseq.UI.showMsg(`${title}…`, "info", { timeout: 0 });
   return (msg as unknown as string | number | null) ?? null;
 }
 
-function formatProviderError(err: unknown): string {
+export function formatProviderError(err: unknown): string {
   if (err instanceof LLMProviderError) {
     return `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`;
   }
@@ -465,7 +465,7 @@ function formatProviderError(err: unknown): string {
  * timed out on its own). Wrap once and swallow — every call site treated
  * the throw as ignorable.
  */
-function closeBusyToast(key: string | number | null): void {
+export function closeBusyToast(key: string | number | null): void {
   if (key === null) return;
   try {
     logseq.UI.closeMsg(key as string);
@@ -479,7 +479,7 @@ function closeBusyToast(key: string | number | null): void {
  * otherwise) and record a debug-log entry. Shared by every text-action
  * path so the debug-log shape stays identical regardless of mode.
  */
-async function performLLM(
+export async function performLLM(
   provider: LLMProvider,
   action: Action,
   input: ResolvedInput,

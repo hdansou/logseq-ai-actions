@@ -8,6 +8,7 @@ import {
   startEditingBlockTracker,
 } from "./adapter/editing-block-cache";
 import { type RunActionContext, runAction } from "./adapter/run-action";
+import { runFromCommand } from "./adapter/run-scope";
 import { handlePresetChange, readSettings } from "./adapter/settings";
 import { startThemeSync } from "./adapter/theme-sync";
 import { createNetFetch } from "./net-fetch";
@@ -174,7 +175,8 @@ function rebuildRegistry(showToastOnError: boolean): void {
   for (const action of activeActionsAll) {
     if (registeredInvocationIds.has(action.id)) continue;
     registeredInvocationIds.add(action.id);
-    const handler = async () => {
+    // Resolve the action at invocation time (hot-reloaded prompts/titles).
+    const withFresh = (run: (fresh: Action) => Promise<void>) => async () => {
       const fresh = activeActionsAll.find((a) => a.id === action.id);
       if (!fresh) {
         logseq.UI.showMsg(
@@ -183,27 +185,24 @@ function rebuildRegistry(showToastOnError: boolean): void {
         );
         return;
       }
-      await runAction(fresh, runActionCtx);
+      await run(fresh);
     };
-    logseq.Editor.registerSlashCommand(slashLabelFor(action), handler);
+    logseq.Editor.registerSlashCommand(
+      slashLabelFor(action),
+      withFresh((fresh) => runAction(fresh, runActionCtx)),
+    );
+    // Palette (and any keyboard shortcut bound to it): selected blocks, else
+    // the block being edited, else the current page (REQUIREMENTS §18).
     logseq.App.registerCommandPalette(
       { key: `logseq-ai-actions/${action.id}`, label: `AI: ${action.title}` },
-      handler,
+      withFresh((fresh) => runFromCommand(fresh, runActionCtx)),
     );
     // Block context-menu entry: handler receives the clicked block's
     // uuid, which we pass to runAction so the action runs on that
     // specific block rather than wherever the cursor happens to be.
-    logseq.Editor.registerBlockContextMenuItem(`AI: ${action.title}`, async (e) => {
-      const fresh = activeActionsAll.find((a) => a.id === action.id);
-      if (!fresh) {
-        logseq.UI.showMsg(
-          `Action '${action.id}' is no longer available — reload the plugin to refresh the menus`,
-          "warning",
-        );
-        return;
-      }
-      await runAction(fresh, runActionCtx, e.uuid);
-    });
+    logseq.Editor.registerBlockContextMenuItem(`AI: ${action.title}`, (e) =>
+      withFresh((fresh) => runAction(fresh, runActionCtx, e.uuid))(),
+    );
   }
 }
 

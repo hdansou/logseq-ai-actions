@@ -53,11 +53,13 @@ export function skipReason(node: TargetNode): SkipReason | null {
 /**
  * Eligible blocks in document order. A block reached twice (a selected parent
  * and its selected child) is kept once; a skipped block's children are still
- * walked.
+ * walked. `roots` lists the top-level blocks actually walked (duplicates
+ * dropped), so combined output can go after the last one.
  */
 export function collectTargets(roots: readonly TargetNode[]): {
   targets: Target[];
   skipped: number;
+  roots: string[];
 } {
   const targets: Target[] = [];
   const seen = new Set<string>();
@@ -70,6 +72,11 @@ export function collectTargets(roots: readonly TargetNode[]): {
     else targets.push({ uuid: node.uuid, text: (node.title ?? "").trim(), depth });
     for (const child of node.children ?? []) walk(child, depth + 1);
   };
-  for (const root of roots) walk(root, 0);
-  return { targets, skipped };
+  const walked: string[] = [];
+  for (const root of roots) {
+    if (seen.has(root.uuid)) continue;
+    walked.push(root.uuid);
+    walk(root, 0);
+  }
+  return { targets, skipped, roots: walked };
 }

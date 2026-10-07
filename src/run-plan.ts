@@ -59,3 +59,12 @@ export function capTargets(
   }
   return { targets: kept, capped: kept.length < targets.length };
 }
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** Toast after a per-block run's accepted changes are written. */
+export function appliedMessage(title: string, applied: number, stale: number): string {
+  const base = `${title}: applied ${plural(applied, "change", "changes")}`;
+  if (stale === 0) return base;
+  return `${base}; ${plural(stale, "block was", "blocks were")} edited during the run and left as is`;
+}
