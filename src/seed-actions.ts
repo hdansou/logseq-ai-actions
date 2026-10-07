@@ -65,6 +65,11 @@ const KEY_POINTS_PROMPT = `Extract the key points from the text. ${OUTLINE_INPUT
 
 const OUTLINE_PROMPT = `Organize the text as a nested outline. ${OUTLINE_INPUT} Use a markdown bulleted list with two-space indent per nesting level (e.g., "- Parent", then "  - Child", then "    - Grandchild"). Each bullet should be a short complete phrase, not a long sentence. Group related ideas under a common parent. Aim for 2 to 5 top-level items and up to 3 levels of depth where it makes sense; do not force depth. Do not add new information — every bullet must be grounded in the source text. ${COPY_REFS} ${SAME_LANGUAGE} Return ONLY the bulleted outline — no headings, no code fences, no numbering, no commentary.`;
 
+// Whole-content revision for pages and selections (REQUIREMENTS §18). Unlike
+// Outline, which condenses to short phrases, this keeps the author's content
+// and level of detail and only makes it clearer and better organised.
+const IMPROVE_PROMPT = `Improve the text and return it as a better organised outline. ${OUTLINE_INPUT} Keep every fact, number, name, date, and link, and keep the author's level of detail — this is a revision, not a summary. Group related points under a common parent, put them in a logical order, merge points that repeat or duplicate each other, and make each bullet clear and concise. Fix clear spelling and grammar errors. Do not add new information, opinions, or next steps. ${KEEP_REFS} ${NO_NEW_STRUCTURE} ${NO_CHANGE_MARKUP} Use a markdown bulleted list with two-space indent per nesting level (e.g., "- Parent", then "  - Child"). ${SAME_LANGUAGE} Return ONLY the bulleted outline — no headings, no code fences, no numbering, no commentary.`;
+
 // Image-title prompt — tuned for small vision models (Qwen3.5 0.8B/2B,
 // Llava, Qwen2.5-VL). Three explicit constraints: count (3), length (3-6
 // words), register (descriptive not poetic). The "one per line, no prefix"
@@ -182,6 +187,15 @@ export const SEED_ACTIONS: readonly Action[] = Object.freeze([
     scope: "subtree",
     outputMode: "outline-append",
     systemPrompt: OUTLINE_PROMPT,
+  }),
+  parseAction({
+    id: "improve",
+    title: "Improve (restructure)",
+    description:
+      "Revise the current block and its children (or a page or selection, from the command palette) into a clearer, better organised outline that keeps all the content. Appended as new blocks — the originals are not changed.",
+    scope: "subtree",
+    outputMode: "outline-append",
+    systemPrompt: IMPROVE_PROMPT,
   }),
   parseAction({
     id: "image-title",

@@ -29,7 +29,7 @@ describe("planRun", () => {
   });
 
   it("appends Key Points and both Outline modes as children of a new heading block", () => {
-    for (const id of ["key-points", "outline-replace", "outline-append"]) {
+    for (const id of ["key-points", "outline-replace", "outline-append", "improve"]) {
       const action = seed(id);
       expect(planRun(action)).toEqual({
         kind: "combined",

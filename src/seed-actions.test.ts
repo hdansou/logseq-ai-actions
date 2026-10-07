@@ -16,6 +16,7 @@ describe("SEED_ACTIONS", () => {
       "key-points",
       "outline-replace",
       "outline-append",
+      "improve",
       "image-title",
       "extract-image-text",
     ]);
@@ -53,6 +54,7 @@ describe("SEED_ACTIONS", () => {
       "key-points": "subtree",
       "outline-replace": "subtree",
       "outline-append": "subtree",
+      improve: "subtree",
       "image-title": "block",
       "extract-image-text": "block",
     });
@@ -72,6 +74,7 @@ describe("SEED_ACTIONS", () => {
       "key-points": "append-children",
       "outline-replace": "outline-replace",
       "outline-append": "outline-append",
+      improve: "outline-append",
       "image-title": "picker-replace",
       "extract-image-text": "outline-append",
     });
@@ -140,6 +143,15 @@ describe("SEED_ACTIONS", () => {
     expect(byId["rewrite-friendly"]).toMatch(/friendly/);
   });
 
+  it("improve prompt restructures without losing or inventing content", () => {
+    const p = findSeedAction("improve")?.systemPrompt ?? "";
+    expect(findSeedAction("improve")?.title).toBe("Improve (restructure)");
+    expect(p).toMatch(/every fact/i); // keeps all content, unlike Outline's short phrases
+    expect(p).toMatch(/Do not add new information/);
+    expect(p).toMatch(/duplicate|repeat/i);
+    expect(p).toMatch(/two-space indent/);
+  });
+
   it("rewrite-professional prompt references the Amazon writing style", () => {
     const prof = SEED_ACTIONS.find((a) => a.id === "rewrite-professional");
     expect(prof).toBeDefined();
@@ -171,7 +183,7 @@ describe("seed prompts keep Logseq DB references intact", () => {
     },
   );
 
-  it.each(text.filter((a) => /^(rewrite|summarize)/.test(a.id)).map((a) => [a.id, a]))(
+  it.each(text.filter((a) => /^(rewrite|summarize|improve)/.test(a.id)).map((a) => [a.id, a]))(
     "%s forbids adding headings, fences, task markers and key:: lines",
     (_id, a) => {
       expect(a.systemPrompt).toMatch(/Do not add Markdown headings/);

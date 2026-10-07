@@ -42,6 +42,7 @@ describe("categorizeAction", () => {
       "key-points",
       "outline-replace",
       "outline-append",
+      "improve",
       "summarize-tldr",
       "key-points-numbered",
       "outline-bullet",

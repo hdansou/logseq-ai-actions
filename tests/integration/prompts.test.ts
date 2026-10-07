@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseOutline } from "../../src/parse-outline";
 import { parsePoints } from "../../src/parse-points";
 import { buildChatMessages, cleanModelOutput } from "../../src/prompting";
 import { findSeedAction } from "../../src/seed-actions";
@@ -219,6 +220,34 @@ const CASES: readonly PromptCase[] = [
       noFraming(out);
       expect(parsePoints(out).length).toBeGreaterThanOrEqual(2);
       expect(out).toMatch(/Q4/);
+    },
+  },
+  {
+    action: "improve",
+    label: "reorganises messy notes, merges the repeat, keeps every fact and id-reference",
+    input: `- meeting notes\n  - we need to hire 2 backend engineers for ${PAGE}\n  - budget is capped at $120k\n  - also hire two backend engineers asap\n  - migrate billing by November ${TAG}\n  - docs owned by Sam`,
+    check: (out, input) => {
+      noFraming(out);
+      noNewStructure(out);
+      refsIntact(out, input);
+      expect(parseOutline(out).length).toBeGreaterThan(0);
+      for (const token of [PAGE, TAG, "$120k", "November", "Sam"]) expect(out).toContain(token);
+      expect(out.match(/backend engineer/gi)?.length ?? 0).toBe(1);
+    },
+  },
+  {
+    action: "improve",
+    label: "keeps name-form references (what page and selection runs send) and the language",
+    input:
+      "- Lancement\n  - revoir [[Projet X]] avant la réunion #planning\n  - le budget est validé\n  - il faut revoir [[Projet X]] avant la réunion\n  - Marie s'occupe de la doc",
+    check: (out) => {
+      noFraming(out);
+      noNewStructure(out);
+      expect(out).toContain("[[Projet X]]");
+      expect(out).toContain("#planning");
+      expect(out).toContain("Marie");
+      expect(out).toMatch(/\b(le|la|les|avant|réunion)\b/i);
+      expect(out).not.toMatch(/\b(the|before|meeting)\b/i);
     },
   },
 ];

@@ -354,7 +354,7 @@ Each action's palette command is registered with an empty keybinding so it is li
 **Run kinds, chosen by the action:**
 - **Per-block** (Spellcheck, Grammar, Rewrite + tones, custom block-scope actions): one request per block (today's prompts and evals unchanged); one review panel that fills in progressively — a diff per changed block, accept/reject per block, Accept all, Cancel; unchanged blocks hidden; a failed block shows its error inline and the rest continue.
 - **Combined** (Summarize, Key Points, Outline, custom subtree actions): targets flattened into one input; the result is **appended**, never replacing — a new block after the selection (or at the end of the page), Key Points / Outline as its children. In page/multi runs "Outline (replace)" behaves as append.
-- **"Improve (restructure)"** — the whole-content mode: rewrites the content as an improved outline, appended under an "AI revision" block; originals untouched.
+- **"Improve (restructure)"** — the whole-content mode: rewrites the content as a clearer, better organised outline that keeps every fact (unlike Outline, which condenses), appended under a block named after the action like the other combined runs; originals untouched. On a single block it appends the outline as children, like Outline (append).
 
 **Inclusion:** all nested blocks with text, collapsed included; skip empty, image/asset, code and math blocks, and query/embed blocks. **Cap:** 50 blocks per run (combined: ~6,000 characters of input); above it, ask — first 50, or cancel.
 
