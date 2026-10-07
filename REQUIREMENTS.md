@@ -339,3 +339,28 @@ Considered (2026-05-07) and rejected (2026-05-08). The field would have let user
 
 - Per-graph keybinding overrides — Logseq's keymap UI is global. A graph-scoped override layer is not on the v1 roadmap.
 - A keybinding-capture widget in the Manage panel — superseded by "use Logseq's keymap UI", which already has one.
+
+## 18. Page and multi-block scopes (in progress, branch `feat/page-and-multi-block-scopes`)
+
+**Goal.** Run any AI action on several blocks at once: a block selection, or a whole page or journal. Not to be confused with §14 (text highlighted *inside* one block): block selection is exposed by the SDK (`logseq.Editor.getSelectedBlocks()`), so §14's cross-origin blockers do not apply.
+
+**Target resolution** (existing per-action palette commands / shortcuts, plus right-click on selected blocks):
+1. Blocks selected (Esc + Shift-click / Shift-arrow) → those blocks plus their descendants.
+2. Editing a block → that block (unchanged behaviour).
+3. Neither → the current page (journals included).
+
+**Run kinds, chosen by the action:**
+- **Per-block** (Spellcheck, Grammar, Rewrite + tones, custom block-scope actions): one request per block (today's prompts and evals unchanged); one review panel that fills in progressively — a diff per changed block, accept/reject per block, Accept all, Cancel; unchanged blocks hidden; a failed block shows its error inline and the rest continue.
+- **Combined** (Summarize, Key Points, Outline, custom subtree actions): targets flattened into one input; the result is **appended**, never replacing — a new block after the selection (or at the end of the page), Key Points / Outline as its children. In page/multi runs "Outline (replace)" behaves as append.
+- **"Improve (restructure)"** — the whole-content mode: rewrites the content as an improved outline, appended under an "AI revision" block; originals untouched.
+
+**Inclusion:** all nested blocks with text, collapsed included; skip empty, image/asset, code and math blocks, and query/embed blocks. **Cap:** 50 blocks per run (combined: ~6,000 characters of input); above it, ask — first 50, or cancel.
+
+**Safety:** write only accepted rows, one `updateBlock` per block; skip a block whose text changed since it was read; remote-endpoint consent once per run (existing send-time check). Each block write is its own Logseq undo step (no batch-update API).
+
+**Gates before building UI:**
+- **G1** — `getSelectedBlocks()` still returns the selection when an action runs from the command palette / a keyboard shortcut.
+- **G2** — Logseq shows plugin block-context-menu items on a multi-block selection, and what the handler receives.
+- **G3** — `updateBlock` with an unchanged `#[[<tag-uuid>]]` keeps the tag (vs. creating a bogus tag named by the uuid). Every per-block write depends on this.
+
+**Out of scope (v1):** vision actions on pages/selections; text-range selection (§14); selections spanning pages; renaming page titles; a page "…" menu entry; Logseq Web testing (same APIs, unverified).

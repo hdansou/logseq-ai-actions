@@ -492,10 +492,23 @@ Reported from a second Mac: `Request failed: … FetchError … connect EHOSTUNR
 - [ ] Verify (UNCONFIRMED in source review): does `updateBlock` with an unchanged `#[[<tag-uuid>]]` keep the tag, or create a bogus tag named by the uuid? Test in a throwaway graph.
 - [ ] UX: the diff panel shows raw `[[<uuid>]]` ids (the plugin sends `.title`); show `fullTitle` for display only, keep sending the raw title.
 
+### Page and multi-block scopes (branch `feat/page-and-multi-block-scopes`, started 2026-10-06)
+
+Spec: REQUIREMENTS §18. One commit per task, test-first.
+
+- [ ] **0. Gates G1–G3** — verify over CDP in a throwaway graph; record results here. A G3 failure is fixed first; a G1/G2 failure changes the entry points.
+- [ ] **1. `src/targets.ts`** (pure) — collect targets from block trees + selection: skip rules, dedupe descendants, cap. RED → GREEN.
+- [ ] **2. `src/run-plan.ts`** (pure) — per-block vs combined; where output goes. RED → GREEN.
+- [ ] **3. `src/ui/review-state.ts`** (pure) — review state (pending/running/changed/unchanged/error; accept/reject/all; cancel). RED → GREEN.
+- [ ] **4. `ReviewPanel` UI** + CSS guard test — verified visually over CDP.
+- [ ] **5. Adapter** — target resolution, per-block loop (progress, cancel, changed-since-read guard), combined path, palette + right-click wiring — end-to-end over CDP in a throwaway graph.
+- [ ] **6. "Improve (restructure)"** seed action + live eval cases.
+- [ ] **7. Docs** — README, REQUIREMENTS §18 status, changeset.
+- [ ] **8. Review** — code-review + security-review pass.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14
-- Whole-page and multi-select scopes
 - Per-invocation scope / output-mode override
 - Form-based settings UI replacing native settings
 - Cloud LLM provider adapter
