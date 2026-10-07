@@ -334,6 +334,92 @@
         cursor: not-allowed;
       }
 
+      /* Multi-block review panel — src/ui/ReviewPanel.tsx. Reuses the diff
+         panel shell; one row per block, state in data-status/-decision. */
+      .review-scope {
+        color: var(--muted);
+        font-size: 0.9em;
+      }
+      .review-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+      }
+      .review-empty {
+        margin: 0;
+        padding: 24px 20px;
+        color: var(--muted);
+      }
+      .review-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .review-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 12px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .review-row:last-child {
+        border-bottom: none;
+      }
+      .review-row[data-status="pending"],
+      .review-row[data-status="running"],
+      .review-row[data-status="cancelled"],
+      .review-row[data-decision="rejected"] {
+        color: var(--muted);
+      }
+      .review-row[data-decision="rejected"] .diff-added,
+      .review-row[data-decision="rejected"] .diff-removed {
+        background: transparent;
+        text-decoration: none;
+      }
+      .review-row[data-decision="rejected"] .diff-added {
+        display: none;
+      }
+      .review-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .review-status {
+        flex: none;
+        max-width: 40%;
+        color: var(--muted);
+        font-size: 0.85em;
+      }
+      .review-row[data-status="error"] .review-status {
+        color: var(--danger);
+      }
+      .review-decision {
+        flex: none;
+        display: inline-flex;
+        gap: 4px;
+        margin: 0;
+        padding: 0;
+        border: none;
+        min-width: 0;
+      }
+      .review-choice {
+        padding: 3px 10px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--bg);
+        color: var(--fg);
+        font: inherit;
+        font-size: 0.85em;
+        cursor: pointer;
+      }
+      .review-choice:hover {
+        background: var(--hover);
+      }
+      .review-choice[aria-pressed="true"] {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
       /* Diagnostics panel — reuses .diff-root / .diff-modal / .diff-header /
          .diff-footer and adds its own body + entry styles. */
       .diag-body {
