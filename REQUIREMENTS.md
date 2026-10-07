@@ -363,4 +363,6 @@ Considered (2026-05-07) and rejected (2026-05-08). The field would have let user
 - **G2** — Logseq shows plugin block-context-menu items on a multi-block selection, and what the handler receives.
 - **G3** — `updateBlock` with an unchanged `#[[<tag-uuid>]]` keeps the tag (vs. creating a bogus tag named by the uuid). Every per-block write depends on this.
 
+**Gate results (2026-10-06):** G1 passes for the command palette (keyboard shortcut still to verify). **G2 fails**: plugin context-menu items appear only in the single-block menu, not the multi-selection menu (`content.cljs:371` vs `:42`) — the right-click entry point needs an upstream SDK/host change. **G3**: `getPageBlocksTree` / `getSelectedBlocks` return raw id-refs, and writing raw `#[[<tag-uuid>]]` back adds a bogus tag; `getBlock` returns names, which round-trip correctly — so every target is re-read with `getBlock` before it is sent or written.
+
 **Out of scope (v1):** vision actions on pages/selections; text-range selection (§14); selections spanning pages; renaming page titles; a page "…" menu entry; Logseq Web testing (same APIs, unverified).

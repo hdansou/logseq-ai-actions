@@ -496,7 +496,10 @@ Reported from a second Mac: `Request failed: … FetchError … connect EHOSTUNR
 
 Spec: REQUIREMENTS §18. One commit per task, test-first.
 
-- [ ] **0. Gates G1–G3** — verify over CDP in a throwaway graph; record results here. A G3 failure is fixed first; a G1/G2 failure changes the entry points.
+- [x] **0. Gates G1–G3** (2026-10-06, stable Logseq.app over CDP, throwaway graph `ai-actions-gates`, marketplace v1.1.6 loaded; host-level checks, no plugin code changes):
+  - **G1 PASS (palette):** 3 blocks selected with Esc + Shift+Down stay selected while the palette is open *and after* "AI: Grammar" runs (`get_selected_blocks()` returns the same 3). v1.1.6's Grammar then ran on the first selected block. Keyboard-shortcut path not yet verified — check during task 5.
+  - **G2 FAIL (right-click):** single-block menu shows all 13 "AI: …" items; with several blocks selected, right-click opens Logseq's *selection* menu (Cut / Delete selected blocks / Copy …) with **no plugin items**. Source: plugin items are rendered only in `block-context-menu-content` (`logseq/src/main/frontend/components/content.cljs:371`); the selection menu `custom-context-menu-content` (`:42`) has no plugin hook. Needs an upstream change.
+  - **G3 — two text forms:** `getBlock`/`getCurrentBlock` return **names** (`#planning … [[Project X]]`); `getPageBlocksTree`/`getSelectedBlocks` return **raw id-refs** (`#[[<uuid>]] … [[<uuid>]]`). Writing raw `#[[<tag-uuid>]]` back via `updateBlock` adds a **bogus tag named by the uuid** (reproduced); `#tag` / `#[[multi word]]` names resolve to the existing tag; `#[[one-word]]` *drops* the tag; raw `[[<page-uuid>]]` round-trips fine. **The released single-block path is safe** (it reads and writes names). For the new scopes: re-read every target with `getBlock` (name form) before sending/writing.
 - [ ] **1. `src/targets.ts`** (pure) — collect targets from block trees + selection: skip rules, dedupe descendants, cap. RED → GREEN.
 - [ ] **2. `src/run-plan.ts`** (pure) — per-block vs combined; where output goes. RED → GREEN.
 - [ ] **3. `src/ui/review-state.ts`** (pure) — review state (pending/running/changed/unchanged/error; accept/reject/all; cancel). RED → GREEN.
