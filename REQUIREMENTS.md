@@ -344,7 +344,7 @@ Considered (2026-05-07) and rejected (2026-05-08). The field would have let user
 
 **Goal.** Run any AI action on several blocks at once: a block selection, or a whole page or journal. Not to be confused with §14 (text highlighted *inside* one block): block selection is exposed by the SDK (`logseq.Editor.getSelectedBlocks()`), so §14's cross-origin blockers do not apply.
 
-**Target resolution** (existing per-action palette commands / shortcuts, plus right-click on selected blocks):
+**Target resolution** (existing per-action palette commands and keyboard shortcuts — right-click is not possible on a multi-block selection, see gate G2):
 1. Blocks selected (Esc + Shift-click / Shift-arrow) → those blocks plus their descendants.
 2. Editing a block → that block (unchanged behaviour).
 3. Neither → the current page (journals included).
