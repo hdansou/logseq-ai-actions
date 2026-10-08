@@ -23,6 +23,8 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
   - `summarize` — TL;DR of a block and its descendants; written into the parent, children preserved.
   - `key-points` — extract bullet-list points; appended as new children under the block.
   - `outline-replace` / `outline-append` — generate a nested outline of a subtree. Replace destroys existing children; Append preserves them. Markdown tables in the LLM output are kept as standalone blocks.
+  - `improve` — **Improve (restructure)**: revise a subtree, page or selection into a clearer, better organised outline that keeps every fact (Outline condenses; Improve doesn't). Appended as new blocks.
+- **Pages and selections**: run any text action on several selected blocks or on a whole page or journal from the command palette or a keyboard shortcut. See [Run on a page or several blocks](#run-on-a-page-or-several-blocks).
 - **Vision seed actions** (run on image asset blocks — blocks tagged `:logseq.class/Asset`):
   - `image-title` — analyze the image and propose three candidate titles in a picker; chosen value writes to `:block/title`.
   - `extract-image-text` — OCR the image and append the extracted text as nested children. Well-formed tables in the source render as standalone markdown-table blocks.
@@ -34,7 +36,7 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
 - **Trust signals**: every UI surface that shows the configured endpoint labels it `LOCAL` or `REMOTE`. Before the first request to a non-loopback host (and again whenever that host changes) you are asked to confirm; the prompt also warns if an API key would go over plain `http://`.
 - **Debug log (opt-in)**: in-memory ring buffer of the last 50 requests (request shape, response preview, duration, error if any), viewable in `/AI Diagnostics`. Never written to disk.
 
-> Planned for v2: whole-page and multi-select scopes, per-invocation scope/output override, form-based settings panel, WebLLM provider, true selection-scope with block-range splicing. See [`tasks.md`](./tasks.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
+> Planned for v2: per-invocation scope/output override, form-based settings panel, WebLLM provider, true selection-scope with block-range splicing. See [`tasks.md`](./tasks.md) and [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ## Quick start
 
@@ -161,17 +163,34 @@ Hidden state is per-graph, stored in the `hiddenActionIds` plugin setting. The M
 
 ### 6. (Optional) Keyboard shortcuts
 
-Every action — built-in or user-defined — registers as a Logseq command, so **every action is bindable from Logseq's built-in keymap UI** without any plugin-side configuration:
+Every action — built-in or user-defined — is listed, unset, in Logseq's keymap, so **every action is bindable** without any plugin-side configuration:
 
-1. Open Logseq's **Settings → Keyboard shortcuts** (also reachable via the command palette as "Keyboard shortcuts").
-2. Search for `AI:` to filter to this plugin's commands.
+1. Open Logseq's **Settings → Keymap**.
+2. Search for `AI:` to filter to this plugin's commands (they sit under **Plugins**).
 3. Click the binding cell next to e.g. `AI: Grammar` and press your chord. Single keys, modified keys, and two-key sequences like `g g` are all supported.
 
-Bindings set there persist across plugin reloads. The plugin doesn't ship default shortcuts — any prefix risks colliding with Logseq core or another plugin in some users' setups, and the keymap UI is one click away.
+Bindings set there persist across plugin reloads. The plugin doesn't ship default shortcuts — any prefix risks colliding with Logseq core or another plugin in some users' setups, and the keymap UI is one click away. A shortcut behaves like the command palette, so it also works on selected blocks and whole pages (below).
+
+## Run on a page or several blocks
+
+From the **command palette** (`AI: <action>`) or a **keyboard shortcut**, an action picks what to work on:
+
+| You have… | The action runs on… |
+| --- | --- |
+| two or more blocks selected (Esc, then Shift+click or Shift+↑/↓) | those blocks and their children |
+| one block selected, or the cursor in a block | that block, as usual (diff panel) |
+| nothing selected, no block being edited | the whole current page or journal |
+
+Right-click can't do this: Logseq shows plugin menu items only for a single block, not for a multi-block selection. Image actions stay single-block.
+
+- **Fix and rewrite actions** (Spellcheck, Grammar, Rewrite and its tones, your own block actions) send **one request per block**. A review panel fills in as results arrive: a diff per changed block, Accept / Reject on each row, **Accept all**, **Cancel** (stops the blocks still waiting). Blocks the model left as they were are hidden; a failed block shows its error and the rest carry on. Only accepted rows are written, and a block you edit while the panel is open is left as you wrote it.
+- **Summarize, Key Points, Outline and Improve** read all the blocks as one outline and **add** the result — after the selection, or at the end of the page; Key Points, Outline and Improve go under a new block named after the action. Nothing is replaced, so Outline (replace children) appends here too.
+- Empty blocks, images and other assets, code and math blocks, queries and embeds are skipped. Above **50 blocks** (or about 6,000 characters for Summarize / Key Points / Outline / Improve) you are asked whether to run on the first part or cancel.
+- Each written block is its own undo step.
 
 ## Privacy & data egress
 
-- The plugin sends **exactly the scope of content the action is configured for** (selection / block / block + children) to the configured endpoint, nothing more.
+- The plugin sends **exactly the scope of content the action is configured for** (selection / block / block + children, or the selected blocks / page for page and multi-block runs) to the configured endpoint, nothing more.
 - No telemetry. No background requests. Nothing leaves this plugin unless you invoke an action.
 - **Do not invoke actions on content you don't want sent to the configured endpoint.** Especially if the endpoint is labeled `REMOTE`.
 - The debug log, when enabled, lives only in memory and is cleared when Logseq restarts. Upstream HTTP error excerpts (up to 200 chars) are captured to help diagnose 401/CORS failures — if you share screenshots from `/AI Diagnostics`, treat them as sensitive.

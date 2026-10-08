@@ -340,7 +340,7 @@ Considered (2026-05-07) and rejected (2026-05-08). The field would have let user
 - Per-graph keybinding overrides — Logseq's keymap UI is global. A graph-scoped override layer is not on the v1 roadmap.
 - A keybinding-capture widget in the Manage panel — superseded by "use Logseq's keymap UI", which already has one.
 
-## 18. Page and multi-block scopes (in progress, branch `feat/page-and-multi-block-scopes`)
+## 18. Page and multi-block scopes (implemented on `feat/page-and-multi-block-scopes`, unreleased; verified end to end 2026-10-06)
 
 **Goal.** Run any AI action on several blocks at once: a block selection, or a whole page or journal. Not to be confused with §14 (text highlighted *inside* one block): block selection is exposed by the SDK (`logseq.Editor.getSelectedBlocks()`), so §14's cross-origin blockers do not apply.
 
