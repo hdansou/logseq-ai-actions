@@ -26,7 +26,7 @@ function hasRule(css: string, className: string): boolean {
 
 const PANELS = {
   ChoicePanel: { source: choicePanel, expected: ["picker-row", "picker-list"] },
-  DiffPanel: { source: diffPanel, expected: ["diff-copy-status", "diff-footer"] },
+  DiffPanel: { source: diffPanel, expected: ["diff-copy-status", "diff-footer", "diff-note"] },
   ReviewPanel: { source: reviewPanel, expected: ["review-row", "review-list", "review-choice"] },
 };
 

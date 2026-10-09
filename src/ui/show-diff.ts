@@ -16,6 +16,8 @@ export interface ShowDiffPanelOptions {
   readonly runAndStream: RunAndStream;
   /** Accept button text; "Accept" by default. */
   readonly acceptLabel?: string;
+  /** One line under the header (e.g. what is not carried over). */
+  readonly note?: string;
 }
 
 /**
@@ -33,6 +35,7 @@ export function showDiffPanel(options: ShowDiffPanelOptions): Promise<string | n
       actions: options.actions,
       runAndStream: options.runAndStream,
       ...(options.acceptLabel ? { acceptLabel: options.acceptLabel } : {}),
+      ...(options.note ? { note: options.note } : {}),
       onAccept: (text: string) => teardown(text),
       onReject: () => teardown(null),
     }),

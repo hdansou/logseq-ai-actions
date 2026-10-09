@@ -98,6 +98,8 @@ export interface DiffPanelProps {
   readonly onReject: () => void;
   /** Accept button text; "Accept" by default (e.g. "Add as new blocks"). */
   readonly acceptLabel?: string;
+  /** One line under the header about what Accept does and doesn't carry over. */
+  readonly note?: string;
 }
 
 export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
@@ -234,6 +236,8 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
             <kbd>Esc</kbd> reject · <kbd>⌘ ↵</kbd> accept
           </span>
         </header>
+
+        {props.note ? <p class="diff-note">{props.note}</p> : null}
 
         {barItems.length > 0 ? (
           <div class="diff-action-bar" role="toolbar" aria-label="Switch action">

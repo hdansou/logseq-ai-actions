@@ -23,7 +23,7 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
   - `summarize` — TL;DR of a block and its descendants; written into the parent, children preserved.
   - `key-points` — extract bullet-list points; appended as new children under the block.
   - `outline-replace` / `outline-append` — generate a nested outline of a subtree. Replace destroys existing children; Append preserves them. Markdown tables in the LLM output are kept as standalone blocks.
-  - `improve` — **Improve (restructure)**: revise a subtree, page or selection into a clearer, better organised outline that keeps every fact (Outline condenses; Improve doesn't). You review it as a diff of the original outline against the revised one (edit or copy it there); accepting adds it as new blocks.
+  - `improve` — **Improve (restructure)**: revise a subtree, page or selection into a clearer, better organised outline that keeps every fact (Outline condenses; Improve doesn't). You review it as a diff of the original outline against the revised one (edit or copy it there); accepting adds it as new blocks. The originals keep their properties, task status and dates; the new outline is text only (inline `#tags` and `[[links]]` are kept).
 - **Pages and selections**: run any text action on several selected blocks or on a whole page or journal from the command palette or a keyboard shortcut. See [Run on a page or several blocks](#run-on-a-page-or-several-blocks).
 - **Vision seed actions** (run on image asset blocks — blocks tagged `:logseq.class/Asset`):
   - `image-title` — analyze the image and propose three candidate titles in a picker; chosen value writes to `:block/title`.

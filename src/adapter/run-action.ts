@@ -442,6 +442,8 @@ export async function reviewRevisedOutline(
     original: input.llmInput,
     actions: [],
     acceptLabel: "Add as new blocks",
+    // Only block text is sent; properties live beside it in DB graphs.
+    note: "Your original blocks are not changed and keep their properties, task status and dates. The new outline is text only.",
     runAndStream: async (_actionId, onChunk) => ({
       finalText: await performLLM(ctx.provider, action, input, settings, onChunk),
       actionTitle: action.title,
