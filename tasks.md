@@ -535,6 +535,13 @@ Spec: REQUIREMENTS §18. One commit per task, test-first.
 - [x] **Fix (in 1.2.0):** the diff panel hid "Streaming…" and model errors when it had no action bar (Improve, image actions) → shown whenever streaming or failed.
 - E2E (Logseq 2.0.1, `plugin-test` graph, temporary build with Generate Title on `diff-panel`, gemma-4-E4B): panel showed the note, title + description; Accept → caption "Energy Consumption Dashboard Over Time", description as a block under the image. Image restored afterwards.
 
+### Settings persistence and hiding (2026-10-09)
+
+- [x] **Hide is immediate everywhere.** Registration used the unfiltered registry, so hidden actions stayed in slash / palette / shortcut / context menu (README claimed they left after a reload). The SDK's register calls return unregister functions, which the plugin never used. `registrationChanges(visible, registered)` (4 tests) + `syncEntries` register / unregister on every registry rebuild: hide, restore, add, delete and rename apply without a reload. Context-menu items go through `logseq.Commands.register` because `Editor.registerBlockContextMenuItem` drops its unregister (SDK 0.3.x). Verified in Logseq 2.0.1 with a debug hook (no settings writes): hiding Rewrite Professional removed it from palette, slash and right-click at once; unhiding restored all; the user's own 4 hidden rewrites were absent after reload.
+- [x] Docs: plugin settings (custom actions, hidden actions, endpoint) are global, not per-graph, and are deleted on uninstall (Logseq `electron/plugin.cljs` `uninstall!` removes `~/.logseq/settings/<id>.json`).
+- [ ] Settings backup: one export/import for custom actions + hidden actions + endpoint settings (Manage Actions "Copy all" covers custom actions only).
+- [ ] Store custom actions in the graph (original extensibility design) so they survive uninstalls and sync.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

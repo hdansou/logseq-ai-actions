@@ -7,7 +7,7 @@ import type { Action } from "./action";
  * Applied at the boundary between the merged registry (built-ins +
  * `userActionsJson`) and every consumer that surfaces actions to the
  * user — toolbar picker, slash commands, command palette, block
- * context menu. The Manage Actions panel uses the unfiltered registry
+ * context menu (registration goes through `registrationChanges`). The Manage Actions panel uses the unfiltered registry
  * plus the raw `hiddenActionIds` list so it can still display and
  * restore hidden entries (see REQUIREMENTS §16).
  */
@@ -55,4 +55,24 @@ export function partitionVisibleAndHidden(
     else visible.push(a);
   }
   return { visible, hidden };
+}
+
+/**
+ * How to bring the slash / palette / shortcut / context-menu entries in line
+ * with the visible actions. `registered` maps each registered action id to
+ * the title its entries were registered with. Unregister: hidden, deleted, or
+ * renamed (its labels changed). Register: visible and not registered, which
+ * includes restored and renamed actions. Logseq's register calls return an
+ * unregister function, so this applies immediately — no plugin reload.
+ */
+export function registrationChanges(
+  visible: readonly Action[],
+  registered: ReadonlyMap<string, string>,
+): { register: Action[]; unregister: string[] } {
+  const visibleTitle = new Map(visible.map((a) => [a.id, a.title]));
+  const unregister = [...registered].flatMap(([id, title]) =>
+    visibleTitle.get(id) === title ? [] : [id],
+  );
+  const register = visible.filter((a) => registered.get(a.id) !== a.title);
+  return { register, unregister };
 }

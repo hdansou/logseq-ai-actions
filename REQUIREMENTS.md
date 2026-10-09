@@ -278,7 +278,8 @@ The following defaults were chosen on 2026-05-05 without explicit user sign-off 
 ### Storage
 
 - Plugin setting `hiddenActionIds: string[]` — a real array, not a JSON-serialised string.
-- Persisted via `logseq.updateSettings({ hiddenActionIds: [...] })`; per-graph, same as every other plugin setting.
+- Persisted via `logseq.updateSettings({ hiddenActionIds: [...] })`. Plugin settings are global (one file, `~/.logseq/settings/logseq-ai-actions.json`, shared by all graphs) and are deleted when the plugin is uninstalled (Logseq `electron/plugin.cljs` `uninstall!`).
+- Entries follow the visible list immediately (`registrationChanges` in `visibility.ts`, `syncEntries` in `index.ts`): every register call returns an unregister function, which is called when an action is hidden, deleted or renamed; restored, added and renamed actions are registered on the spot. No plugin reload (fixed 2026-10-09 — before, every action was registered once and hidden ones stayed in slash / palette / shortcut / context menu). The block context-menu item is registered with `logseq.Commands.register({ placement: "block-context-menu" })`, because `Editor.registerBlockContextMenuItem` drops the unregister function (SDK 0.3.x). Verified in Logseq 2.0.1: hiding / restoring updates palette, slash and right-click menus without a reload.
 - Default `[]`.
 - Declared in the existing `useSettingsSchema(...)` array in `src/index.ts`.
 

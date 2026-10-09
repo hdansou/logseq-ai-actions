@@ -19,7 +19,7 @@ import { SEED_ACTIONS } from "./seed-actions";
 import { showActionPicker } from "./ui/show-action-picker";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showManageActions } from "./ui/show-manage-actions";
-import { filterHiddenActions } from "./visibility";
+import { filterHiddenActions, registrationChanges } from "./visibility";
 
 // Plugin entry point. Keep this module SHALLOW — it is the only place
 // that loads `@logseq/libs` for its side-effects. Every Logseq-touching
@@ -106,7 +106,7 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
     default: "",
     title: "User-defined actions (JSON)",
     description:
-      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children/outline-replace/outline-append/outline-revise/picker-replace), systemPrompt, kind? (text|vision, default text), description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
+      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children/outline-replace/outline-append/outline-revise/picker-replace), systemPrompt, kind? (text|vision, default text), description? }. Matching a built-in id SHADOWS it. Changes apply as soon as they are saved (menus included, no plugin toggle). See README.",
   },
 ];
 
@@ -120,25 +120,28 @@ const provider = createOpenAIProvider({
  * Active action registry — built-ins merged with user-defined actions
  * from `userActionsJson`. Rebuilt at startup and whenever the setting
  * changes. Slash-command handlers resolve their action by `id` against
- * this list at INVOCATION time, so editing a user action's prompt /
- * title hot-reloads without a plugin restart. Adding or removing an
- * action still requires a plugin toggle because Logseq doesn't expose
- * a slash-command deregister API.
+ * this list at INVOCATION time, so editing a user action's prompt
+ * hot-reloads without a plugin restart. Menu entries follow the visible
+ * list immediately (`syncEntries`): added, restored, hidden, deleted and
+ * renamed actions need no plugin toggle.
  *
  * Two parallel views (REQUIREMENTS §16):
  * - `activeActions` is the merged registry MINUS the user's hidden ids.
  *   It powers user-facing surfaces that re-read on each render
  *   (toolbar picker, diff-panel re-run options).
  * - `activeActionsAll` is the unfiltered merged registry. It powers
- *   handler `find()` lookups so stale slash / palette / context-menu
- *   entries for hidden actions still execute correctly until the next
- *   plugin reload (Logseq has no deregister API). It also feeds the
- *   Manage Actions panel so users can see and restore hidden entries.
+ *   handler `find()` lookups and feeds the Manage Actions panel so users
+ *   can see and restore hidden entries.
  */
 let activeActions: readonly Action[] = SEED_ACTIONS;
 let activeActionsAll: readonly Action[] = SEED_ACTIONS;
-const registeredInvocationIds = new Set<string>();
-const registeredCommandKeys = new Set<string>();
+/** Menu entries per action id: the title they show, palette key, unregisters. */
+interface Entries {
+  readonly title: string;
+  readonly key: string;
+  readonly off: readonly (() => void)[];
+}
+const entries = new Map<string, Entries>();
 
 const runActionCtx: RunActionContext = {
   provider,
@@ -164,57 +167,72 @@ function rebuildRegistry(showToastOnError: boolean): void {
     }
   }
 
-  // Register slash command + command-palette entry + block context-menu
-  // item for each action id we haven't seen before. Logseq has no
-  // deregister API for any of these, so we iterate the UNFILTERED
-  // registry — hidden actions still get their handlers attached at
-  // startup, and stale entries that survive a hide/un-hide cycle in
-  // a single session keep working. Actions that are hidden after
-  // registration still respond to slash / palette / context-menu
-  // invocations until plugin reload (REQUIREMENTS §16; same caveat as
-  // user-action add/remove).
-  for (const action of activeActionsAll) {
-    if (registeredInvocationIds.has(action.id)) continue;
-    registeredInvocationIds.add(action.id);
-    // Resolve the action at invocation time (hot-reloaded prompts/titles).
-    const withFresh = (run: (fresh: Action) => Promise<void>) => async () => {
-      const fresh = activeActionsAll.find((a) => a.id === action.id);
-      if (!fresh) {
-        logseq.UI.showMsg(
-          `Action '${action.id}' is no longer available — reload the plugin to refresh the menus`,
-          "warning",
-        );
-        return;
+  syncEntries();
+}
+
+/**
+ * Bring slash / palette / shortcut / context-menu entries in line with the
+ * visible actions: typing "AI:" lists only what the user keeps (REQUIREMENTS
+ * §16). Each register call returns an unregister function, so hiding,
+ * restoring, deleting and renaming take effect without a reload.
+ */
+function syncEntries(): void {
+  const registered = new Map([...entries].map(([id, e]) => [id, e.title]));
+  const { register, unregister } = registrationChanges(activeActions, registered);
+  for (const id of unregister) {
+    for (const off of entries.get(id)?.off ?? []) {
+      try {
+        off();
+      } catch (err) {
+        console.warn(`logseq-ai-actions: could not remove menu entries for ${id}`, err);
       }
-      await run(fresh);
-    };
+    }
+    entries.delete(id);
+  }
+  for (const action of register) entries.set(action.id, registerEntries(action));
+}
+
+function registerEntries(action: Action): Entries {
+  // Resolve the action at invocation time (hot-reloaded prompts).
+  const withFresh = (run: (fresh: Action) => Promise<void>) => async () => {
+    const fresh = activeActionsAll.find((a) => a.id === action.id);
+    if (!fresh) {
+      logseq.UI.showMsg(`Action '${action.id}' is no longer available`, "warning");
+      return;
+    }
+    await run(fresh);
+  };
+  // Two ids can map to one key (`a.b`, `a-b`); a repeat would replace the
+  // first action's command and shortcut.
+  const key = uniqueCommandKey(action.id, new Set([...entries.values()].map((e) => e.key)));
+  const offs = [
     logseq.Editor.registerSlashCommand(
       slashLabelFor(action),
       withFresh((fresh) => runAction(fresh, runActionCtx)),
-    );
-    // Two ids can map to one key (`a.b`, `a-b`); a repeat would replace the
-    // first action's command and shortcut.
-    const paletteKey = uniqueCommandKey(action.id, registeredCommandKeys);
-    registeredCommandKeys.add(paletteKey);
+    ),
     // Palette (and any keyboard shortcut bound to it): selected blocks, else
     // the block being edited, else the current page (REQUIREMENTS §18). The
     // empty keybinding lists the action under Settings → Keymap → Plugins so
     // users can bind a key; without one Logseq registers no shortcut at all.
     logseq.App.registerCommandPalette(
-      {
-        key: paletteKey,
-        label: `AI: ${action.title}`,
-        keybinding: { binding: [] },
-      },
+      { key, label: `AI: ${action.title}`, keybinding: { binding: [] } },
       withFresh((fresh) => runFromCommand(fresh, runActionCtx)),
-    );
-    // Block context-menu entry: handler receives the clicked block's
-    // uuid, which we pass to runAction so the action runs on that
-    // specific block rather than wherever the cursor happens to be.
-    logseq.Editor.registerBlockContextMenuItem(`AI: ${action.title}`, (e) =>
-      withFresh((fresh) => runAction(fresh, runActionCtx, e.uuid))(),
-    );
-  }
+    ),
+    // Block context-menu entry: runs on the clicked block, not wherever the
+    // cursor happens to be. Registered through Commands.register because
+    // Editor.registerBlockContextMenuItem drops the unregister function it
+    // gets from it (SDK 0.3.x), so the item could never be removed.
+    logseq.Commands.register(
+      `${key}-context-menu`,
+      { key: `${key}-context-menu`, label: `AI: ${action.title}`, placement: "block-context-menu" },
+      (e: { uuid: string }) => withFresh((fresh) => runAction(fresh, runActionCtx, e.uuid))(),
+    ),
+  ];
+  return {
+    title: action.title,
+    key,
+    off: offs.filter((off): off is () => void => typeof off === "function"),
+  };
 }
 
 function slashLabelFor(action: Action): string {
