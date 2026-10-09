@@ -45,7 +45,7 @@ export function categorizeAction(action: Pick<Action, "id" | "kind">): PickerCat
   const id = action.id;
   if (matches(id, ["spellcheck", "grammar"])) return "fix";
   if (matches(id, ["rewrite"])) return "rewrite";
-  if (matches(id, ["summarize", "key-points", "outline"])) return "transform";
+  if (matches(id, ["summarize", "key-points", "outline", "improve"])) return "transform";
   return "custom";
 }
 

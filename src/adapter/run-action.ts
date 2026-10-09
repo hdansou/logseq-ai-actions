@@ -3,7 +3,12 @@ import type { Action } from "../action";
 import { failureMessage } from "../asset-url";
 import { buildDebugEntry, debugLog } from "../debug-log";
 import { type AssetBlock, getAssetType, isImageAsset } from "../image-asset";
-import { countOutlineNodes, parseOutline, renderOutlinePreview } from "../parse-outline";
+import {
+  countOutlineNodes,
+  type OutlineNode,
+  parseOutline,
+  renderOutlinePreview,
+} from "../parse-outline";
 import { parsePoints } from "../parse-points";
 import { parseTitles } from "../parse-titles";
 import { buildChatMessages, cleanModelOutput } from "../prompting";
@@ -115,6 +120,25 @@ export async function runAction(
     }
     await logseq.Editor.updateBlock(input.uuid, accepted);
     logseq.UI.showMsg(`${action.title} applied`, "success");
+    return;
+  }
+
+  // outline-revise (Improve): diff the original outline against the revised
+  // one, then append the accepted (possibly edited) outline as children.
+  if (action.outputMode === "outline-revise") {
+    const tree = await reviewRevisedOutline(action, ctx, settings, input);
+    if (!tree) return;
+    try {
+      await insertOutlineTree(input.uuid, tree);
+      const count = countOutlineNodes(tree);
+      logseq.UI.showMsg(
+        `${action.title}: added ${count} block${count === 1 ? "" : "s"}`,
+        "success",
+      );
+    } catch (err) {
+      console.error(`logseq-ai-actions: ${action.id} failed`, err);
+      logseq.UI.showMsg(`${action.title} failed: ${formatProviderError(err)}`, "error");
+    }
     return;
   }
 
@@ -399,6 +423,45 @@ async function runVisionAction(
 }
 
 /**
+ * Review step of `outline-revise`: a diff panel with the original outline on
+ * the left and the revised one streaming in on the right (editable, copyable).
+ * Returns the accepted outline parsed into a tree, or null when the user
+ * rejects it or nothing could be parsed (a toast says which). The caller
+ * decides where it goes — nothing is replaced either way.
+ */
+export async function reviewRevisedOutline(
+  action: Action,
+  ctx: RunActionContext,
+  settings: ResolvedSettings,
+  input: ResolvedInput,
+): Promise<OutlineNode[] | null> {
+  const accepted = await showDiffPanel({
+    currentActionId: action.id,
+    actionTitle: action.title,
+    baseUrl: settings.baseUrl,
+    original: input.llmInput,
+    actions: [],
+    acceptLabel: "Add as new blocks",
+    // Only block text is sent; properties live beside it in DB graphs.
+    note: "Your original blocks are not changed and keep their properties, task status and dates. The new outline is text only.",
+    runAndStream: async (_actionId, onChunk) => ({
+      finalText: await performLLM(ctx.provider, action, input, settings, onChunk),
+      actionTitle: action.title,
+    }),
+  });
+  if (accepted === null) {
+    logseq.UI.showMsg(`${action.title} discarded`, "info");
+    return null;
+  }
+  const tree = parseOutline(accepted);
+  if (tree.length === 0) {
+    logseq.UI.showMsg(`${action.title}: no outline could be parsed from the text`, "warning");
+    return null;
+  }
+  return tree;
+}
+
+/**
  * Resolve which model to use for a vision action: prefer `visionModel`,
  * fall back to `model` if empty. Returns the trimmed string (caller checks
  * for empty to decide whether to abort with a settings-missing toast).
@@ -448,12 +511,12 @@ function recordDebugEntry(
 }
 
 /** Sticky "<title>…" toast; returns its key for `closeBusyToast`. */
-async function showBusyToast(title: string): Promise<string | number | null> {
+export async function showBusyToast(title: string): Promise<string | number | null> {
   const msg = await logseq.UI.showMsg(`${title}…`, "info", { timeout: 0 });
   return (msg as unknown as string | number | null) ?? null;
 }
 
-function formatProviderError(err: unknown): string {
+export function formatProviderError(err: unknown): string {
   if (err instanceof LLMProviderError) {
     return `${err.message}${err.details?.status ? ` (HTTP ${err.details.status})` : ""}`;
   }
@@ -465,7 +528,7 @@ function formatProviderError(err: unknown): string {
  * timed out on its own). Wrap once and swallow — every call site treated
  * the throw as ignorable.
  */
-function closeBusyToast(key: string | number | null): void {
+export function closeBusyToast(key: string | number | null): void {
   if (key === null) return;
   try {
     logseq.UI.closeMsg(key as string);
@@ -479,7 +542,7 @@ function closeBusyToast(key: string | number | null): void {
  * otherwise) and record a debug-log entry. Shared by every text-action
  * path so the debug-log shape stays identical regardless of mode.
  */
-async function performLLM(
+export async function performLLM(
   provider: LLMProvider,
   action: Action,
   input: ResolvedInput,

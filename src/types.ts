@@ -12,6 +12,7 @@ export type OutputMode =
   | "append-children"
   | "outline-replace"
   | "outline-append"
+  | "outline-revise"
   | "picker-replace";
 
 /**

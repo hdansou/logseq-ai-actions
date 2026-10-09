@@ -90,17 +90,19 @@ Manage Actions remains the surface where users browse full descriptions and edit
 | `outline-replace` | subtree | text | outline-replace | Destructive: deletes existing children before inserting the generated outline tree. |
 | `outline-append` | subtree | text | outline-append | Non-destructive: appends the generated outline alongside existing children. |
 | `image-title` | block | vision | picker-replace | Image asset blocks only. Three candidate titles; chosen value writes to `:block/title`. |
+| `improve` | subtree | text | outline-revise | Revised outline that keeps every fact; reviewed as a diff, appended. Also runs on pages and selections (§18). |
 | `extract-image-text` | block | vision | outline-append | Image asset blocks only. OCR; preserves well-formed markdown tables as standalone blocks. |
 
 ## 6. Output handling
 
-Six output modes; each action declares its default:
+Seven output modes; each action declares its default:
 
 - **`replace`** — overwrite the block's text with the LLM output.
 - **`diff-panel`** — show a side panel with original vs proposed; user accepts / rejects / edits before applying. Modal is height-capped to the viewport with header, action bar, and Reject / Edit / Accept footer all pinned; only the diff body scrolls. Action bar collapses related text-transform tones (currently the four `rewrite-*` variants alongside the bare `rewrite`) into a single dropdown chip so the row stays scannable as more actions are added.
 - **`append-children`** — append the LLM output as *new child blocks* under the current block (one line per child). Non-destructive.
 - **`outline-replace`** — parse the LLM output as a nested markdown outline (with table-block support); delete the block's existing direct children; insert the parsed tree as the block's new subtree. Block's own text is preserved. Destructive — confirm panel warns.
 - **`outline-append`** — same parser as `outline-replace`, but appends without deleting. Non-destructive. Used for OCR output and for the non-destructive outline action.
+- **`outline-revise`** — diff panel with the original outline (the subtree, page or selection, flattened) on the left and the revised outline streaming in on the right; editable and copyable. Accept parses the text as an outline and appends it (children of the block, or under a new block for page/selection runs). Non-destructive. Used by `improve`.
 - **`picker-replace`** — show the LLM-returned candidates in a `ChoicePanel` (1/2/3 hotkeys, Esc cancels). On accept, replace the block's text with the chosen candidate. Generic — first user is `image-title`, but reusable for text-action flows that want "show N options, user picks one".
 
 Additional behaviours:
@@ -339,3 +341,32 @@ Considered (2026-05-07) and rejected (2026-05-08). The field would have let user
 
 - Per-graph keybinding overrides — Logseq's keymap UI is global. A graph-scoped override layer is not on the v1 roadmap.
 - A keybinding-capture widget in the Manage panel — superseded by "use Logseq's keymap UI", which already has one.
+
+## 18. Page and multi-block scopes (implemented on `feat/page-and-multi-block-scopes`, unreleased; verified end to end 2026-10-06)
+
+**Goal.** Run any AI action on several blocks at once: a block selection, or a whole page or journal. Not to be confused with §14 (text highlighted *inside* one block): block selection is exposed by the SDK (`logseq.Editor.getSelectedBlocks()`), so §14's cross-origin blockers do not apply.
+
+**Target resolution** (existing per-action palette commands and keyboard shortcuts — right-click is not possible on a multi-block selection, see gate G2):
+1. Two or more blocks selected (Esc + Shift-click / Shift-arrow) → those blocks plus their descendants.
+2. One block selected, or a block being edited → that block, on the existing single-block path (diff panel). Opening the palette while editing turns the edited block into a one-block selection, so one selected block must not switch to the multi-block review.
+3. Neither → the current page (journals included), or the zoomed-in block.
+
+Each action's palette command is registered with an empty keybinding so it is listed (unset) under Settings → Keymap → Plugins and users can bind a key; Logseq registers no shortcut for a palette command without one. Palette keys must not contain `/` (Logseq builds the shortcut id as `plugin.<pid>/<key>`; a slash collapsed all actions onto one Keymap entry).
+
+**Run kinds, chosen by the action:**
+- **Per-block** (Spellcheck, Grammar, Rewrite + tones, custom block-scope actions): one request per block (today's prompts and evals unchanged); one review panel that fills in progressively — a diff per changed block, accept/reject per block, Accept all, Cancel; unchanged blocks hidden; a failed block shows its error inline and the rest continue.
+- **Combined** (Summarize, Key Points, Outline, custom subtree actions): targets flattened into one input; the result is **appended**, never replacing — a new block after the selection (or at the end of the page), Key Points / Outline as its children. In page/multi runs "Outline (replace)" behaves as append.
+- **"Improve (restructure)"** — the whole-content mode: rewrites the content as a clearer, better organised outline that keeps every fact (unlike Outline, which condenses), appended under a block named after the action like the other combined runs; originals untouched. On a single block it appends the outline as children, like Outline (append).
+
+**Inclusion:** all nested blocks with text, collapsed included; skip empty, image/asset, code and math blocks, and query/embed blocks. **Cap:** 50 blocks per run (combined: ~6,000 characters of input); above it, ask — first 50, or cancel.
+
+**Safety:** write only accepted rows, one `updateBlock` per block; skip a block whose text changed since it was read; remote-endpoint consent once per run (existing send-time check). Each block write is its own Logseq undo step (no batch-update API).
+
+**Gates before building UI:**
+- **G1** — `getSelectedBlocks()` still returns the selection when an action runs from the command palette / a keyboard shortcut.
+- **G2** — Logseq shows plugin block-context-menu items on a multi-block selection, and what the handler receives.
+- **G3** — `updateBlock` with an unchanged `#[[<tag-uuid>]]` keeps the tag (vs. creating a bogus tag named by the uuid). Every per-block write depends on this.
+
+**Gate results (2026-10-06):** G1 passes for the command palette and for a keyboard shortcut bound to a palette command (the handler sees the selection). **G2 fails**: plugin context-menu items appear only in the single-block menu, not the multi-selection menu (`content.cljs:371` vs `:42`) — the right-click entry point needs an upstream SDK/host change. **G3**: `getPageBlocksTree` / `getSelectedBlocks` return raw id-refs, and writing raw `#[[<tag-uuid>]]` back adds a bogus tag; `getBlock` returns names, which round-trip correctly — so every target is re-read with `getBlock` before it is sent or written. **Correction (2026-10-09):** `getBlock().title` is *not* reliably name form — it came back raw (`[[<uuid>]]`, `#[[<uuid>]]`) even after editing the block in the UI, and writing it back with one word changed added a uuid-named tag; this also hit the released single-block path. `fullTitle` is name form but also replaces block references with the block's text (which would turn a block ref into a new page on write). Fix: `ref-names.ts` / `adapter/block-text.ts` rewrite page links and tags to names (`[[Project X]]`, `#planning`, `#[[multi word]]`) and keep block references as ids, for every path (single block, page, selection) — before showing, sending, stale-checking or writing. Verified in the app: tags kept, no new uuid-named tag.
+
+**Out of scope (v1):** vision actions on pages/selections; text-range selection (§14); selections spanning pages; renaming page titles; a page "…" menu entry; Logseq Web testing (same APIs, unverified).

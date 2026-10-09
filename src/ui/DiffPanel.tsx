@@ -2,6 +2,7 @@ import type { FunctionComponent } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { computeDiff, type DiffSegment } from "../diff";
 import { ConfirmOverlay } from "./ConfirmOverlay";
+import { copyText } from "./copy-text";
 import { LocalRemoteBadge } from "./LocalRemoteBadge";
 
 /** One action surfaced in the panel's top bar. */
@@ -95,6 +96,10 @@ export interface DiffPanelProps {
   readonly runAndStream: RunAndStream;
   readonly onAccept: (text: string) => void;
   readonly onReject: () => void;
+  /** Accept button text; "Accept" by default (e.g. "Add as new blocks"). */
+  readonly acceptLabel?: string;
+  /** One line under the header about what Accept does and doesn't carry over. */
+  readonly note?: string;
 }
 
 export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
@@ -109,6 +114,7 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingSwitchActionId, setPendingSwitchActionId] = useState<string | null>(null);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<"copied" | "failed" | null>(null);
   const editRef = useRef<HTMLTextAreaElement>(null);
   const groupWrapRef = useRef<HTMLDivElement>(null);
   // Generation counter so stale chunks from a prior stream (post action-bar
@@ -213,6 +219,11 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
 
   const busy = isStreaming;
 
+  const handleCopy = async () => {
+    setCopyStatus((await copyText(isEditing ? editedText : proposed)) ? "copied" : "failed");
+    setTimeout(() => setCopyStatus(null), 2000);
+  };
+
   return (
     <div class="diff-root" role="dialog" aria-label={`${actionTitle} — review changes`}>
       <div class="diff-modal">
@@ -225,6 +236,8 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
             <kbd>Esc</kbd> reject · <kbd>⌘ ↵</kbd> accept
           </span>
         </header>
+
+        {props.note ? <p class="diff-note">{props.note}</p> : null}
 
         {barItems.length > 0 ? (
           <div class="diff-action-bar" role="toolbar" aria-label="Switch action">
@@ -320,6 +333,19 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
         </section>
 
         <footer class="diff-footer">
+          {copyStatus ? (
+            <span class="diff-copy-status" role="status">
+              {copyStatus === "copied" ? "Copied" : "Couldn't copy"}
+            </span>
+          ) : null}
+          <button
+            type="button"
+            class="diff-btn"
+            disabled={busy || proposed.length === 0}
+            onClick={() => void handleCopy()}
+          >
+            Copy
+          </button>
           <button type="button" class="diff-btn" onClick={onReject}>
             Reject
           </button>
@@ -351,7 +377,7 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
             disabled={busy || proposed.length === 0}
             onClick={() => onAccept(isEditing ? editedText : proposed)}
           >
-            Accept
+            {props.acceptLabel ?? "Accept"}
           </button>
         </footer>
 

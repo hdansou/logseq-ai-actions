@@ -8,12 +8,13 @@ import {
   startEditingBlockTracker,
 } from "./adapter/editing-block-cache";
 import { type RunActionContext, runAction } from "./adapter/run-action";
+import { runFromCommand } from "./adapter/run-scope";
 import { handlePresetChange, readSettings } from "./adapter/settings";
 import { startThemeSync } from "./adapter/theme-sync";
 import { createNetFetch } from "./net-fetch";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
-import { buildRegistry, parseUserActions } from "./registry";
+import { buildRegistry, parseUserActions, uniqueCommandKey } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
 import { showActionPicker } from "./ui/show-action-picker";
 import { showDiagnostics } from "./ui/show-diagnostics";
@@ -105,7 +106,7 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
     default: "",
     title: "User-defined actions (JSON)",
     description:
-      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children/outline-replace/outline-append/picker-replace), systemPrompt, kind? (text|vision, default text), description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
+      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children/outline-replace/outline-append/outline-revise/picker-replace), systemPrompt, kind? (text|vision, default text), description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
   },
 ];
 
@@ -137,6 +138,7 @@ const provider = createOpenAIProvider({
 let activeActions: readonly Action[] = SEED_ACTIONS;
 let activeActionsAll: readonly Action[] = SEED_ACTIONS;
 const registeredInvocationIds = new Set<string>();
+const registeredCommandKeys = new Set<string>();
 
 const runActionCtx: RunActionContext = {
   provider,
@@ -174,7 +176,8 @@ function rebuildRegistry(showToastOnError: boolean): void {
   for (const action of activeActionsAll) {
     if (registeredInvocationIds.has(action.id)) continue;
     registeredInvocationIds.add(action.id);
-    const handler = async () => {
+    // Resolve the action at invocation time (hot-reloaded prompts/titles).
+    const withFresh = (run: (fresh: Action) => Promise<void>) => async () => {
       const fresh = activeActionsAll.find((a) => a.id === action.id);
       if (!fresh) {
         logseq.UI.showMsg(
@@ -183,27 +186,34 @@ function rebuildRegistry(showToastOnError: boolean): void {
         );
         return;
       }
-      await runAction(fresh, runActionCtx);
+      await run(fresh);
     };
-    logseq.Editor.registerSlashCommand(slashLabelFor(action), handler);
+    logseq.Editor.registerSlashCommand(
+      slashLabelFor(action),
+      withFresh((fresh) => runAction(fresh, runActionCtx)),
+    );
+    // Two ids can map to one key (`a.b`, `a-b`); a repeat would replace the
+    // first action's command and shortcut.
+    const paletteKey = uniqueCommandKey(action.id, registeredCommandKeys);
+    registeredCommandKeys.add(paletteKey);
+    // Palette (and any keyboard shortcut bound to it): selected blocks, else
+    // the block being edited, else the current page (REQUIREMENTS §18). The
+    // empty keybinding lists the action under Settings → Keymap → Plugins so
+    // users can bind a key; without one Logseq registers no shortcut at all.
     logseq.App.registerCommandPalette(
-      { key: `logseq-ai-actions/${action.id}`, label: `AI: ${action.title}` },
-      handler,
+      {
+        key: paletteKey,
+        label: `AI: ${action.title}`,
+        keybinding: { binding: [] },
+      },
+      withFresh((fresh) => runFromCommand(fresh, runActionCtx)),
     );
     // Block context-menu entry: handler receives the clicked block's
     // uuid, which we pass to runAction so the action runs on that
     // specific block rather than wherever the cursor happens to be.
-    logseq.Editor.registerBlockContextMenuItem(`AI: ${action.title}`, async (e) => {
-      const fresh = activeActionsAll.find((a) => a.id === action.id);
-      if (!fresh) {
-        logseq.UI.showMsg(
-          `Action '${action.id}' is no longer available — reload the plugin to refresh the menus`,
-          "warning",
-        );
-        return;
-      }
-      await runAction(fresh, runActionCtx, e.uuid);
-    });
+    logseq.Editor.registerBlockContextMenuItem(`AI: ${action.title}`, (e) =>
+      withFresh((fresh) => runAction(fresh, runActionCtx, e.uuid))(),
+    );
   }
 }
 

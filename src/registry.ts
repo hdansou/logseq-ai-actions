@@ -108,3 +108,20 @@ export function buildRegistry(
 
   return { actions: merged, errors };
 }
+
+/**
+ * Command-palette key for an action. Logseq builds the shortcut id as
+ * `plugin.<pid>/<key>`, so a `/` in the key collapsed every action onto one
+ * Settings → Keymap entry; keep keys to letters, digits, `-` and `_`.
+ */
+export function commandKey(actionId: string): string {
+  return `action-${actionId.replace(/[^A-Za-z0-9_-]+/g, "-")}`;
+}
+
+/** `commandKey`, with `-2`, `-3`, … when two action ids map to the same key. */
+export function uniqueCommandKey(actionId: string, taken: ReadonlySet<string>): string {
+  const base = commandKey(actionId);
+  let key = base;
+  for (let n = 2; taken.has(key); n++) key = `${base}-${n}`;
+  return key;
+}

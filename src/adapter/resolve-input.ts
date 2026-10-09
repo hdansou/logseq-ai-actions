@@ -1,6 +1,7 @@
 /// <reference types="@logseq/libs" />
 import type { Action } from "../action";
 import { type BlockNode, flattenSubtree } from "../subtree";
+import { namesForRefs } from "./block-text";
 
 export interface ResolvedInput {
   readonly uuid: string;
@@ -41,17 +42,21 @@ export async function resolveInput(
     };
   }
 
-  const currentText = String(
-    (current as unknown as { title?: string; content?: string }).title ??
-      (current as unknown as { content?: string }).content ??
-      "",
-  ).trim();
+  // Page links and tags by name: a raw #[[<uuid>]] written back would create
+  // a bogus tag (ref-names.ts).
+  const currentText = await namesForRefs(
+    String(
+      (current as unknown as { title?: string; content?: string }).title ??
+        (current as unknown as { content?: string }).content ??
+        "",
+    ).trim(),
+  );
 
   if (action.scope === "subtree") {
     const full = (await logseq.Editor.getBlock(current.uuid, {
       includeChildren: true,
     })) as unknown as BlockNode & { uuid: string };
-    const outline = flattenSubtree(full).trim();
+    const outline = (await namesForRefs(flattenSubtree(full))).trim();
     if (!outline || outline === "-") {
       return { uuid: null, reason: "This block and its children have no text to process." };
     }
