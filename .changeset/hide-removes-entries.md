@@ -1,5 +1,9 @@
 ---
-"logseq-ai-actions": patch
+"logseq-ai-actions": minor
 ---
 
-Hiding an action now removes it from the slash menu, command palette, keyboard shortcuts and right-click menu after a plugin reload. Before, hidden actions disappeared only from the toolbar picker and the diff panel and stayed in the other menus. The README also no longer claims hidden actions are per-graph: plugin settings, including hidden actions and your custom actions, apply to every graph and are deleted when the plugin is uninstalled.
+Hidden actions disappear from every menu at once
+
+- Hiding an action now removes it immediately from the slash menu, the command palette (typing `AI:` lists only the actions you keep), keyboard shortcuts and the right-click menu — not only from the toolbar picker. Restoring it brings everything back at once. No plugin reload.
+- Adding, deleting or renaming a custom action also updates the menus right away; the plugin no longer needs to be toggled off and on.
+- Docs: plugin settings (custom actions, hidden actions, endpoint) apply to every graph, not per graph, and are deleted when the plugin is uninstalled.

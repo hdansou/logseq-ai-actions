@@ -160,7 +160,7 @@ Each entry needs:
 | `systemPrompt` | The LLM system prompt. Tune for your model — small models need explicit "return ONLY …" instructions. |
 | `description` | Optional, one-line. Shown in the gallery card and the diff-panel header. |
 
-**Hot reload:** editing an existing entry's title or prompt takes effect on the next invocation. Adding or removing entries **requires toggling the plugin off and on**. Logseq has no way to deregister a slash command or rebind a palette command from a plugin API call.
+**Hot reload:** changes take effect as soon as they are saved — no plugin toggle. A new action appears in the slash menu, command palette and right-click menu; a deleted one disappears; a renamed one shows its new name; an edited prompt is used on the next run.
 
 **Validation:** invalid entries are skipped silently (your other actions still load); a warning toast + console entry tell you how many were skipped, with the failing index and id. Full detail lives in the console.
 
@@ -168,7 +168,7 @@ Each entry needs:
 
 The Manage Actions panel has a per-row **Hide** button (visible on hover) for every row, built-in or user-defined. Click it and the action moves into a collapsible **Hidden** section pinned to the bottom of the panel. Click **Restore** there to bring it back. Visibility autosaves — no Save / Cancel ceremony.
 
-Hidden actions disappear immediately from the toolbar picker and from the diff-panel action bar. Their slash commands, command-palette entries, keyboard shortcuts and right-click items disappear after the next **plugin reload** (toggle the plugin off and on): until then they stay and keep working, because Logseq has no way for a plugin to remove them. A restored action gets its entries back right away.
+Hidden actions disappear **immediately** from everywhere you invoke actions: the slash menu, the command palette (typing `AI:` lists only the actions you keep), keyboard shortcuts, the right-click menu, the toolbar picker and the diff-panel action bar. Restoring an action brings all of them back at once.
 
 Hidden state is stored in the `hiddenActionIds` plugin setting, which applies to every graph (plugin settings are not per-graph) and is deleted if you uninstall the plugin. The Manage panel is the only writer — the gear-icon settings UI doesn't expose it as a separate field on purpose.
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { Action } from "./action";
 import {
-  actionsToRegister,
   filterHiddenActions,
   parseHiddenActionIds,
   partitionVisibleAndHidden,
+  registrationChanges,
 } from "./visibility";
 
 const action = (id: string, title = id): Action => ({
@@ -138,23 +138,40 @@ describe("partitionVisibleAndHidden", () => {
   });
 });
 
-// Logseq has no API to remove a slash / palette / context-menu entry, so the
-// plugin only registers actions that are visible when it loads (or when they
-// are restored), and never the same one twice.
-describe("actionsToRegister", () => {
-  it("registers only visible actions, so hidden ones are gone after a reload", () => {
-    const visible = filterHiddenActions(ACTIONS, ["rewrite", "summarize"]);
-    expect(actionsToRegister(visible, new Set()).map((a) => a.id)).toEqual([
-      "spellcheck",
-      "rewrite-formal",
-    ]);
+// Entries are registered for visible actions and removed (Logseq's
+// unregister functions) for hidden, deleted or renamed ones, so typing "AI:"
+// only lists the actions the user keeps.
+describe("registrationChanges", () => {
+  const registered = (pairs: [string, string][]) => new Map(pairs);
+
+  it("registers every visible action at startup", () => {
+    const { register, unregister } = registrationChanges(ACTIONS, registered([]));
+    expect(register.map((a) => a.id)).toEqual(ACTIONS.map((a) => a.id));
+    expect(unregister).toEqual([]);
   });
 
-  it("skips actions already registered and picks up one restored later", () => {
-    const registered = new Set(["spellcheck", "rewrite-formal"]);
-    expect(actionsToRegister(ACTIONS, registered).map((a) => a.id)).toEqual([
-      "rewrite",
-      "summarize",
+  it("removes the entries of an action hidden (or deleted) since", () => {
+    const visible = filterHiddenActions(ACTIONS, ["rewrite"]);
+    const before = registered(ACTIONS.map((a) => [a.id, a.title]));
+    expect(registrationChanges(visible, before)).toEqual({ register: [], unregister: ["rewrite"] });
+  });
+
+  it("adds back an action restored since", () => {
+    const before = registered([
+      ["spellcheck", "spellcheck"],
+      ["rewrite-formal", "rewrite-formal"],
+      ["summarize", "summarize"],
     ]);
+    const { register, unregister } = registrationChanges(ACTIONS, before);
+    expect(register.map((a) => a.id)).toEqual(["rewrite"]);
+    expect(unregister).toEqual([]);
+  });
+
+  it("re-registers an action whose title changed, so menus show the new name", () => {
+    const before = registered(ACTIONS.map((a) => [a.id, a.title]));
+    const renamed = ACTIONS.map((a) => (a.id === "summarize" ? action("summarize", "TL;DR") : a));
+    const { register, unregister } = registrationChanges(renamed, before);
+    expect(unregister).toEqual(["summarize"]);
+    expect(register.map((a) => a.title)).toEqual(["TL;DR"]);
   });
 });
