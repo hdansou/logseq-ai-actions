@@ -13,6 +13,7 @@ import {
   capTargets,
   combinedPlacement,
   commandTarget,
+  distinctBlocks,
   flattenTargets,
   type Insert,
   planRun,
@@ -62,7 +63,7 @@ interface CurrentPage {
  */
 export async function runFromCommand(action: Action, ctx: RunActionContext): Promise<void> {
   try {
-    const selected = (await logseq.Editor.getSelectedBlocks()) ?? [];
+    const selected = distinctBlocks((await logseq.Editor.getSelectedBlocks()) ?? []);
     const editing = selected.length === 0 && (await logseq.Editor.getCurrentBlock()) !== null;
     const page =
       selected.length === 0 && !editing

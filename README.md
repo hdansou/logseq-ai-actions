@@ -100,7 +100,7 @@ Open the plugin's settings (gear icon on the plugin card). Pick a preset — `ba
 
 ### 4. (Optional) Add your own actions
 
-The plugin ships 13 built-in actions. You can add unlimited custom ones.
+The plugin ships 14 built-in actions. You can add unlimited custom ones.
 
 **Primary way — the Manage Actions panel.** Run `/AI Manage Actions` (or Cmd-K → `AI: Manage Actions`). You'll see a gallery of cards: built-ins at the top (read-only — click any to inspect the prompt, with a `⧉ Duplicate as user action` button to make an editable copy), and your user actions below (hover for edit / delete icons). The toolbar has search, `+ New action`, `Import JSON`, and `Copy all`. Clicking a user card or `+ New` opens the inline editor — pill-style scope and kind selectors, dropdown for output mode, large prompt textarea with a char/line counter. Fields validate as you type; the top of the form summarises any blocking issues on Save. Delete asks for confirmation in an in-modal overlay (and reminds you that slash/palette entries persist until plugin reload).
 
@@ -133,19 +133,30 @@ Each entry, regardless of how you author it, satisfies the same schema:
     "scope": "block",
     "outputMode": "diff-panel",
     "systemPrompt": "Expand the text into fuller prose while preserving the author's voice and meaning. Add concrete detail only where implied by the source. Do not invent facts. Return ONLY the expanded text."
+  },
+  {
+    "id": "image-title-description",
+    "title": "Image Title + Description",
+    "description": "A short title, a blank line, then a full description of the image.",
+    "scope": "block",
+    "kind": "vision",
+    "outputMode": "diff-panel",
+    "systemPrompt": "Look at the image. On the first line, write a short factual title of 3 to 6 words in sentence case. Then a blank line. Then a description of 2 to 4 sentences: what is shown, the setting, and any readable text. Return ONLY the title and the description — no labels, no preamble."
   }
 ]
 ```
+
+**Customising a built-in, e.g. Generate Title.** Open it in Manage Actions, `⧉ Duplicate as user action`, and edit the prompt. Keep the id `image-title` to replace the built-in everywhere, or pick a new id to have both. Generate Title shows **one line per candidate** in a picker, so a prompt that adds a description needs `outputMode: "diff-panel"` (the example above): the whole reply opens in the diff panel against the current title, editable; Accept sets the first line as the image title and adds the rest as a block under the image (Logseq shows only the first line of an image's title as its caption, so a description kept there would be hidden).
 
 Each entry needs:
 
 | Field | Values |
 |---|---|
-| `id` | Unique identifier. Matching a built-in id (any of `spellcheck`, `grammar`, `rewrite`, `rewrite-formal`, `rewrite-professional`, `rewrite-casual`, `rewrite-friendly`, `summarize`, `key-points`, `outline-replace`, `outline-append`, `image-title`, `extract-image-text`) **shadows** it — the user version takes the slot in every menu surface. |
+| `id` | Unique identifier. Matching a built-in id (any of `spellcheck`, `grammar`, `rewrite`, `rewrite-formal`, `rewrite-professional`, `rewrite-casual`, `rewrite-friendly`, `summarize`, `key-points`, `outline-replace`, `outline-append`, `improve`, `image-title`, `extract-image-text`) **shadows** it — the user version takes the slot in every menu surface. |
 | `title` | Display name in the slash menu (prefixed with `AI `). |
 | `scope` | `block` \| `subtree` \| `selection` (selection falls back to block in v1; see REQUIREMENTS §14) |
 | `outputMode` | `replace` (overwrite block) \| `diff-panel` (review side-by-side) \| `append-children` (add as new children, one per line) \| `outline-replace` (replace existing children with a generated nested outline) \| `outline-append` (append a generated nested outline) \| `outline-revise` (diff of the original outline against the revised one, then append) \| `picker-replace` (show N candidates, user picks one) |
-| `kind` | `text` (default) \| `vision` (sends an image asset to a multimodal model — only valid on `:logseq.class/Asset` blocks with raster image type) |
+| `kind` | `text` (default) \| `vision` (sends an image asset to a multimodal model — only valid on `:logseq.class/Asset` blocks with raster image type; `outputMode` must be `picker-replace`, `outline-append` or `diff-panel`) |
 | `systemPrompt` | The LLM system prompt. Tune for your model — small models need explicit "return ONLY …" instructions. |
 | `description` | Optional, one-line. Shown in the gallery card and the diff-panel header. |
 

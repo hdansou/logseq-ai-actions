@@ -60,13 +60,36 @@ describe("ActionSchema", () => {
     expect(() => ActionSchema.parse({ ...minimalAction, outputMode: mode })).not.toThrow();
   });
 
+  it.each(["picker-replace", "outline-append", "diff-panel"] as const)(
+    "accepts a vision action with outputMode=%s",
+    (outputMode) => {
+      expect(() =>
+        ActionSchema.parse({ ...minimalAction, kind: "vision", outputMode }),
+      ).not.toThrow();
+    },
+  );
+
+  // The image path only implements these; anything else used to fall back to
+  // the title picker without a word.
+  it.each(["replace", "append-children", "outline-replace", "outline-revise"] as const)(
+    "rejects a vision action with outputMode=%s, on the outputMode field",
+    (outputMode) => {
+      const r = ActionSchema.safeParse({ ...minimalAction, kind: "vision", outputMode });
+      expect(r.success).toBe(false);
+      expect(r.error?.issues[0]?.path).toEqual(["outputMode"]);
+      expect(r.error?.issues[0]?.message).toMatch(/diff-panel/);
+    },
+  );
+
   it("defaults kind to 'text' when omitted (back-compat for every pre-vision action)", () => {
     const result = ActionSchema.parse(minimalAction);
     expect(result.kind).toBe("text");
   });
 
   it.each(["text", "vision"] as const)("accepts kind=%s", (kind) => {
-    expect(() => ActionSchema.parse({ ...minimalAction, kind })).not.toThrow();
+    // Image actions need an output mode the image path supports.
+    const outputMode = kind === "vision" ? "picker-replace" : minimalAction.outputMode;
+    expect(() => ActionSchema.parse({ ...minimalAction, kind, outputMode })).not.toThrow();
   });
 
   it("rejects an unknown kind", () => {

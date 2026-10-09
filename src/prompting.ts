@@ -20,6 +20,20 @@ export function buildChatMessages(
   return { system: `${systemPrompt}\n\n${INPUT_FRAMING}`, user: `<text>\n${text}\n</text>` };
 }
 
+/**
+ * The short user-side message sent with the image. The action's system prompt
+ * carries the real instructions; this only orients the model on the shape:
+ * OCR (outline-append), three title candidates (picker-replace), or whatever
+ * the prompt describes (diff-panel, e.g. a title plus a description).
+ */
+export function visionUserPrompt(outputMode: string): string {
+  if (outputMode === "outline-append") {
+    return "Extract the text from this image and return it as instructed.";
+  }
+  if (outputMode === "diff-panel") return "Describe this image as instructed.";
+  return "Generate three short titles for this image.";
+}
+
 /** "Here is the corrected text:", "Sure! Here's a summary:", "Summary:" — never a bullet. */
 const FRAMING_LINE =
   /^(?!\s*[-*#])(?:sure[!,.]?\s*)?(?:here(?:'s| is| are)\b[^\n]{0,80}|(?:corrected|rewritten|revised|edited) (?:text|version)|summary|outline|key points)\s*:\s*$/i;

@@ -10,8 +10,8 @@ import {
   renderOutlinePreview,
 } from "../parse-outline";
 import { parsePoints } from "../parse-points";
-import { parseTitles } from "../parse-titles";
-import { buildChatMessages, cleanModelOutput } from "../prompting";
+import { parseTitles, splitTitleAndBody } from "../parse-titles";
+import { buildChatMessages, cleanModelOutput, visionUserPrompt } from "../prompting";
 import { type LLMProvider, LLMProviderError } from "../provider";
 import type { ChoicePanelChoice } from "../ui/ChoicePanel";
 import { showChoice } from "../ui/show-choice";
@@ -312,26 +312,57 @@ async function runVisionAction(
       return;
     }
 
-    busyToastKey = await showBusyToast(action.title);
-
-    // Short user-side nudge per outputMode. Most of the work is in the
-    // system prompt; this is just a hint that orients the model on what
-    // shape of response we want.
-    const userPrompt =
-      action.outputMode === "outline-append"
-        ? "Extract the text from this image and return it as instructed."
-        : "Generate three short titles for this image.";
-
-    output = await ctx.provider.completeVision({
+    const request = {
       baseUrl: settings.baseUrl,
       model: visionModel,
       system: action.systemPrompt,
-      user: userPrompt,
+      user: visionUserPrompt(action.outputMode),
       image: bytes,
       temperature: settings.temperature,
       timeoutMs: settings.timeoutMs,
       ...(settings.apiKey ? { apiKey: settings.apiKey } : {}),
-    });
+    };
+
+    // diff-panel: the whole reply (e.g. a title, a blank line, a description)
+    // reviewed against the current title, editable. Accept sets the first line
+    // as the title and adds the rest as a block under the image — Logseq shows
+    // only an asset title's first line. The panel is the busy indicator.
+    if (action.outputMode === "diff-panel") {
+      const accepted = await showDiffPanel({
+        currentActionId: action.id,
+        actionTitle: action.title,
+        baseUrl: settings.baseUrl,
+        original: currentTitle,
+        actions: [],
+        note: "Accept sets the first line as the image title and adds the rest as a block under the image.",
+        runAndStream: async () => {
+          try {
+            output = await ctx.provider.completeVision(request);
+          } catch (err) {
+            error = formatProviderError(err);
+            throw new Error(`${error}. Make sure your vision model supports images.`);
+          }
+          return { finalText: cleanModelOutput(output, currentTitle), actionTitle: action.title };
+        },
+      });
+      if (accepted === null) {
+        logseq.UI.showMsg(`${action.title} discarded`, "info");
+        return;
+      }
+      const { title, body } = splitTitleAndBody(accepted);
+      if (title && title !== currentTitle) await logseq.Editor.updateBlock(block.uuid, title);
+      if (body) await logseq.Editor.insertBlock(block.uuid, body, { sibling: false });
+      logseq.UI.showMsg(
+        body
+          ? `${action.title}: title set, description added under the image`
+          : `${action.title} applied`,
+        "success",
+      );
+      return;
+    }
+
+    busyToastKey = await showBusyToast(action.title);
+    output = await ctx.provider.completeVision(request);
 
     closeBusyToast(busyToastKey);
     busyToastKey = null;
