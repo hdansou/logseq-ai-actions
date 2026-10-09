@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildChatMessages, cleanModelOutput, INPUT_FRAMING } from "./prompting";
+import { buildChatMessages, cleanModelOutput, INPUT_FRAMING, visionUserPrompt } from "./prompting";
 
 describe("buildChatMessages", () => {
   it("puts the block text between <text> tags in the user message", () => {
@@ -61,5 +61,14 @@ describe("cleanModelOutput", () => {
 
   it("keeps a lone line even if it looks like framing (nothing else to return)", () => {
     expect(cleanModelOutput("Here is the plan:", input)).toBe("Here is the plan:");
+  });
+});
+
+describe("visionUserPrompt", () => {
+  it("asks for text extraction, three titles, or whatever the action's prompt describes", () => {
+    expect(visionUserPrompt("outline-append")).toMatch(/extract the text/i);
+    expect(visionUserPrompt("picker-replace")).toMatch(/three short titles/i);
+    expect(visionUserPrompt("diff-panel")).toMatch(/as instructed/i);
+    expect(visionUserPrompt("diff-panel")).not.toMatch(/three/i);
   });
 });

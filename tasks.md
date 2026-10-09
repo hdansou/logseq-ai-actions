@@ -527,6 +527,14 @@ Spec: REQUIREMENTS §18. One commit per task, test-first.
 - [x] **Copy** in the diff panel (proposed or edited text). `copy-text.ts`: async clipboard API, falling back to `execCommand("copy")` (the plugin frame is cross-origin). Verified with a real CDP click in Logseq 2.0.1: "Copied", clipboard held the outline.
 - [x] **Bug found while testing — bogus tags (affects released v1.1.6 too):** `getBlock().title` came back raw (`#[[<uuid>]]`) and writing it back created a uuid-named tag. `ref-names.ts` (pure, 6 tests) + `adapter/block-text.ts` now give page links and tags by name and keep block refs as ids on every path. Verified in the app: Grammar on a tagged block (single-block path) and Improve on a page both keep the real tag, no new uuid-named tag. Seen once, not reproduced: the Improve input showed a top-level block indented under its sibling right after it was appended.
 
+### Customising image actions (2026-10-09)
+
+- [x] **Image actions can use `diff-panel`** — the whole reply is reviewed against the current title (editable, copyable). Accept sets the first line as the image title and adds the rest as a child block (`splitTitleAndBody`, 4 tests): Logseq renders only the first line of an asset block's title as the caption, so a multi-line title hid the description (seen in the app; user chose a child block over a property). README has a "Image Title + Description" example; Generate Title stays a one-line picker.
+- [x] **Validation:** `kind: "vision"` only with `picker-replace` / `outline-append` / `diff-panel` (schema `superRefine` on `outputMode`, shown in Manage Actions and for JSON); other modes used to fall back to the picker silently.
+- [x] **Fix (in 1.2.0):** `getSelectedBlocks` lists a block once per place it is drawn (3× in a zoomed-in view), which turned one selected block into a "multi-block" run and refused image actions → `distinctBlocks`.
+- [x] **Fix (in 1.2.0):** the diff panel hid "Streaming…" and model errors when it had no action bar (Improve, image actions) → shown whenever streaming or failed.
+- E2E (Logseq 2.0.1, `plugin-test` graph, temporary build with Generate Title on `diff-panel`, gemma-4-E4B): panel showed the note, title + description; Accept → caption "Energy Consumption Dashboard Over Time", description as a block under the image. Image restored afterwards.
+
 ## Deferred / v2 candidates
 
 - True `selection` scope with block-range splicing — see REQUIREMENTS §14

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTitles } from "./parse-titles";
+import { parseTitles, splitTitleAndBody } from "./parse-titles";
 
 describe("parseTitles", () => {
   it("parses a clean newline-separated list, returning the first n", () => {
@@ -70,5 +70,29 @@ describe("parseTitles", () => {
 
   it("dedupes identical candidates while preserving order", () => {
     expect(parseTitles("A\nA\nB\nA", 3)).toEqual(["A", "B"]);
+  });
+});
+
+describe("splitTitleAndBody", () => {
+  it("takes the first line as the title and the rest as the body", () => {
+    expect(splitTitleAndBody("Energy over time\n\nA dashboard with a bar chart.")).toEqual({
+      title: "Energy over time",
+      body: "A dashboard with a bar chart.",
+    });
+  });
+
+  it("keeps the body's own paragraphs and line breaks", () => {
+    expect(splitTitleAndBody("T\nfirst line\n\nsecond para").body).toBe(
+      "first line\n\nsecond para",
+    );
+  });
+
+  it("has no body when the reply is one line", () => {
+    expect(splitTitleAndBody("  Just a title  ")).toEqual({ title: "Just a title", body: "" });
+  });
+
+  it("skips leading blank lines and drops heading or bold markup around the title", () => {
+    expect(splitTitleAndBody("\n\n# Harbour at dusk\n\nBoats.").title).toBe("Harbour at dusk");
+    expect(splitTitleAndBody("**Harbour at dusk**\nBoats.").title).toBe("Harbour at dusk");
   });
 });

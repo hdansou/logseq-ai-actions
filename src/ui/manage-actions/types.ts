@@ -59,7 +59,7 @@ export const SCOPE_HINTS: Readonly<Record<string, string>> = {
 export const OUTPUT_MODE_HINTS: Readonly<Record<string, string>> = {
   replace: "Overwrites the block's text with the model's response. No review step.",
   "diff-panel":
-    "Side-by-side Original vs Proposed; Accept / Reject / switch to Edit mode before applying. Best for substantive changes.",
+    "Side-by-side Original vs Proposed; Accept / Reject / switch to Edit mode before applying. Best for substantive changes. For image actions, the whole reply (e.g. a title and a description) is reviewed against the current title.",
   "append-children":
     "Appends the model's response as new child blocks (one line per child). Non-destructive — the parent block and existing children are untouched.",
   "outline-replace":

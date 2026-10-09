@@ -4,6 +4,7 @@ import {
   capTargets,
   combinedPlacement,
   commandTarget,
+  distinctBlocks,
   flattenTargets,
   MAX_COMBINED_CHARS,
   planRun,
@@ -150,6 +151,16 @@ describe("appliedMessage", () => {
     expect(appliedMessage("Grammar", 0, 2)).toBe(
       "Grammar: applied 0 changes; 2 blocks were edited during the run and left as is",
     );
+  });
+});
+
+describe("distinctBlocks", () => {
+  // In a zoomed-in view getSelectedBlocks returned one block three times
+  // (2026-10-09), which looked like a multi-block selection.
+  it("keeps each selected block once, in order", () => {
+    const a = { uuid: "a" };
+    const b = { uuid: "b" };
+    expect(distinctBlocks([a, a, b, a])).toEqual([a, b]);
   });
 });
 

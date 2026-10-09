@@ -95,6 +95,15 @@ export function appliedMessage(title: string, applied: number, stale: number, fa
 }
 
 /**
+ * Each selected block once, in order. `getSelectedBlocks` can list a block
+ * several times (once per place it is drawn, e.g. in a zoomed-in view).
+ */
+export function distinctBlocks<T extends { uuid: string }>(blocks: readonly T[]): T[] {
+  const seen = new Set<string>();
+  return blocks.filter((b) => !seen.has(b.uuid) && Boolean(seen.add(b.uuid)));
+}
+
+/**
  * What a palette / shortcut command runs on (REQUIREMENTS §18): two or more
  * selected blocks; else one block (selected, or being edited — opening the
  * palette while editing selects that block) on the single-block path; else the

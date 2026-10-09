@@ -50,3 +50,27 @@ export function parseTitles(raw: string, n: number): string[] {
   }
   return cleaned;
 }
+
+/**
+ * Split an image action's reply into the image's title (first non-empty
+ * line) and a body for a block under the image. Logseq shows only the first
+ * line of an asset block's title as the caption, so a description kept in the
+ * title would be stored but never seen (checked 2026-10-09).
+ */
+export function splitTitleAndBody(text: string): { title: string; body: string } {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const first = lines.findIndex((l) => l.trim() !== "");
+  if (first < 0) return { title: "", body: "" };
+  const title = (lines[first] ?? "")
+    .trim()
+    .replace(/^#{1,6}\s+/, "")
+    .replace(/^\*\*(.+)\*\*$/, "$1")
+    .trim();
+  return {
+    title,
+    body: lines
+      .slice(first + 1)
+      .join("\n")
+      .trim(),
+  };
+}

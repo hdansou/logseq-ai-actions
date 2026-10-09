@@ -239,7 +239,9 @@ export const DiffPanel: FunctionComponent<DiffPanelProps> = (props) => {
 
         {props.note ? <p class="diff-note">{props.note}</p> : null}
 
-        {barItems.length > 0 ? (
+        {/* Shown without action buttons too (Improve, image actions), so the
+            waiting state and a model error are never invisible. */}
+        {barItems.length > 0 || isStreaming || errorMessage ? (
           <div class="diff-action-bar" role="toolbar" aria-label="Switch action">
             {barItems.map((item) => {
               if (item.kind === "single") {
