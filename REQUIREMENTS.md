@@ -278,7 +278,8 @@ The following defaults were chosen on 2026-05-05 without explicit user sign-off 
 ### Storage
 
 - Plugin setting `hiddenActionIds: string[]` — a real array, not a JSON-serialised string.
-- Persisted via `logseq.updateSettings({ hiddenActionIds: [...] })`; per-graph, same as every other plugin setting.
+- Persisted via `logseq.updateSettings({ hiddenActionIds: [...] })`. Plugin settings are global (one file, `~/.logseq/settings/logseq-ai-actions.json`, shared by all graphs) and are deleted when the plugin is uninstalled (Logseq `electron/plugin.cljs` `uninstall!`).
+- Registration uses `actionsToRegister(visible, registeredIds)`: hidden actions are not registered at startup, so they are gone from slash / palette / shortcut / context menu after a plugin reload (fixed 2026-10-09 — before, every action was registered and hidden ones stayed in those menus).
 - Default `[]`.
 - Declared in the existing `useSettingsSchema(...)` array in `src/index.ts`.
 

@@ -19,7 +19,7 @@ import { SEED_ACTIONS } from "./seed-actions";
 import { showActionPicker } from "./ui/show-action-picker";
 import { showDiagnostics } from "./ui/show-diagnostics";
 import { showManageActions } from "./ui/show-manage-actions";
-import { filterHiddenActions } from "./visibility";
+import { actionsToRegister, filterHiddenActions } from "./visibility";
 
 // Plugin entry point. Keep this module SHALLOW — it is the only place
 // that loads `@logseq/libs` for its side-effects. Every Logseq-touching
@@ -165,16 +165,13 @@ function rebuildRegistry(showToastOnError: boolean): void {
   }
 
   // Register slash command + command-palette entry + block context-menu
-  // item for each action id we haven't seen before. Logseq has no
-  // deregister API for any of these, so we iterate the UNFILTERED
-  // registry — hidden actions still get their handlers attached at
-  // startup, and stale entries that survive a hide/un-hide cycle in
-  // a single session keep working. Actions that are hidden after
-  // registration still respond to slash / palette / context-menu
-  // invocations until plugin reload (REQUIREMENTS §16; same caveat as
-  // user-action add/remove).
-  for (const action of activeActionsAll) {
-    if (registeredInvocationIds.has(action.id)) continue;
+  // item for each VISIBLE action not registered yet: hidden actions are
+  // gone from every entry point after a plugin reload, and one restored in
+  // this session is registered now. Logseq has no deregister API, so an
+  // action hidden mid-session keeps its entries (and they keep working —
+  // handlers look up `activeActionsAll`) until the next reload
+  // (REQUIREMENTS §16).
+  for (const action of actionsToRegister(activeActions, registeredInvocationIds)) {
     registeredInvocationIds.add(action.id);
     // Resolve the action at invocation time (hot-reloaded prompts/titles).
     const withFresh = (run: (fresh: Action) => Promise<void>) => async () => {

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Action } from "./action";
-import { filterHiddenActions, parseHiddenActionIds, partitionVisibleAndHidden } from "./visibility";
+import {
+  actionsToRegister,
+  filterHiddenActions,
+  parseHiddenActionIds,
+  partitionVisibleAndHidden,
+} from "./visibility";
 
 const action = (id: string, title = id): Action => ({
   id,
@@ -130,5 +135,26 @@ describe("partitionVisibleAndHidden", () => {
     const { visible, hidden } = partitionVisibleAndHidden(ACTIONS, ["does-not-exist"]);
     expect(visible).toEqual(ACTIONS);
     expect(hidden).toEqual([]);
+  });
+});
+
+// Logseq has no API to remove a slash / palette / context-menu entry, so the
+// plugin only registers actions that are visible when it loads (or when they
+// are restored), and never the same one twice.
+describe("actionsToRegister", () => {
+  it("registers only visible actions, so hidden ones are gone after a reload", () => {
+    const visible = filterHiddenActions(ACTIONS, ["rewrite", "summarize"]);
+    expect(actionsToRegister(visible, new Set()).map((a) => a.id)).toEqual([
+      "spellcheck",
+      "rewrite-formal",
+    ]);
+  });
+
+  it("skips actions already registered and picks up one restored later", () => {
+    const registered = new Set(["spellcheck", "rewrite-formal"]);
+    expect(actionsToRegister(ACTIONS, registered).map((a) => a.id)).toEqual([
+      "rewrite",
+      "summarize",
+    ]);
   });
 });

@@ -168,9 +168,9 @@ Each entry needs:
 
 The Manage Actions panel has a per-row **Hide** button (visible on hover) for every row, built-in or user-defined. Click it and the action moves into a collapsible **Hidden** section pinned to the bottom of the panel. Click **Restore** there to bring it back. Visibility autosaves — no Save / Cancel ceremony.
 
-Hidden actions disappear immediately from the toolbar picker and from the diff-panel "Re-run with another action" dropdown. Slash commands, command-palette entries, and block-context-menu items follow the same caveat as user-action add/remove: they keep responding for the rest of the current Logseq session and only stop registering after a plugin reload (Logseq has no deregister API).
+Hidden actions disappear immediately from the toolbar picker and from the diff-panel action bar. Their slash commands, command-palette entries, keyboard shortcuts and right-click items disappear after the next **plugin reload** (toggle the plugin off and on): until then they stay and keep working, because Logseq has no way for a plugin to remove them. A restored action gets its entries back right away.
 
-Hidden state is per-graph, stored in the `hiddenActionIds` plugin setting. The Manage panel is the only writer — the gear-icon settings UI doesn't expose it as a separate field on purpose.
+Hidden state is stored in the `hiddenActionIds` plugin setting, which applies to every graph (plugin settings are not per-graph) and is deleted if you uninstall the plugin. The Manage panel is the only writer — the gear-icon settings UI doesn't expose it as a separate field on purpose.
 
 ### 6. (Optional) Keyboard shortcuts
 
