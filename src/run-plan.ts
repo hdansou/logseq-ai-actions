@@ -22,8 +22,18 @@ export function planRun(action: Pick<Action, "kind" | "scope" | "outputMode" | "
   if (action.kind === "vision") {
     return { kind: "unsupported", reason: "Image actions work on one image block at a time." };
   }
-  if (action.scope !== "subtree") return { kind: "per-block" };
-  if (action.outputMode === "diff-panel" || action.outputMode === "replace") {
+  const rewritesBlock = action.outputMode === "diff-panel" || action.outputMode === "replace";
+  if (action.scope !== "subtree") {
+    // A block action that adds blocks (children, outline, picked title) would
+    // have its output written over each block in a per-block run.
+    return rewritesBlock
+      ? { kind: "per-block" }
+      : {
+          kind: "unsupported",
+          reason: "This action adds blocks under one block — run it on a single block.",
+        };
+  }
+  if (rewritesBlock) {
     return { kind: "combined", result: "block" };
   }
   return { kind: "combined", result: "children", heading: action.title };
@@ -63,8 +73,61 @@ export function capTargets(
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /** Toast after a per-block run's accepted changes are written. */
-export function appliedMessage(title: string, applied: number, stale: number): string {
-  const base = `${title}: applied ${plural(applied, "change", "changes")}`;
-  if (stale === 0) return base;
-  return `${base}; ${plural(stale, "block was", "blocks were")} edited during the run and left as is`;
+export function appliedMessage(title: string, applied: number, stale: number, failed = 0): string {
+  const parts = [`${title}: applied ${plural(applied, "change", "changes")}`];
+  if (stale > 0) {
+    parts.push(`${plural(stale, "block was", "blocks were")} edited during the run and left as is`);
+  }
+  if (failed > 0) parts.push(`${plural(failed, "block", "blocks")} failed to save`);
+  return parts.join("; ");
+}
+
+/**
+ * What a palette / shortcut command runs on (REQUIREMENTS §18): two or more
+ * selected blocks; else one block (selected, or being edited — opening the
+ * palette while editing selects that block) on the single-block path; else the
+ * current page. `none` = no page either (e.g. the Journals home view).
+ */
+export function commandTarget(state: {
+  selected: number;
+  editing: boolean;
+  page: boolean;
+}): "selection" | "single" | "page" | "none" {
+  if (state.selected > 1) return "selection";
+  if (state.selected === 1 || state.editing) return "single";
+  return state.page ? "page" : "none";
+}
+
+export type CombinedScope =
+  | { readonly kind: "page"; readonly uuid: string }
+  | { readonly kind: "zoomed"; readonly uuid: string }
+  | { readonly kind: "selection" };
+
+export type Insert =
+  | { readonly kind: "page-end"; readonly page: string }
+  | { readonly kind: "last-child"; readonly parent: string }
+  | { readonly kind: "after"; readonly sibling: string };
+
+/**
+ * Where a combined run's result goes, and how to say so: end of the page;
+ * last child of a zoomed-in block (a sibling would land outside the view);
+ * after the last top-level selected block.
+ */
+export function combinedPlacement(
+  scope: CombinedScope,
+  lastRoot: string | undefined,
+): { insert: Insert | null; where: string } {
+  if (scope.kind === "page") {
+    return { insert: { kind: "page-end", page: scope.uuid }, where: "at the end of the page" };
+  }
+  if (scope.kind === "zoomed") {
+    return {
+      insert: { kind: "last-child", parent: scope.uuid },
+      where: "at the end of the zoomed-in block",
+    };
+  }
+  return {
+    insert: lastRoot ? { kind: "after", sibling: lastRoot } : null,
+    where: "after the selection",
+  };
 }

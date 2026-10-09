@@ -14,7 +14,7 @@ import { startThemeSync } from "./adapter/theme-sync";
 import { createNetFetch } from "./net-fetch";
 import { findPreset, PRESETS } from "./presets";
 import { createOpenAIProvider } from "./provider";
-import { buildRegistry, commandKey, parseUserActions } from "./registry";
+import { buildRegistry, parseUserActions, uniqueCommandKey } from "./registry";
 import { SEED_ACTIONS } from "./seed-actions";
 import { showActionPicker } from "./ui/show-action-picker";
 import { showDiagnostics } from "./ui/show-diagnostics";
@@ -138,6 +138,7 @@ const provider = createOpenAIProvider({
 let activeActions: readonly Action[] = SEED_ACTIONS;
 let activeActionsAll: readonly Action[] = SEED_ACTIONS;
 const registeredInvocationIds = new Set<string>();
+const registeredCommandKeys = new Set<string>();
 
 const runActionCtx: RunActionContext = {
   provider,
@@ -191,13 +192,17 @@ function rebuildRegistry(showToastOnError: boolean): void {
       slashLabelFor(action),
       withFresh((fresh) => runAction(fresh, runActionCtx)),
     );
+    // Two ids can map to one key (`a.b`, `a-b`); a repeat would replace the
+    // first action's command and shortcut.
+    const paletteKey = uniqueCommandKey(action.id, registeredCommandKeys);
+    registeredCommandKeys.add(paletteKey);
     // Palette (and any keyboard shortcut bound to it): selected blocks, else
     // the block being edited, else the current page (REQUIREMENTS §18). The
     // empty keybinding lists the action under Settings → Keymap → Plugins so
     // users can bind a key; without one Logseq registers no shortcut at all.
     logseq.App.registerCommandPalette(
       {
-        key: commandKey(action.id),
+        key: paletteKey,
         label: `AI: ${action.title}`,
         keybinding: { binding: [] },
       },

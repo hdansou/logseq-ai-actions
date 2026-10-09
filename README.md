@@ -177,15 +177,15 @@ From the **command palette** (`AI: <action>`) or a **keyboard shortcut**, an act
 
 | You have… | The action runs on… |
 | --- | --- |
-| two or more blocks selected (Esc, then Shift+click or Shift+↑/↓) | those blocks and their children |
+| two or more blocks selected (Esc, then Shift+click or Shift+↑/↓ — select a continuous range; ⌘/Ctrl-click picks blocks in click order) | those blocks and their children |
 | one block selected, or the cursor in a block | that block, as usual (diff panel) |
-| nothing selected, no block being edited | the whole current page or journal |
+| nothing selected, no block being edited | the whole current page or journal (open it first: the Journals home view, which shows several days, has no single page) |
 
-Right-click can't do this: Logseq shows plugin menu items only for a single block, not for a multi-block selection. Image actions stay single-block.
+Right-click can't do this: Logseq shows plugin menu items only for a single block, not for a multi-block selection. Image actions, and your own block actions that add blocks rather than rewrite one, stay single-block.
 
 - **Fix and rewrite actions** (Spellcheck, Grammar, Rewrite and its tones, your own block actions) send **one request per block**. A review panel fills in as results arrive: a diff per changed block, Accept / Reject on each row, **Accept all**, **Cancel** (stops the blocks still waiting). Blocks the model left as they were are hidden; a failed block shows its error and the rest carry on. Only accepted rows are written, and a block you edit while the panel is open is left as you wrote it.
-- **Summarize, Key Points, Outline and Improve** read all the blocks as one outline and **add** the result — after the selection, or at the end of the page; Key Points, Outline and Improve go under a new block named after the action. Nothing is replaced, so Outline (replace children) appends here too.
-- Empty blocks, images and other assets, code and math blocks, queries and embeds are skipped. Above **50 blocks** (or about 6,000 characters for Summarize / Key Points / Outline / Improve) you are asked whether to run on the first part or cancel.
+- **Summarize, Key Points, Outline and Improve** read all the blocks as one outline and **add** the result — after the selection, at the end of the page, or at the end of a zoomed-in block; Key Points, Outline and Improve go under a new block named after the action. Nothing is replaced, so Outline (replace children) appends here too.
+- Empty blocks, images and other assets, property values, code and math blocks, queries and embeds are skipped. Above **50 blocks** (or about 6,000 characters for Summarize / Key Points / Outline / Improve) you are asked whether to run on the first part or cancel.
 - Each written block is its own undo step.
 
 ## Privacy & data egress

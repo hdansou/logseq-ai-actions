@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Action } from "./action";
-import { buildRegistry, commandKey } from "./registry";
+import { buildRegistry, commandKey, uniqueCommandKey } from "./registry";
 
 const BUILTIN: readonly Action[] = [
   {
@@ -166,5 +166,16 @@ describe("commandKey", () => {
   // every action collapse onto one Settings → Keymap entry.
   it("never contains a slash or other characters Logseq rewrites", () => {
     expect(commandKey("my/custom action:v2")).toBe("action-my-custom-action-v2");
+  });
+});
+
+describe("uniqueCommandKey", () => {
+  it("is commandKey when that key is free", () => {
+    expect(uniqueCommandKey("a.b", new Set())).toBe("action-a-b");
+  });
+
+  it("adds a suffix when two ids map to the same key", () => {
+    expect(uniqueCommandKey("a-b", new Set(["action-a-b"]))).toBe("action-a-b-2");
+    expect(uniqueCommandKey("a_b", new Set(["action-a_b", "action-a_b-2"]))).toBe("action-a_b-3");
   });
 });

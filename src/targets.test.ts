@@ -81,6 +81,18 @@ describe("skipReason", () => {
     expect(skipReason(n("a", "$$e=mc^2$$"))).toBe("math");
   });
 
+  // DB graphs store a text property's value as a block; getPageBlocksTree
+  // returns it as a child of its owner (or top-level for a page property).
+  it("skips property-value blocks (seen in page trees, 2026-10-09)", () => {
+    const value = n("v", "A property value", undefined, {
+      ":logseq.property/created-from-property": { id: 7 },
+    });
+    expect(skipReason(value)).toBe("property");
+    expect(skipReason(n("v", "x", undefined, { "logseq.property/created-from-property": 7 }))).toBe(
+      "property",
+    );
+  });
+
   it("skips query blocks and embeds", () => {
     expect(
       skipReason(n("a", "Open tasks", undefined, { "logseq.property/query": "(task todo)" })),

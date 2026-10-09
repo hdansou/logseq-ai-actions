@@ -7,7 +7,17 @@ import {
   renderOutlinePreview,
 } from "../parse-outline";
 import { parsePoints } from "../parse-points";
-import { appliedMessage, capTargets, flattenTargets, planRun, type RunPlan } from "../run-plan";
+import {
+  appliedMessage,
+  type CombinedScope,
+  capTargets,
+  combinedPlacement,
+  commandTarget,
+  flattenTargets,
+  type Insert,
+  planRun,
+  type RunPlan,
+} from "../run-plan";
 import { collectTargets, type Target, type TargetNode } from "../targets";
 import { showConfirm } from "../ui/show-confirm";
 import { showReviewPanel } from "../ui/show-review";
@@ -32,24 +42,47 @@ import { type ResolvedSettings, readSettings } from "./settings";
 interface Scope {
   readonly label: string;
   readonly trees: readonly TargetNode[];
-  /** Combined output goes after this block, or at the end of `pageUuid`. */
-  readonly pageUuid?: string;
+  readonly place: CombinedScope;
+}
+
+interface CurrentPage {
+  uuid: string;
+  title?: string;
+  originalName?: string;
+  name?: string;
+  /** Set when zoomed into a block: getCurrentPage then returns that block. */
+  page?: unknown;
 }
 
 /**
- * Command-palette / keyboard-shortcut entry: two or more selected blocks, else
- * one block (selected, or being edited) on the single-block path unchanged,
- * else the current page. Opening the palette while editing turns the edited
- * block into a one-block selection, so one selected block must keep the
- * single-block path (diff panel with streaming, Edit, action bar).
+ * Command-palette / keyboard-shortcut entry; `commandTarget` decides what it
+ * runs on. Every failure ends in a toast, never only a console error.
  */
 export async function runFromCommand(action: Action, ctx: RunActionContext): Promise<void> {
-  const selected = (await logseq.Editor.getSelectedBlocks()) ?? [];
-  if (selected.length > 1) return runOnScope(action, ctx, await selectionScope(selected));
-  if (selected.length === 1) return runAction(action, ctx, selected[0]?.uuid);
-  const scope = (await logseq.Editor.getCurrentBlock()) ? null : await pageScope();
-  if (scope) await runOnScope(action, ctx, scope);
-  else await runAction(action, ctx);
+  try {
+    const selected = (await logseq.Editor.getSelectedBlocks()) ?? [];
+    const editing = selected.length === 0 && (await logseq.Editor.getCurrentBlock()) !== null;
+    const page =
+      selected.length === 0 && !editing
+        ? ((await logseq.Editor.getCurrentPage()) as CurrentPage | null)
+        : null;
+    switch (commandTarget({ selected: selected.length, editing, page: Boolean(page?.uuid) })) {
+      case "selection":
+        return await runOnScope(action, ctx, await selectionScope(selected));
+      case "single":
+        return await runAction(action, ctx, selected[0]?.uuid);
+      case "page":
+        return page ? await runOnScope(action, ctx, await pageScope(page)) : undefined;
+      case "none":
+        logseq.UI.showMsg(
+          `${action.title}: open a page or a journal, or select blocks, first`,
+          "warning",
+        );
+    }
+  } catch (err) {
+    console.error(`logseq-ai-actions: ${action.id} failed`, err);
+    logseq.UI.showMsg(`${action.title} failed: ${formatProviderError(err)}`, "error");
+  }
 }
 
 async function selectionScope(selected: readonly { uuid: string }[]): Promise<Scope> {
@@ -58,27 +91,23 @@ async function selectionScope(selected: readonly { uuid: string }[]): Promise<Sc
   return {
     label: `${selected.length} selected blocks`,
     trees: trees.filter((t): t is TargetNode => t !== null),
+    place: { kind: "selection" },
   };
 }
 
-async function pageScope(): Promise<Scope | null> {
-  const current = (await logseq.Editor.getCurrentPage()) as {
-    uuid: string;
-    title?: string;
-    originalName?: string;
-    name?: string;
-    page?: unknown;
-  } | null;
-  if (!current?.uuid) return null;
-  // Zoomed into a block: getCurrentPage returns that block.
+async function pageScope(current: CurrentPage): Promise<Scope> {
   if (current.page) {
     const tree = await readTree(current.uuid);
-    return tree ? { label: "Zoomed block", trees: [tree] } : null;
+    return {
+      label: "Zoomed-in block",
+      trees: tree ? [tree] : [],
+      place: { kind: "zoomed", uuid: current.uuid },
+    };
   }
   const trees = ((await logseq.Editor.getPageBlocksTree(current.uuid)) ??
     []) as unknown as TargetNode[];
   const name = current.title ?? current.originalName ?? current.name ?? "this page";
-  return { label: `Page: ${name}`, trees, pageUuid: current.uuid };
+  return { label: `Page: ${name}`, trees, place: { kind: "page", uuid: current.uuid } };
 }
 
 async function readTree(uuid: string): Promise<TargetNode | null> {
@@ -193,18 +222,24 @@ async function runPerBlock(
 
   let applied = 0;
   let stale = 0;
+  let failed = 0;
   for (const w of writes) {
-    // Skip a block edited while the run was going — never overwrite new text.
-    if ((await readText(w.uuid)) !== w.original.trim()) {
-      stale++;
-      continue;
+    try {
+      // Skip a block edited while the run was going — never overwrite new text.
+      if ((await readText(w.uuid)) !== w.original.trim()) {
+        stale++;
+        continue;
+      }
+      await logseq.Editor.updateBlock(w.uuid, w.proposed);
+      applied++;
+    } catch (err) {
+      console.error(`logseq-ai-actions: ${action.id} could not save ${w.uuid}`, err);
+      failed++;
     }
-    await logseq.Editor.updateBlock(w.uuid, w.proposed);
-    applied++;
   }
   logseq.UI.showMsg(
-    appliedMessage(action.title, applied, stale),
-    stale > 0 ? "warning" : "success",
+    appliedMessage(action.title, applied, stale, failed),
+    failed > 0 ? "error" : stale > 0 ? "warning" : "success",
   );
 }
 
@@ -240,7 +275,7 @@ async function runCombined(
     return;
   }
 
-  const where = scope.pageUuid ? "at the end of the page" : "after the selection";
+  const { insert, where } = combinedPlacement(scope.place, anchor);
   if (plan.result === "block") {
     const ok = await showConfirm(action.title, {
       message: `Add this as a new block ${where}? Existing blocks are not changed.`,
@@ -249,8 +284,11 @@ async function runCombined(
       baseUrl: settings.baseUrl,
     });
     if (!ok) return discarded(action);
-    await appendBlock(scope, anchor, output);
-    logseq.UI.showMsg(`${action.title}: added`, "success");
+    const added = await appendBlock(insert, output);
+    logseq.UI.showMsg(
+      added ? `${action.title}: added` : `${action.title}: couldn't add the block`,
+      added ? "success" : "error",
+    );
     return;
   }
 
@@ -270,7 +308,7 @@ async function runCombined(
     baseUrl: settings.baseUrl,
   });
   if (!ok) return discarded(action);
-  const heading = await appendBlock(scope, anchor, plan.heading);
+  const heading = await appendBlock(insert, plan.heading);
   if (!heading) {
     logseq.UI.showMsg(`${action.title}: couldn't add the block`, "error");
     return;
@@ -283,16 +321,14 @@ function discarded(action: Action): void {
   logseq.UI.showMsg(`${action.title} discarded`, "info");
 }
 
-/** New block at the end of the page, or as the next sibling of `anchor`. */
-async function appendBlock(
-  scope: Scope,
-  anchor: string | undefined,
-  text: string,
-): Promise<string | null> {
-  const block = scope.pageUuid
-    ? await logseq.Editor.appendBlockInPage(scope.pageUuid, text)
-    : anchor
-      ? await logseq.Editor.insertBlock(anchor, text, { sibling: true })
-      : null;
+/** Add a block where `combinedPlacement` says; its uuid, or null. */
+async function appendBlock(insert: Insert | null, text: string): Promise<string | null> {
+  if (!insert) return null;
+  const block =
+    insert.kind === "page-end"
+      ? await logseq.Editor.appendBlockInPage(insert.page, text)
+      : insert.kind === "last-child"
+        ? await logseq.Editor.insertBlock(insert.parent, text, { sibling: false })
+        : await logseq.Editor.insertBlock(insert.sibling, text, { sibling: true });
   return (block as { uuid?: string } | null)?.uuid ?? null;
 }

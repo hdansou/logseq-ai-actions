@@ -509,7 +509,15 @@ Spec: REQUIREMENTS §18. One commit per task, test-first.
   - **Found and fixed during E2E:** (1) palette while editing selected the edited block and sent it to the review panel instead of the diff panel; (2) palette commands had no keybinding, so no shortcut could be bound; (3) the `/` in the old palette key collapsed every action onto one Keymap entry; (4) the cap dialog said "Reject" (now "Cancel").
 - [x] **6. "Improve (restructure)"** (`improve`, subtree, outline-append, Transform category) — revises into a clearer outline that keeps every fact, merges repeats, fixes clear errors; refs kept character for character; no new structure. Combined runs put it under an "Improve (restructure)" block (heading named after the action, not "AI revision" — no special case). Live evals (gemma-4-E4B, temperature 1, 5/5 runs): messy notes with id-refs → duplicate merged, all facts and refs kept; French notes with name-form refs (`[[Projet X]]`, `#planning`) → refs kept, stays French.
 - [x] **7. Docs** — README: features list (`improve`, Pages and selections), new "Run on a page or several blocks" section, keymap section corrected (Settings → Keymap; it was not actually bindable before this branch), v2 list and privacy line updated. REQUIREMENTS §18 status. Changeset `page-and-multi-block-scopes` (minor).
-- [ ] **8. Review** — code-review + security-review pass.
+- [x] **8. Review** (2026-10-09) — security review: no findings (consent on every palette/shortcut path, no HTML injection, no secret leaks). Code review, fixed test-first:
+  1. Block actions with append/outline/picker output were planned per-block, so a page run would write their list over each block → `planRun` refuses them ("run it on a single block").
+  2. A save error mid-run stopped silently → each write is caught and counted ("N blocks failed to save"); `runFromCommand` ends every failure in a toast.
+  3. Combined output from a zoomed-in block landed outside the view → last child of the zoomed block (`combinedPlacement`).
+  4. Journals home view (no current page) said "Place your cursor…" → "open a page or a journal, or select blocks, first" (`commandTarget`).
+  5. ⌘/Ctrl-click selections come in click order → documented (Shift-selection is the supported way).
+  6. Two custom ids could share a palette key → `uniqueCommandKey` adds `-2`, `-3`.
+  7. Command routing and placement moved into pure, tested helpers in `run-plan.ts`.
+  8. Property values (DB graphs store text values as blocks) appear in `getPageBlocksTree` with `:logseq.property/created-from-property` — confirmed over CDP in a throwaway graph — and were sent and rewritten → skipped.
 
 ## Deferred / v2 candidates
 

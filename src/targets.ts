@@ -19,7 +19,7 @@ export interface Target {
   readonly depth: number;
 }
 
-export type SkipReason = "empty" | "asset" | "code" | "math" | "query" | "embed";
+export type SkipReason = "empty" | "asset" | "property" | "code" | "math" | "query" | "embed";
 
 /** Most blocks one run may touch; above this the caller asks before going on. */
 export const MAX_TARGETS = 50;
@@ -38,6 +38,8 @@ const hasKey = (node: TargetNode, ...keys: string[]) =>
 /** Why a block isn't text the model should edit, or null when it is. */
 export function skipReason(node: TargetNode): SkipReason | null {
   if (getAssetType(node)) return "asset";
+  // A text property's value is stored as a block and shows up in page trees.
+  if (hasKey(node, "logseq.property/created-from-property")) return "property";
   if (hasKey(node, "logseq.property/query")) return "query";
   if (hasKey(node, "block/link", "link")) return "embed";
   const display = propertyBySuffix(node, "node/display-type");
