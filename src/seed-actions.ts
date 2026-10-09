@@ -194,7 +194,7 @@ export const SEED_ACTIONS: readonly Action[] = Object.freeze([
     description:
       "Revise the current block and its children (or a page or selection, from the command palette) into a clearer, better organised outline that keeps all the content. Appended as new blocks — the originals are not changed.",
     scope: "subtree",
-    outputMode: "outline-append",
+    outputMode: "outline-revise",
     systemPrompt: IMPROVE_PROMPT,
   }),
   parseAction({

@@ -30,15 +30,26 @@ describe("planRun", () => {
     expect(planRun(seed("summarize"))).toEqual({ kind: "combined", result: "block" });
   });
 
-  it("appends Key Points and both Outline modes as children of a new heading block", () => {
-    for (const id of ["key-points", "outline-replace", "outline-append", "improve"]) {
+  it("appends Key Points and both Outline modes as children of a new heading block, after a preview", () => {
+    for (const id of ["key-points", "outline-replace", "outline-append"]) {
       const action = seed(id);
       expect(planRun(action)).toEqual({
         kind: "combined",
         result: "children",
         heading: action.title,
+        review: "preview",
       });
     }
+  });
+
+  it("reviews Improve (outline-revise) as a diff of the original outline, then appends", () => {
+    const action = seed("improve");
+    expect(planRun(action)).toEqual({
+      kind: "combined",
+      result: "children",
+      heading: action.title,
+      review: "diff",
+    });
   });
 
   it("does not run vision actions on pages or selections", () => {
@@ -52,6 +63,7 @@ describe("planRun", () => {
       "outline-append",
       "outline-replace",
       "picker-replace",
+      "outline-revise",
     ] as const) {
       const plan = planRun({ ...seed("grammar"), outputMode });
       expect(plan.kind).toBe("unsupported");

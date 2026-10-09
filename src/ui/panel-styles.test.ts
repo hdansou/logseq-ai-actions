@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import html from "../../index.html?raw";
 import choicePanel from "./ChoicePanel.tsx?raw";
+import diffPanel from "./DiffPanel.tsx?raw";
 import reviewPanel from "./ReviewPanel.tsx?raw";
 
 /**
@@ -25,6 +26,7 @@ function hasRule(css: string, className: string): boolean {
 
 const PANELS = {
   ChoicePanel: { source: choicePanel, expected: ["picker-row", "picker-list"] },
+  DiffPanel: { source: diffPanel, expected: ["diff-copy-status", "diff-footer"] },
   ReviewPanel: { source: reviewPanel, expected: ["review-row", "review-list", "review-choice"] },
 };
 

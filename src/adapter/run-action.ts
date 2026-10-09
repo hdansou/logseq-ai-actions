@@ -3,7 +3,12 @@ import type { Action } from "../action";
 import { failureMessage } from "../asset-url";
 import { buildDebugEntry, debugLog } from "../debug-log";
 import { type AssetBlock, getAssetType, isImageAsset } from "../image-asset";
-import { countOutlineNodes, parseOutline, renderOutlinePreview } from "../parse-outline";
+import {
+  countOutlineNodes,
+  type OutlineNode,
+  parseOutline,
+  renderOutlinePreview,
+} from "../parse-outline";
 import { parsePoints } from "../parse-points";
 import { parseTitles } from "../parse-titles";
 import { buildChatMessages, cleanModelOutput } from "../prompting";
@@ -115,6 +120,25 @@ export async function runAction(
     }
     await logseq.Editor.updateBlock(input.uuid, accepted);
     logseq.UI.showMsg(`${action.title} applied`, "success");
+    return;
+  }
+
+  // outline-revise (Improve): diff the original outline against the revised
+  // one, then append the accepted (possibly edited) outline as children.
+  if (action.outputMode === "outline-revise") {
+    const tree = await reviewRevisedOutline(action, ctx, settings, input);
+    if (!tree) return;
+    try {
+      await insertOutlineTree(input.uuid, tree);
+      const count = countOutlineNodes(tree);
+      logseq.UI.showMsg(
+        `${action.title}: added ${count} block${count === 1 ? "" : "s"}`,
+        "success",
+      );
+    } catch (err) {
+      console.error(`logseq-ai-actions: ${action.id} failed`, err);
+      logseq.UI.showMsg(`${action.title} failed: ${formatProviderError(err)}`, "error");
+    }
     return;
   }
 
@@ -396,6 +420,43 @@ async function runVisionAction(
       );
     }
   }
+}
+
+/**
+ * Review step of `outline-revise`: a diff panel with the original outline on
+ * the left and the revised one streaming in on the right (editable, copyable).
+ * Returns the accepted outline parsed into a tree, or null when the user
+ * rejects it or nothing could be parsed (a toast says which). The caller
+ * decides where it goes — nothing is replaced either way.
+ */
+export async function reviewRevisedOutline(
+  action: Action,
+  ctx: RunActionContext,
+  settings: ResolvedSettings,
+  input: ResolvedInput,
+): Promise<OutlineNode[] | null> {
+  const accepted = await showDiffPanel({
+    currentActionId: action.id,
+    actionTitle: action.title,
+    baseUrl: settings.baseUrl,
+    original: input.llmInput,
+    actions: [],
+    acceptLabel: "Add as new blocks",
+    runAndStream: async (_actionId, onChunk) => ({
+      finalText: await performLLM(ctx.provider, action, input, settings, onChunk),
+      actionTitle: action.title,
+    }),
+  });
+  if (accepted === null) {
+    logseq.UI.showMsg(`${action.title} discarded`, "info");
+    return null;
+  }
+  const tree = parseOutline(accepted);
+  if (tree.length === 0) {
+    logseq.UI.showMsg(`${action.title}: no outline could be parsed from the text`, "warning");
+    return null;
+  }
+  return tree;
 }
 
 /**

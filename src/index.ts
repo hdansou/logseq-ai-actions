@@ -106,7 +106,7 @@ const SETTINGS_SCHEMA: SettingDesc[] = [
     default: "",
     title: "User-defined actions (JSON)",
     description:
-      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children/outline-replace/outline-append/picker-replace), systemPrompt, kind? (text|vision, default text), description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
+      "A JSON array of custom actions. Each entry: { id, title, scope (block/subtree/selection), outputMode (replace/diff-panel/append-children/outline-replace/outline-append/outline-revise/picker-replace), systemPrompt, kind? (text|vision, default text), description? }. Matching a built-in id SHADOWS it. Editing an existing entry's prompt/title hot-reloads; adding or removing an entry needs a plugin toggle to update slash commands. See README.",
   },
 ];
 

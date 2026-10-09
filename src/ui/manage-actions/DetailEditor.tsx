@@ -173,6 +173,9 @@ export const DetailEditor: FunctionComponent<DetailEditorProps> = ({
           <option value="outline-append">
             outline-append — append a generated outline alongside existing children
           </option>
+          <option value="outline-revise">
+            outline-revise — show the original and revised outline as a diff, then append
+          </option>
           <option value="picker-replace">picker-replace — show N candidates, user picks one</option>
         </select>
       </Field>

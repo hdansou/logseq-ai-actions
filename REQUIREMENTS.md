@@ -90,17 +90,19 @@ Manage Actions remains the surface where users browse full descriptions and edit
 | `outline-replace` | subtree | text | outline-replace | Destructive: deletes existing children before inserting the generated outline tree. |
 | `outline-append` | subtree | text | outline-append | Non-destructive: appends the generated outline alongside existing children. |
 | `image-title` | block | vision | picker-replace | Image asset blocks only. Three candidate titles; chosen value writes to `:block/title`. |
+| `improve` | subtree | text | outline-revise | Revised outline that keeps every fact; reviewed as a diff, appended. Also runs on pages and selections (§18). |
 | `extract-image-text` | block | vision | outline-append | Image asset blocks only. OCR; preserves well-formed markdown tables as standalone blocks. |
 
 ## 6. Output handling
 
-Six output modes; each action declares its default:
+Seven output modes; each action declares its default:
 
 - **`replace`** — overwrite the block's text with the LLM output.
 - **`diff-panel`** — show a side panel with original vs proposed; user accepts / rejects / edits before applying. Modal is height-capped to the viewport with header, action bar, and Reject / Edit / Accept footer all pinned; only the diff body scrolls. Action bar collapses related text-transform tones (currently the four `rewrite-*` variants alongside the bare `rewrite`) into a single dropdown chip so the row stays scannable as more actions are added.
 - **`append-children`** — append the LLM output as *new child blocks* under the current block (one line per child). Non-destructive.
 - **`outline-replace`** — parse the LLM output as a nested markdown outline (with table-block support); delete the block's existing direct children; insert the parsed tree as the block's new subtree. Block's own text is preserved. Destructive — confirm panel warns.
 - **`outline-append`** — same parser as `outline-replace`, but appends without deleting. Non-destructive. Used for OCR output and for the non-destructive outline action.
+- **`outline-revise`** — diff panel with the original outline (the subtree, page or selection, flattened) on the left and the revised outline streaming in on the right; editable and copyable. Accept parses the text as an outline and appends it (children of the block, or under a new block for page/selection runs). Non-destructive. Used by `improve`.
 - **`picker-replace`** — show the LLM-returned candidates in a `ChoicePanel` (1/2/3 hotkeys, Esc cancels). On accept, replace the block's text with the chosen candidate. Generic — first user is `image-title`, but reusable for text-action flows that want "show N options, user picks one".
 
 Additional behaviours:
@@ -365,6 +367,6 @@ Each action's palette command is registered with an empty keybinding so it is li
 - **G2** — Logseq shows plugin block-context-menu items on a multi-block selection, and what the handler receives.
 - **G3** — `updateBlock` with an unchanged `#[[<tag-uuid>]]` keeps the tag (vs. creating a bogus tag named by the uuid). Every per-block write depends on this.
 
-**Gate results (2026-10-06):** G1 passes for the command palette and for a keyboard shortcut bound to a palette command (the handler sees the selection). **G2 fails**: plugin context-menu items appear only in the single-block menu, not the multi-selection menu (`content.cljs:371` vs `:42`) — the right-click entry point needs an upstream SDK/host change. **G3**: `getPageBlocksTree` / `getSelectedBlocks` return raw id-refs, and writing raw `#[[<tag-uuid>]]` back adds a bogus tag; `getBlock` returns names, which round-trip correctly — so every target is re-read with `getBlock` before it is sent or written.
+**Gate results (2026-10-06):** G1 passes for the command palette and for a keyboard shortcut bound to a palette command (the handler sees the selection). **G2 fails**: plugin context-menu items appear only in the single-block menu, not the multi-selection menu (`content.cljs:371` vs `:42`) — the right-click entry point needs an upstream SDK/host change. **G3**: `getPageBlocksTree` / `getSelectedBlocks` return raw id-refs, and writing raw `#[[<tag-uuid>]]` back adds a bogus tag; `getBlock` returns names, which round-trip correctly — so every target is re-read with `getBlock` before it is sent or written. **Correction (2026-10-09):** `getBlock().title` is *not* reliably name form — it came back raw (`[[<uuid>]]`, `#[[<uuid>]]`) even after editing the block in the UI, and writing it back with one word changed added a uuid-named tag; this also hit the released single-block path. `fullTitle` is name form but also replaces block references with the block's text (which would turn a block ref into a new page on write). Fix: `ref-names.ts` / `adapter/block-text.ts` rewrite page links and tags to names (`[[Project X]]`, `#planning`, `#[[multi word]]`) and keep block references as ids, for every path (single block, page, selection) — before showing, sending, stale-checking or writing. Verified in the app: tags kept, no new uuid-named tag.
 
 **Out of scope (v1):** vision actions on pages/selections; text-range selection (§14); selections spanning pages; renaming page titles; a page "…" menu entry; Logseq Web testing (same APIs, unverified).

@@ -8,6 +8,7 @@ const OUTPUT_MODES: readonly OutputMode[] = [
   "append-children",
   "outline-replace",
   "outline-append",
+  "outline-revise",
   "picker-replace",
 ];
 const KINDS: readonly ActionKind[] = ["text", "vision"];

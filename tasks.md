@@ -490,7 +490,7 @@ Reported from a second Mac: `Request failed: … FetchError … connect EHOSTUNR
 - [ ] C1 (user decision): per-action temperature (fix actions ~0.2) vs one global setting.
 - [ ] C2 (user decision): image titles — accept Title Case or normalize.
 - [ ] Verify (UNCONFIRMED in source review): does `updateBlock` with an unchanged `#[[<tag-uuid>]]` keep the tag, or create a bogus tag named by the uuid? Test in a throwaway graph.
-- [ ] UX: the diff panel shows raw `[[<uuid>]]` ids (the plugin sends `.title`); show `fullTitle` for display only, keep sending the raw title.
+- [x] UX: the diff panel showed raw `[[<uuid>]]` ids — fixed by the ref-names change below (names for page links and tags everywhere, block refs stay ids).
 
 ### Page and multi-block scopes (branch `feat/page-and-multi-block-scopes`, started 2026-10-06)
 
@@ -518,6 +518,12 @@ Spec: REQUIREMENTS §18. One commit per task, test-first.
   6. Two custom ids could share a palette key → `uniqueCommandKey` adds `-2`, `-3`.
   7. Command routing and placement moved into pure, tested helpers in `run-plan.ts`.
   8. Property values (DB graphs store text values as blocks) appear in `getPageBlocksTree` with `:logseq.property/created-from-property` — confirmed over CDP in a throwaway graph — and were sent and rewritten → skipped.
+
+### Tester feedback (2026-10-09)
+
+- [x] **Improve shows a diff** — new output mode `outline-revise`: diff panel with the original outline (subtree, page or selection) against the revised one, editable; "Add as new blocks" appends it (user chose append over replace). Improve uses it; custom actions can too (Manage Actions editor, settings description, docs). `planRun` gives combined plans `review: "preview" | "diff"`; shared `reviewRevisedOutline` in `run-action.ts`.
+- [x] **Copy** in the diff panel (proposed or edited text). `copy-text.ts`: async clipboard API, falling back to `execCommand("copy")` (the plugin frame is cross-origin). Verified with a real CDP click in Logseq 2.0.1: "Copied", clipboard held the outline.
+- [x] **Bug found while testing — bogus tags (affects released v1.1.6 too):** `getBlock().title` came back raw (`#[[<uuid>]]`) and writing it back created a uuid-named tag. `ref-names.ts` (pure, 6 tests) + `adapter/block-text.ts` now give page links and tags by name and keep block refs as ids on every path. Verified in the app: Grammar on a tagged block (single-block path) and Improve on a page both keep the real tag, no new uuid-named tag. Seen once, not reproduced: the Improve input showed a top-level block indented under its sibling right after it was appended.
 
 ## Deferred / v2 candidates
 

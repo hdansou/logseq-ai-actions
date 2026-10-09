@@ -66,6 +66,8 @@ export const OUTPUT_MODE_HINTS: Readonly<Record<string, string>> = {
     "Parses the response as a nested outline (with markdown-table support); deletes the block's existing direct children, then inserts the parsed tree. Destructive — confirm panel warns first.",
   "outline-append":
     "Same parser as outline-replace, but appends without deleting. Non-destructive — pre-existing children are preserved. Used by the OCR action.",
+  "outline-revise":
+    "Shows the original outline (subtree, page or selection) next to the revised one as a diff — editable and copyable — and appends the accepted outline as new blocks. Non-destructive. Used by Improve (restructure).",
   "picker-replace":
     "Treats the response as N candidates (one per line); user picks one in a panel; replaces the block's text with the chosen value.",
 };
@@ -110,6 +112,8 @@ export function outputModeLabel(mode: string): string {
       return "outline-rep";
     case "outline-append":
       return "outline-app";
+    case "outline-revise":
+      return "outline-rev";
     case "picker-replace":
       return "pick";
     default:

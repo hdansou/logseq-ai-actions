@@ -21,6 +21,7 @@ import {
 import { collectTargets, type Target, type TargetNode } from "../targets";
 import { showConfirm } from "../ui/show-confirm";
 import { showReviewPanel } from "../ui/show-review";
+import { readBlockText as readText } from "./block-text";
 import { confirmRemoteEndpoint } from "./consent";
 import { insertOutlineTree } from "./outline-writer";
 import {
@@ -28,6 +29,7 @@ import {
   formatProviderError,
   performLLM,
   type RunActionContext,
+  reviewRevisedOutline,
   runAction,
   showBusyToast,
 } from "./run-action";
@@ -114,18 +116,6 @@ async function readTree(uuid: string): Promise<TargetNode | null> {
   return (await logseq.Editor.getBlock(uuid, {
     includeChildren: true,
   })) as unknown as TargetNode | null;
-}
-
-/**
- * Block text as `getBlock` returns it — names, not the raw `[[<uuid>]]` /
- * `#[[<uuid>]]` ids the tree APIs return. Writing raw tag ids back creates a
- * bogus tag named by the uuid (gate G3), so everything sent or written uses
- * this form.
- */
-async function readText(uuid: string): Promise<string | null> {
-  const block = (await logseq.Editor.getBlock(uuid)) as { title?: string; content?: string } | null;
-  if (!block) return null;
-  return String(block.title ?? block.content ?? "").trim();
 }
 
 async function runOnScope(action: Action, ctx: RunActionContext, scope: Scope): Promise<void> {
@@ -253,6 +243,16 @@ async function runCombined(
   anchor: string | undefined,
 ): Promise<void> {
   const llmInput = flattenTargets(targets);
+  const { insert, where } = combinedPlacement(scope.place, anchor);
+  if (plan.result === "children" && plan.review === "diff") {
+    const tree = await reviewRevisedOutline(action, ctx, settings, {
+      uuid: anchor ?? "",
+      llmInput,
+      displayOriginal: llmInput,
+    });
+    if (tree) await addUnderHeading(action, insert, plan.heading, tree);
+    return;
+  }
   let busy: string | number | null = null;
   let output: string;
   try {
@@ -275,7 +275,6 @@ async function runCombined(
     return;
   }
 
-  const { insert, where } = combinedPlacement(scope.place, anchor);
   if (plan.result === "block") {
     const ok = await showConfirm(action.title, {
       message: `Add this as a new block ${where}? Existing blocks are not changed.`,
@@ -308,12 +307,23 @@ async function runCombined(
     baseUrl: settings.baseUrl,
   });
   if (!ok) return discarded(action);
-  const heading = await appendBlock(insert, plan.heading);
-  if (!heading) {
+  await addUnderHeading(action, insert, plan.heading, tree);
+}
+
+/** A new block named `heading` where `insert` says, with `tree` under it. */
+async function addUnderHeading(
+  action: Action,
+  insert: Insert | null,
+  heading: string,
+  tree: readonly OutlineNode[],
+): Promise<void> {
+  const parent = await appendBlock(insert, heading);
+  if (!parent) {
     logseq.UI.showMsg(`${action.title}: couldn't add the block`, "error");
     return;
   }
-  await insertOutlineTree(heading, tree);
+  await insertOutlineTree(parent, tree);
+  const count = countOutlineNodes(tree);
   logseq.UI.showMsg(`${action.title}: added ${count} block${count === 1 ? "" : "s"}`, "success");
 }
 

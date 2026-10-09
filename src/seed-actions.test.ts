@@ -74,7 +74,7 @@ describe("SEED_ACTIONS", () => {
       "key-points": "append-children",
       "outline-replace": "outline-replace",
       "outline-append": "outline-append",
-      improve: "outline-append",
+      improve: "outline-revise",
       "image-title": "picker-replace",
       "extract-image-text": "outline-append",
     });

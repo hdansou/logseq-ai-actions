@@ -7,12 +7,19 @@ import { MAX_TARGETS, type Target } from "./targets";
  * - per-block: one request per target, reviewed in one panel.
  * - combined: all targets flattened into one request; the result is appended,
  *   never replacing — as one block (Summarize) or as children of a new block
- *   titled after the action (Key Points, Outline).
+ *   titled after the action (Key Points, Outline, Improve). `review` says how
+ *   the user checks it first: a preview, or for `outline-revise` (Improve) a
+ *   diff of the original outline against the revised one.
  */
 export type RunPlan =
   | { readonly kind: "per-block" }
   | { readonly kind: "combined"; readonly result: "block" }
-  | { readonly kind: "combined"; readonly result: "children"; readonly heading: string }
+  | {
+      readonly kind: "combined";
+      readonly result: "children";
+      readonly heading: string;
+      readonly review: "preview" | "diff";
+    }
   | { readonly kind: "unsupported"; readonly reason: string };
 
 /** Input budget for a combined request (characters of flattened outline). */
@@ -36,7 +43,12 @@ export function planRun(action: Pick<Action, "kind" | "scope" | "outputMode" | "
   if (rewritesBlock) {
     return { kind: "combined", result: "block" };
   }
-  return { kind: "combined", result: "children", heading: action.title };
+  return {
+    kind: "combined",
+    result: "children",
+    heading: action.title,
+    review: action.outputMode === "outline-revise" ? "diff" : "preview",
+  };
 }
 
 const outlineLine = (t: Target) => `${"  ".repeat(t.depth)}- ${t.text}`;

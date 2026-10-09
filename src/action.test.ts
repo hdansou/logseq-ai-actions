@@ -54,6 +54,7 @@ describe("ActionSchema", () => {
     "append-children",
     "outline-replace",
     "outline-append",
+    "outline-revise",
     "picker-replace",
   ] as const)("accepts outputMode=%s", (mode) => {
     expect(() => ActionSchema.parse({ ...minimalAction, outputMode: mode })).not.toThrow();

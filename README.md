@@ -23,7 +23,7 @@ Knowledge-graph notes deserve thoughtful AI assistance — but not at the cost o
   - `summarize` — TL;DR of a block and its descendants; written into the parent, children preserved.
   - `key-points` — extract bullet-list points; appended as new children under the block.
   - `outline-replace` / `outline-append` — generate a nested outline of a subtree. Replace destroys existing children; Append preserves them. Markdown tables in the LLM output are kept as standalone blocks.
-  - `improve` — **Improve (restructure)**: revise a subtree, page or selection into a clearer, better organised outline that keeps every fact (Outline condenses; Improve doesn't). Appended as new blocks.
+  - `improve` — **Improve (restructure)**: revise a subtree, page or selection into a clearer, better organised outline that keeps every fact (Outline condenses; Improve doesn't). You review it as a diff of the original outline against the revised one (edit or copy it there); accepting adds it as new blocks.
 - **Pages and selections**: run any text action on several selected blocks or on a whole page or journal from the command palette or a keyboard shortcut. See [Run on a page or several blocks](#run-on-a-page-or-several-blocks).
 - **Vision seed actions** (run on image asset blocks — blocks tagged `:logseq.class/Asset`):
   - `image-title` — analyze the image and propose three candidate titles in a picker; chosen value writes to `:block/title`.
@@ -144,7 +144,7 @@ Each entry needs:
 | `id` | Unique identifier. Matching a built-in id (any of `spellcheck`, `grammar`, `rewrite`, `rewrite-formal`, `rewrite-professional`, `rewrite-casual`, `rewrite-friendly`, `summarize`, `key-points`, `outline-replace`, `outline-append`, `image-title`, `extract-image-text`) **shadows** it — the user version takes the slot in every menu surface. |
 | `title` | Display name in the slash menu (prefixed with `AI `). |
 | `scope` | `block` \| `subtree` \| `selection` (selection falls back to block in v1; see REQUIREMENTS §14) |
-| `outputMode` | `replace` (overwrite block) \| `diff-panel` (review side-by-side) \| `append-children` (add as new children, one per line) \| `outline-replace` (replace existing children with a generated nested outline) \| `outline-append` (append a generated nested outline) \| `picker-replace` (show N candidates, user picks one) |
+| `outputMode` | `replace` (overwrite block) \| `diff-panel` (review side-by-side) \| `append-children` (add as new children, one per line) \| `outline-replace` (replace existing children with a generated nested outline) \| `outline-append` (append a generated nested outline) \| `outline-revise` (diff of the original outline against the revised one, then append) \| `picker-replace` (show N candidates, user picks one) |
 | `kind` | `text` (default) \| `vision` (sends an image asset to a multimodal model — only valid on `:logseq.class/Asset` blocks with raster image type) |
 | `systemPrompt` | The LLM system prompt. Tune for your model — small models need explicit "return ONLY …" instructions. |
 | `description` | Optional, one-line. Shown in the gallery card and the diff-panel header. |
@@ -184,7 +184,7 @@ From the **command palette** (`AI: <action>`) or a **keyboard shortcut**, an act
 Right-click can't do this: Logseq shows plugin menu items only for a single block, not for a multi-block selection. Image actions, and your own block actions that add blocks rather than rewrite one, stay single-block.
 
 - **Fix and rewrite actions** (Spellcheck, Grammar, Rewrite and its tones, your own block actions) send **one request per block**. A review panel fills in as results arrive: a diff per changed block, Accept / Reject on each row, **Accept all**, **Cancel** (stops the blocks still waiting). Blocks the model left as they were are hidden; a failed block shows its error and the rest carry on. Only accepted rows are written, and a block you edit while the panel is open is left as you wrote it.
-- **Summarize, Key Points, Outline and Improve** read all the blocks as one outline and **add** the result — after the selection, at the end of the page, or at the end of a zoomed-in block; Key Points, Outline and Improve go under a new block named after the action. Nothing is replaced, so Outline (replace children) appends here too.
+- **Summarize, Key Points, Outline and Improve** read all the blocks as one outline and **add** the result (Improve after a diff of the original outline against the revised one) — after the selection, at the end of the page, or at the end of a zoomed-in block; Key Points, Outline and Improve go under a new block named after the action. Nothing is replaced, so Outline (replace children) appends here too.
 - Empty blocks, images and other assets, property values, code and math blocks, queries and embeds are skipped. Above **50 blocks** (or about 6,000 characters for Summarize / Key Points / Outline / Improve) you are asked whether to run on the first part or cancel.
 - Each written block is its own undo step.
 
